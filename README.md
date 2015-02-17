@@ -16,8 +16,7 @@ R and the ape library - only necessary for html enhanced output
 fastaFromBed - https://github.com/arq5x/bedtools2/releases
 
 2) Installation
-phyloFlash needs databases to be prepared once. A small script is provided - make_pF_db.pl that has to be
-executed in the same directory as the provided SSU database file SSURef_NR99_119_for_phyloFlash.fasta.gz
+phyloFlash needs databases to be prepared once. A small will be provided
 
 phyloFLash is a perl script, no installation is necessary. If you want general access please make the
 script executional and add its location to your $PATH.
