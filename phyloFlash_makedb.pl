@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #   A simple script to prepare the phyloFlash databases
 #   - Assumes the script is executed in a dir with write access and
-#   - Dependencies: usearch v6, bbmap and Emirge
+#   - Dependencies: vsearch, bbmap and Emirge
 #   - This script generates approx. 5Gbytes of extracted databases
 
 #    Copyright (C) 2014- by Harald Gruber-Vodicka mail:hgruber@mpi-bremen.de
