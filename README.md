@@ -9,7 +9,7 @@ bugs known - none yet, please report any problems to phyloFlash google group at 
 linux environment
 EMIRGE and its dependencies - https://github.com/csmiller/EMIRGE
 bbmap - http://sourceforge.net/projects/bbmap/
-usearch - http://www.drive5.com/usearch/
+vsearch - https://github.com/torognes/vsearch
 spades - http://bioinf.spbau.ru/spades
 barrnap - http://www.vicbioinformatics.com/software.barrnap.shtml
 R and the ape library - only necessary for html enhanced output

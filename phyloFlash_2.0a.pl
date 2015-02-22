@@ -8,7 +8,7 @@
 #                    with help from Brandon Seah mail:hgruber@mpi-bremen.de
 #
 #  - Assumes the script is executed in a dir with write access and
-#  - Dependencies: bbmap, Emirge, usearch, spades, sed, fastaFromBed
+#  - Dependencies: bbmap, Emirge, vsearch, spades, sed, fastaFromBed
 #   
 #  a lot of this code could have been written in native perl, but due to 
 #  time constraints I have simply constructed a perl wrapper around my 
