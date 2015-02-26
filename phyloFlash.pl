@@ -5,7 +5,8 @@
 #  on a normal desktop PC
 #
 #    Copyright (C) 2014- by Harald Gruber-Vodicka 
-#                    with help from Brandon Seah mail:hgruber@mpi-bremen.de
+#               with help from Brandon Seah and Elmar Pruesse
+#		mail:hgruber@mpi-bremen.de
 #
 #  - Assumes the script is executed in a dir with write access and
 #  - Dependencies: bbmap, Emirge, vsearch, spades, sed, fastaFromBed
@@ -45,10 +46,12 @@ use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
 use Cwd;
+use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#configuration for HGV
+my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to the dir that only has the LSU profiles
+#my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#configuration for HGV
 #my $DBHOME = '/opt/extern/bremen/symbiosis/phyloFlash';#configuration for cologne cluster...
 
 # binaries needed by phyloFlash
@@ -828,8 +831,8 @@ sub emirge_run {
     run_prog($cmd,
 	     " $libraryNAME "
  	     . $args 
-	     . " -f $DBHOME/SSURef_NR96_119_for_phyloFlash.fasta "
-	     . " -b $DBHOME/SSURef_NR96_119_for_phyloFlash.bt "
+	     . " -f $DBHOME/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta "
+	     . " -b $DBHOME/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.bt "
 	     . " -l $readlength -a $cpus --phred33 ",
 	     , "$libraryNAME.emirge.out", "&1");
 
@@ -869,13 +872,13 @@ sub vsearch_best_match {
     # (vsearch takes a while to load, one run saves us time)
 
     run_prog("cat",
-	     "   $libraryNAME.emirge.final.fasta"
-	     . " $libraryNAME.spades_rRNAs.final.fasta",
-	     "$libraryNAME.all.final.fasta");
+	     "   $libraryNAME.emirge.final.fasta "
+	     . " $libraryNAME.spades_rRNAs.final.fasta ",
+	     " $libraryNAME.all.final.fasta");
 
     run_prog("vsearch",
 	     "-usearch_global $libraryNAME.all.final.fasta "
-	     . "-db $DBHOME/SSURef_NR99_119_for_phyloFlash_univec.fasta "
+	     . "-db $DBHOME/SILVA_SSU.noLSU.masked.trimmed.fasta "
 	     . "-id 0.7 "
 	     . "-userout $libraryNAME.all.vsearch.csv "
 	     . "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids "
