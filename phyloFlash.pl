@@ -723,7 +723,7 @@ sub spades_parse {
     # pre-filter with grep for speed
     my $fh;
     open_or_die(\$fh, "-|",
-	 "grep -hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.{bac,arch,euk}.gff");
+	 "grep -hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.\{bac,arch,euk\}.gff");
     while (my $row = <$fh>) {
 	my @cols    = split("\t", $row);
 	# gff format:
