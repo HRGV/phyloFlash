@@ -50,9 +50,7 @@ use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to the dir that only has the LSU profiles
-#my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#configuration for HGV
-#my $DBHOME = '/opt/extern/bremen/symbiosis/phyloFlash';#configuration for cologne cluster...
+my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db dir release version 119
 
 # binaries needed by phyloFlash
 my %progs = (
@@ -68,7 +66,8 @@ my %progs = (
     sed => "sed",
     awk => "awk",
     cat => "cat",
-    plotscript => "phyloFlash_plotscript_v1.r"
+    plotscript => "phyloFlash_plotscript_v1.r",
+    faSomeRecords => "faSomeRecords"
     );
     
 # constants
@@ -1307,8 +1306,9 @@ close($fh);
 
 ######################### MAIN ###########################
 
-parse_cmdline();
 check_environment();
+parse_cmdline();
+
 
 my $starttime = localtime;
 
