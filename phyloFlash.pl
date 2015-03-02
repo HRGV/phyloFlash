@@ -723,17 +723,12 @@ sub spades_parse {
     my %ssus;
     # pre-filter with grep for speed
         run_prog("grep",
-	     "-hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.\{bac,arch,euk\}.gff ",
-	     "tmp.$libraryNAME.scaffolds.all_grepped.gff","&1"
+	     "-hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.*.gff ",
+	     "tmp.$libraryNAME.scaffolds.gff","&1"
 	);
 
-    
-    
-    ## FIXME  - the following code only works for perl 5.16 n newer...
-    #open_or_die(\$fh, "-|",
-	# "grep -hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.\{bac,arch,euk\}.gff");
     my $fh;	
-    open_or_die(\$fh, "<","tmp.$libraryNAME.scaffolds.all_grepped.gff");	
+    open_or_die(\$fh, "<","tmp.$libraryNAME.scaffolds.gff");	
     while (my $row = <$fh>) {
 	my @cols    = split("\t", $row);
 	# gff format:
