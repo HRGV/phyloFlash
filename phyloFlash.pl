@@ -66,7 +66,7 @@ my %progs = (
     sed => "sed",
     awk => "awk",
     cat => "cat",
-    plotscript => "phyloFlash_plotscript_v1.r",
+    plotscript => "phyloFlash_plotscript.R",
     faSomeRecords => "faSomeRecords"
     );
     
@@ -829,7 +829,7 @@ sub emirge_run {
 
 	run_prog("awk",
 		 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-		 . "tmp.$libraryNAME.SSU_all.fq",
+		 . " tmp.$libraryNAME.SSU_all.fq",
 		 "tmp.renamed.$libraryNAME.SSU_all.fq");
 	
 	$args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
