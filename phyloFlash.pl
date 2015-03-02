@@ -230,6 +230,7 @@ sub csv_escape {
 # verify that all required tools are available and locate their paths
 sub check_environment {
     my $error = 0;
+    msg("Checking for required tools.");
     foreach my $prog (keys %progs) {
 	my $progname = $progs{$prog};
 	$progs{$prog} = can_run($progname) or $error = 1;
@@ -241,6 +242,8 @@ sub check_environment {
 	    msg($prog) if (!defined($progs{$prog}));
 	}
 	die "Please make sure these are installed and in your PATH.\n\n";
+    } else {
+      msg("All required tools found.");
     }
 }
 
@@ -262,20 +265,25 @@ sub run_prog {
     $cmd .= " >".$redir_stdout if ($redir_stdout);
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
-    msg("executing [$cmd]");
+    #msg("executing [$cmd]");
     system($cmd) == 0
 	or die "Couldn't launch [$cmd]: $!/$?";
 
     # FIXME: print tail of stderr if redirected
 }
 
+
+# display welcome message incl. version
+sub welcome {
+  print STDERR "\nThis is $version\n\n";
+}
+
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
     my $help = undef;
-
-    print STDERR "\nThis is $version\n";
-    
+ 
     GetOptions('read1=s' => \$readsf,
 	       'read2=s' => \$readsr,
 	       'lib=s' => \$libraryNAME,
@@ -1305,7 +1313,7 @@ close($fh);
 }
 
 ######################### MAIN ###########################
-
+welcome();
 check_environment();
 parse_cmdline();
 
