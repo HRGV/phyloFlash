@@ -179,6 +179,9 @@ my $csv_flag    = 0;            # generate CSV output?
 my $crlf        = 0;            # csv line terminator 
                                 # (0 will be turned into "\n" in parsecmdline)
 
+my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
+my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed.NR96";
+
 my $ins_used = "SE mode!";
 
 
@@ -756,12 +759,12 @@ sub emirge_run {
     }
     
     run_prog($cmd,
-	     " $libraryNAME "
- 	     . $args 
-	     . " -f $DBHOME/SSURef_NR96_119_for_phyloFlash.fasta "
-	     . " -b $DBHOME/SSURef_NR96_119_for_phyloFlash.bt "
-	     . " -l $readlength -a $cpus --phred33 ",
-	     , "$libraryNAME.emirge.out", "&1");
+             " $libraryNAME "
+             . $args
+             . " -f ${DBHOME}/${emirge_db}.fasta"
+             . " -b ${DBHOME}/${emirge_db}.bt "
+             . " -l $readlength -a $cpus --phred33 ",
+             , "$libraryNAME.emirge.out", "&1");
 
     msg("done...");
 }
@@ -804,17 +807,17 @@ sub vsearch_best_match {
 	     "$libraryNAME.all.final.fasta");
 
     run_prog("vsearch",
-	     "-usearch_global $libraryNAME.all.final.fasta "
-	     . "-db $DBHOME/SSURef_NR99_119_for_phyloFlash_univec.fasta "
-	     . "-id 0.7 "
-	     . "-userout $libraryNAME.all.vsearch.csv "
-	     . "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids "
-	     . "-threads $cpus --strand plus --notrunclabels "
-	     . "-notmatched $libraryNAME.all.final.phyloFlash.notmatched.fa "
-	     . "-dbmatched $libraryNAME.all.final.phyloFlash.dbhits.fa ",
-	     "tmp.$libraryNAME.all.vsearch.out",
-	     "&1");
-	     
+             "-usearch_global $libraryNAME.all.final.fasta "
+             . "-db ${DBHOME}/${vsearch_db}.fasta "
+             . "-id 0.7 "
+             . "-userout $libraryNAME.all.vsearch.csv "
+             . "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids "
+             . "-threads $cpus --strand plus --notrunclabels "
+             . "-notmatched $libraryNAME.all.final.phyloFlash.notmatched.fa "
+             . "-dbmatched $libraryNAME.all.final.phyloFlash.dbhits.fa ",
+             "tmp.$libraryNAME.all.vsearch.out",
+             "&1");
+
     # query, target: labels
     # id: "100* matching colums / (alignment length - terminal gaps)"
     # alnlen: "number of alignment columns"
