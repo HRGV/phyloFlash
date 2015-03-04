@@ -5,7 +5,8 @@
 #  on a normal desktop PC
 #
 #    Copyright (C) 2014- by Harald Gruber-Vodicka 
-#                    with help from Brandon Seah mail:hgruber@mpi-bremen.de
+#               with help from Brandon Seah and Elmar Pruesse
+#		mail:hgruber@mpi-bremen.de
 #
 #  - Assumes the script is executed in a dir with write access and
 #  - Dependencies: bbmap, Emirge, vsearch, spades, sed, fastaFromBed
@@ -45,11 +46,11 @@ use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
 use Cwd;
+use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#configuration for HGV
-#my $DBHOME = '/opt/extern/bremen/symbiosis/phyloFlash';#configuration for cologne cluster...
+my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db dir release version 119
 
 # binaries needed by phyloFlash
 my %progs = (
@@ -63,9 +64,11 @@ my %progs = (
     mafft => "mafft",
     fastaFromBed => "fastaFromBed",
     sed => "sed",
+    grep => "grep",
     awk => "awk",
     cat => "cat",
-    plotscript => "phyloFlash_plotscript_v1.r"
+    plotscript => "phyloFlash_plotscript.R",
+    faSomeRecords => "faSomeRecords"
     );
     
 # constants
@@ -228,6 +231,7 @@ sub csv_escape {
 # verify that all required tools are available and locate their paths
 sub check_environment {
     my $error = 0;
+    msg("Checking for required tools.");
     foreach my $prog (keys %progs) {
 	my $progname = $progs{$prog};
 	$progs{$prog} = can_run($progname) or $error = 1;
@@ -239,6 +243,8 @@ sub check_environment {
 	    msg($prog) if (!defined($progs{$prog}));
 	}
 	die "Please make sure these are installed and in your PATH.\n\n";
+    } else {
+      msg("All required tools found.");
     }
 }
 
@@ -260,20 +266,25 @@ sub run_prog {
     $cmd .= " >".$redir_stdout if ($redir_stdout);
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
-    msg("executing [$cmd]");
+    #msg("executing [$cmd]");
     system($cmd) == 0
 	or die "Couldn't launch [$cmd]: $!/$?";
 
     # FIXME: print tail of stderr if redirected
 }
 
+
+# display welcome message incl. version
+sub welcome {
+  print STDERR "\nThis is $version\n\n";
+}
+
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
     my $help = undef;
-
-    print STDERR "\nThis is $version\n";
-    
+ 
     GetOptions('read1=s' => \$readsf,
 	       'read2=s' => \$readsr,
 	       'lib=s' => \$libraryNAME,
@@ -711,9 +722,13 @@ sub spades_parse {
    
     my %ssus;
     # pre-filter with grep for speed
-    my $fh;
-    open_or_die(\$fh, "-|",
-	 "grep -hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.{bac,arch,euk}.gff");
+        run_prog("grep",
+	     "-hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.*.gff ",
+	     "tmp.$libraryNAME.scaffolds.gff","&1"
+	);
+
+    my $fh;	
+    open_or_die(\$fh, "<","tmp.$libraryNAME.scaffolds.gff");	
     while (my $row = <$fh>) {
 	my @cols    = split("\t", $row);
 	# gff format:
@@ -819,7 +834,7 @@ sub emirge_run {
 
 	run_prog("awk",
 		 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-		 . "tmp.$libraryNAME.SSU_all.fq",
+		 . " tmp.$libraryNAME.SSU_all.fq",
 		 "tmp.renamed.$libraryNAME.SSU_all.fq");
 	
 	$args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
@@ -828,8 +843,8 @@ sub emirge_run {
     run_prog($cmd,
 	     " $libraryNAME "
  	     . $args 
-	     . " -f $DBHOME/SSURef_NR96_119_for_phyloFlash.fasta "
-	     . " -b $DBHOME/SSURef_NR96_119_for_phyloFlash.bt "
+	     . " -f $DBHOME/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta "
+	     . " -b $DBHOME/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.bt "
 	     . " -l $readlength -a $cpus --phred33 ",
 	     , "$libraryNAME.emirge.out", "&1");
 
@@ -869,13 +884,13 @@ sub vsearch_best_match {
     # (vsearch takes a while to load, one run saves us time)
 
     run_prog("cat",
-	     "   $libraryNAME.emirge.final.fasta"
-	     . " $libraryNAME.spades_rRNAs.final.fasta",
-	     "$libraryNAME.all.final.fasta");
+	     "   $libraryNAME.emirge.final.fasta "
+	     . " $libraryNAME.spades_rRNAs.final.fasta ",
+	     " $libraryNAME.all.final.fasta");
 
     run_prog("vsearch",
 	     "-usearch_global $libraryNAME.all.final.fasta "
-	     . "-db $DBHOME/SSURef_NR99_119_for_phyloFlash_univec.fasta "
+	     . "-db $DBHOME/SILVA_SSU.noLSU.masked.trimmed.fasta "
 	     . "-id 0.7 "
 	     . "-userout $libraryNAME.all.vsearch.csv "
 	     . "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids "
@@ -1303,9 +1318,10 @@ close($fh);
 }
 
 ######################### MAIN ###########################
-
-parse_cmdline();
+welcome();
 check_environment();
+parse_cmdline();
+
 
 my $starttime = localtime;
 

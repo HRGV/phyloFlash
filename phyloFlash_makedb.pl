@@ -21,7 +21,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#version 1.00 - last edit 27/08/2014
+#version 1.00 - last edit 26/02/2015
 
 use strict;
 use Time::Piece;
@@ -42,16 +42,16 @@ my $starttime = localtime;
 
 ### MAIN ###
 download_RefNR();
-#download_univec();
+download_univec();
 getfilename();#always run!!!
-#unpack_SSU();
-#find_LSU();
-#remove_LSU();
-#mask_repeats();
-#univec_trim();
-#clustering();
+unpack_SSU();
+find_LSU();
+remove_LSU();
+mask_repeats();
+univec_trim();
+clustering();
 bbmap_db();
-#emirge_db();
+emirge_db();
 finish();
 
 
