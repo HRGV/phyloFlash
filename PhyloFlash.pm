@@ -157,7 +157,7 @@ sub run_prog {
     $cmd .= " >".$redir_stdout if ($redir_stdout);
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
-    # msg("executing [$cmd]");
+    msg("executing [$cmd]");
     system($cmd) == 0
         or die "Couldn't launch [$cmd]: $!/$?";
 
