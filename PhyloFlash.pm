@@ -119,6 +119,7 @@ sub require_tools {
 # verify that all required tools are available and locate their paths
 sub check_environment {
     my $error = 0;
+    msg("Checking for required tools.");
     foreach my $prog (keys %progs) {
         my $progname = $progs{$prog};
         if ($progs{$prog} = can_run($progname)) {
@@ -133,6 +134,8 @@ sub check_environment {
             msg("  ".$prog) if (!defined($progs{$prog}));
         }
         die "Please make sure these are installed and in your PATH.\n\n";
+    } else {
+        msg("All required tools found.");
     }
 }
 
@@ -154,7 +157,7 @@ sub run_prog {
     $cmd .= " >".$redir_stdout if ($redir_stdout);
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
-    msg("executing [$cmd]");
+    # msg("executing [$cmd]");
     system($cmd) == 0
         or die "Couldn't launch [$cmd]: $!/$?";
 
