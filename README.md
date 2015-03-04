@@ -10,7 +10,17 @@ explore phylogenetic composition of an illumina (meta)genomic dataset.
 Description
 -----------
 
-FIXME: a brief description of the pipeline structure should go here
+*phyloFlash* accepts single read files or paired end fastq read data
+provided in separate files. The files do not need to be unzipped (.gz
+is ok).
+
+Raw right off the illumina machine works fine. Usually, neither
+trimming nor quality filtering are necessary.
+
+If you are using transcriptomic data with a high proportion of rRNA,
+please limit the read number reads to < 1 million reads for reasonable
+runtimes and results.
+
 
 Installing phyloFlash
 ---------------------
@@ -41,37 +51,36 @@ Python installed. (OSX is for the brave, we have not tested this!)
 
  ```bash
  cd phyloFlash-2.0
- ./phyloFlash
+ ./phyloFlash.pl
  ```
 
 Preparing the Reference Database
 --------------------------------
 
-FIXME
-
-
-
-The position of the databases can e given with -dbhome
-/PATH/TO/YOUR/DATABASES or by changing the *phyloFlash* code at line 27
-to your database location
-
-Usage
------
+To create a suitable database, just run
 
 ```bash
-perl phyloFlash.pl -lib LIBRARYNAME -read1 READFILE_F.fq(.gz) -read2 READFILE_R.fq(.gz) [options]
+./phyloFlash_makedb.pl
 ```
 
-*phyloFlash* accepts single read files or paired end fastq read data
-provided in separate files. The files do not need to be unzipped (.gz
-is ok).
+in the directory where you unpacked *phyloFlash*. The script will download
+the most current source databases and prepare the files required by ```phyloFlash.pl```.
 
-Raw right off the illumina machine works fine. Usually, neither
-trimming nor quality filtering are necessary.
+By default, ```phyloFlash.pl``` will look for a directory named "119" 
+(the most recent SILVA release as of March 2015). You can change this
+by passing the "-dbhome <dir>" switch to phyloFlash.pl or 
+by modifying the "DBHOME" variable in phyloFlash.pl 
 
-If you are using transcriptomic data with a high proportion of rRNA,
-please limit the read number reads to < 1 million reads for reasonable
-runtimes and results.
+Synopsis
+--------
+```bash
+./phyloFlash.pl -lib LIBRARYNAME -read1 READFILE_F.fq(.gz) -read2 READFILE_R.fq(.gz) [options]
+./phyloFlash.pl -help
+./phyloFlash.pl -man
+```
+
+Use the ```-help``` option to display a brief help and the ```-man``` 
+option to display a man-file. 
 
 Expected Performance
 --------------------
