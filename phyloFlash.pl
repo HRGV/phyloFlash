@@ -211,8 +211,6 @@ sub welcome {
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
-    print STDERR "This is $version\n";
-
     GetOptions('read1=s' => \$readsf,
                'read2=s' => \$readsr,
                'lib=s' => \$libraryNAME,
