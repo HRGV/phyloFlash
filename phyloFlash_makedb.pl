@@ -166,7 +166,7 @@ sub find_LSU {
         #1 or run_prog("barrnapHGV",
         run_prog("barrnapHGV",
                  "  --kingdom $_ "
-                 . "--threads $PhyloFlash::cpucount"
+                 . "--threads $PhyloFlash::cpucount "
                  . "--evalue 1e-50 "
                  . " --gene lsu "
                  . "--reject 0.01 "
