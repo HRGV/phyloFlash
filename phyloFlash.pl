@@ -174,9 +174,9 @@ my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
-my $html_flag   = 0;		# generate HTML output? (default = 0, off)
+my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $csv_flag    = 0;            # generate CSV output?
-my $crlf        = 0;            # csv line terminator 
+my $crlf        = 0;            # csv line terminator
                                 # (0 will be turned into "\n" in parsecmdline)
 
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
@@ -187,7 +187,7 @@ my $ins_used = "SE mode!";
 
 # variables for report generation
 my @taxa_from_hitmaps_sorted;
-my @ssuassem_results_sorted;	# Array to store sorted list of SSU sequences for reporting
+my @ssuassem_results_sorted; #sorted list of SSU sequences for reporting
 my @ssurecon_results_sorted;
 my $readnr_pairs;
 my $SSU_total_pairs;
@@ -234,7 +234,7 @@ sub parse_cmdline {
         if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
 
     msg("working on library $libraryNAME");
-    
+
     # check correct read file(s)
     pod2usage("Please specify input forward read file with -read1")
         if !defined($readsf);
@@ -249,17 +249,17 @@ sub parse_cmdline {
         pod2usage("Forward and reverse input read file need to be different")
             if ($readsr eq $readsf);
     } else {
-	$SEmode = 1; # no reverse reads, we operate in single ended mode
-	$readsr = "<NONE>";
+        $SEmode = 1; # no reverse reads, we operate in single ended mode
+        $readsr = "<NONE>";
     }
 
     msg("Forward reads $readsf");
     if ($SEmode == 0)  {
-	msg("Reverse reads $readsr");
+        msg("Reverse reads $readsr");
     } else {
-	msg("Running in single ended mode");
+        msg("Running in single ended mode");
     }
-    
+
     # check dbhome
     ## FIXME
 
@@ -281,21 +281,21 @@ sub parse_cmdline {
     if ($cpus eq "all" or $cpus < 0) {
         $cpus = get_cpus();
     }
-    
+
     # check surplus arguments
     if ($ARGV[0]) {
-	print "Commandline contains extra words:";
-	foreach (@ARGV) {
-	    print "$_\n";
-	}
-	die("aborting");
+        print "Commandline contains extra words:";
+        foreach (@ARGV) {
+            print "$_\n";
+        }
+        die("aborting");
     }
 }
 
 
 sub print_report {
     ## Write plaintext report file
-    
+
     msg("writing final files...");
     my $fh;
     open_or_die(\$fh, '>', $libraryNAME.'.phyloFlash');
@@ -344,21 +344,21 @@ List of NTUs in order of abundance:
 NTU\treads
 ~;
 
-    # sort keys numerically descending in hash of 
+    # sort keys numerically descending in hash of
     # mapping-based detected higher taxa
     foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {
-	# Print the name of this higher taxon, and the 
-	# corresponding no. of unambig hits mapped
-	print {$fh} join("\t",@$taxonshortstring)."\n";
+        # Print the name of this higher taxon, and the
+        # corresponding no. of unambig hits mapped
+        print {$fh} join("\t",@$taxonshortstring)."\n";
     }
-    
+
     ## Print the table of SSU assembly-based taxa to report file
     print {$fh} "---\n";
     print {$fh} "SSU assembly based taxa:\n";
     print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
 
     foreach my $arr (@ssuassem_results_sorted) {
-	print {$fh} join("\t",  @$arr)."\n";
+        print {$fh} join("\t",  @$arr)."\n";
     }
 
     ## Print the table of SSU reconstruction-based taxa to report file
@@ -366,7 +366,7 @@ NTU\treads
     print {$fh} "SSU reconstruction based taxa:\n";
     print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
     foreach my $arr (@ssurecon_results_sorted) {
-	print {$fh} join("\t", @$arr)."\n";
+        print {$fh} join("\t", @$arr)."\n";
     }
 
     close($fh);
@@ -377,46 +377,46 @@ sub write_csv {
     my $fh;
 
     my @report = csv_escape((
-	"version",$version,
-	"library, name",$libraryNAME,
-	"forward\" read file",$readsf,
-	"reverse \"read\" file",$readsr,
-	"cwd",$cwd,
-	"minimum mapping identity",$id,
-	"single ended mode",$SEmode,
-	"input reads",$readnr_pairs,
-	"mapped SSU reads",$SSU_total_pairs,
-	"mapping ration",$SSU_ratio_pc,
-	"detected median insert size",$ins_me,
-	"used insert size",$ins_used,
-	"insert size stddev",$ins_std,
-	"runtime",$prettytime,
-	"CPUs",$cpus,
-	"NTUs observed once",$xtons[0],
-	"NTUs observed twice",$xtons[1],
-	"NTUs observed three or more times",$#taxa_from_hitmaps_sorted,
-	"NTU Chao1 richness estimate",$chao1
-	));
+        "version",$version,
+        "library, name",$libraryNAME,
+        "forward\" read file",$readsf,
+        "reverse \"read\" file",$readsr,
+        "cwd",$cwd,
+        "minimum mapping identity",$id,
+        "single ended mode",$SEmode,
+        "input reads",$readnr_pairs,
+        "mapped SSU reads",$SSU_total_pairs,
+        "mapping ration",$SSU_ratio_pc,
+        "detected median insert size",$ins_me,
+        "used insert size",$ins_used,
+        "insert size stddev",$ins_std,
+        "runtime",$runtime,
+        "CPUs",$cpus,
+        "NTUs observed once",$xtons[0],
+        "NTUs observed twice",$xtons[1],
+        "NTUs observed three or more times",$#taxa_from_hitmaps_sorted,
+        "NTU Chao1 richness estimate",$chao1
+    ));
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.report.csv");
     while ($#report > 0) {
-	print {$fh} shift(@report).",".shift(@report).$crlf;
+        print {$fh} shift(@report).",".shift(@report).$crlf;
     }
     close($fh);
 
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.NTUabundance.csv");
     print $fh "NTU,reads\n";
     foreach my $arr ( @taxa_from_hitmaps_sorted ) {
-	print {$fh} join(",",csv_escape(@$arr)).$crlf;
+        print {$fh} join(",",csv_escape(@$arr)).$crlf;
     }
     close($fh);
 
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
     print $fh "OTU,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
     foreach my $arr (@ssuassem_results_sorted) {
-	print {$fh} join(",",csv_escape(@$arr)).$crlf;
+        print {$fh} join(",",csv_escape(@$arr)).$crlf;
     }
     foreach my $arr (@ssurecon_results_sorted) {
-	print {$fh} join(",",csv_escape(@$arr)).$crlf;
+        print {$fh} join(",",csv_escape(@$arr)).$crlf;
     }
     close($fh);
 }
@@ -430,49 +430,49 @@ sub bbmap_fast_filter_run {
     # tmp:    tmp.lib.basecompositionhistogram
     msg("filtering reads with SSU db using minimal identity of $id%");
     if ($readlimit != -1) {
-	msg("Only using the first $readlimit reads"); 
+        msg("Only using the first $readlimit reads");
     }
-    
+
     my $minID= $id / 100;
     if ($minID < 0.63) {
-	$minID = 0.63
+        $minID = 0.63
     }
 
     my $args = "";
     if ($SEmode == 0) {
-	$args = 
-	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert in2=$readsr";
+        $args =
+        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+        . "pairlen=$maxinsert in2=$readsr";
     }
-    
+
     run_prog("bbmap",
-	     "  fast=t "
-	     . "minidentity=$minID "
-	     . "-Xmx20g reads=$readlimit "
-	     . "threads=$cpus "
-	     . "po=f "
-	     . "outputunmapped=f "
-	     . "path=$DBHOME "
-	     . "outm=$libraryNAME.$readsf.SSU.1.fq "
-	     . "build=1 "
-	     . "in=$readsf "
-	     . "bhist=tmp.$libraryNAME.basecompositionhistogram "
-	     . "ihist=$libraryNAME.inserthistogram "
-	     . "scafstats=$libraryNAME.hitstats "
-	     . $args,
-	     undef, 
-	     "$libraryNAME.bbmap.out");
+             "  fast=t "
+             . "minidentity=$minID "
+             . "-Xmx20g reads=$readlimit "
+             . "threads=$cpus "
+             . "po=f "
+             . "outputunmapped=f "
+             . "path=$DBHOME "
+             . "outm=$libraryNAME.$readsf.SSU.1.fq "
+             . "build=1 "
+             . "in=$readsf "
+             . "bhist=tmp.$libraryNAME.basecompositionhistogram "
+             . "ihist=$libraryNAME.inserthistogram "
+             . "scafstats=$libraryNAME.hitstats "
+             . $args,
+             undef,
+             "$libraryNAME.bbmap.out");
 
     msg("done...");
 }
 
 
 sub bbmap_fast_filter_parse() {
-    # parsing bbmap.out for used read numbers, mapped reads, 
+    # parsing bbmap.out for used read numbers, mapped reads,
     # insert size median and standard deviation
 
     # input: lib.bbmap.out
-   
+
     my $ssu_pairs     = 0;
     my $ssu_bad_pairs = 0;
     my $ssu_f_reads   = 0;
@@ -482,58 +482,60 @@ sub bbmap_fast_filter_parse() {
     my $fh;
     open_or_die(\$fh, "<", $libraryNAME.'.bbmap.out');
     while (<$fh>) {
-	if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
-	    $readnr = $1;
-	    msg("single reads mapped: $readnr"); 
-	}
-	if (/^mated pairs:\s+\S+\s+([0-9]*).*$/) {
-	    $ssu_pairs = $1;
-	    msg("mapped SSU pairs: $ssu_pairs");
-	}
-	if (/^bad pairs:\s+\S+\s+([0-9]*).*$/) {
-	    $ssu_bad_pairs = $1;
-	    msg("mapped bad SSU pairs: $ssu_bad_pairs");
-	}
-	if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
-	    $ins_me = $1;
-	    msg("insert size median: $ins_me"); 
-	}
-	if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
-	    $ins_std = $1;
-	    msg("insert size std deviation: $ins_std"); 
-	}
-	if ($forward_count == 0) {
-	    if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-		$ssu_f_reads = $1;
-		msg("mapped forward SSU reads: $ssu_f_reads");
-		$forward_count++;
-		next;
-	    }
-	}
-	if ($forward_count == 1) {
-	    if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-		$ssu_r_reads = $1;
-		msg("mapped reverse SSU reads: $ssu_r_reads"); 
-		last;
-	    }
-	}
+        if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
+            $readnr = $1;
+            msg("single reads mapped: $readnr");
+        }
+        if (/^mated pairs:\s+\S+\s+([0-9]*).*$/) {
+            $ssu_pairs = $1;
+            msg("mapped SSU pairs: $ssu_pairs");
+        }
+        if (/^bad pairs:\s+\S+\s+([0-9]*).*$/) {
+            $ssu_bad_pairs = $1;
+            msg("mapped bad SSU pairs: $ssu_bad_pairs");
+        }
+        if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
+            $ins_me = $1;
+            msg("insert size median: $ins_me");
+        }
+        if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
+            $ins_std = $1;
+            msg("insert size std deviation: $ins_std");
+        }
+        if ($forward_count == 0) {
+            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
+                $ssu_f_reads = $1;
+                msg("mapped forward SSU reads: $ssu_f_reads");
+                $forward_count++;
+                next;
+            }
+        }
+        if ($forward_count == 1) {
+            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
+                $ssu_r_reads = $1;
+                msg("mapped reverse SSU reads: $ssu_r_reads");
+                last;
+            }
+        }
     }
     close($fh);
-    
+
     # calculating mapping ratio
     $readnr_pairs = $readnr;
     if ($SEmode == 0) {
-	$readnr_pairs /= 2;
+        $readnr_pairs /= 2;
     }
-    
-    $SSU_total_pairs = $ssu_f_reads + $ssu_r_reads - $ssu_pairs - $ssu_bad_pairs;
+
+    $SSU_total_pairs =
+        $ssu_f_reads + $ssu_r_reads
+        - $ssu_pairs - $ssu_bad_pairs;
     if ($SEmode == 0) {
-	msg("mapped pairs output: $SSU_total_pairs")
+        msg("mapped pairs output: $SSU_total_pairs")
     };
-    
+
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
     $SSU_ratio_pc = $SSU_ratio * 100;
-    
+
     msg("mapping rate: $SSU_ratio_pc%");
 }
 
@@ -544,84 +546,84 @@ sub bbmap_hitstats_parse {
 
     my $fh;
     open_or_die(\$fh, "<", "$libraryNAME.hitstats");
-    
+
     # hitstats format/example
     #name %unambiguousReads unambiguousMB %ambiguousReads ambiguousMB unambiguousReads ambiguousReads
     #X03680.934.2693 Eukaryota;Opistho[...]abditis elegans\t4,72750\t0,57297\t52,23750\t6,33119\t5673\t62685
-    
+
     my %taxa_from_hitmaps;
     while (<$fh>) {
-	chomp;
-	
-	# skip comments
-	next if ($_ =~ /^#/); 
+        chomp;
 
-	# space to tab in name: "<acc>.<start>.<stop> <taxpath>"
-	s/(\w+\.\d+\.\d+)\s/$1\t/;
+        # skip comments
+        next if ($_ =~ /^#/);
 
-	my @hitstats_line = split ("\t", $_);
+        # space to tab in name: "<acc>.<start>.<stop> <taxpath>"
+        s/(\w+\.\d+\.\d+)\s/$1\t/;
 
-	# skip 0 unambiguousReads
-	next if ($hitstats_line[6] == 0);
+        my @hitstats_line = split ("\t", $_);
 
-	# truncate materialized path taxonomy string to 6 levels
-	my $taxonshortstring;
-	my @taxonstringarray = split (";", $hitstats_line[1]);                            
-	if ( $#taxonstringarray > 5 ) {
-	    $taxonshortstring = join (";", @taxonstringarray[0..5]);	
-	} else {
-	    $taxonshortstring = $hitstats_line[1]; 
-	}
+        # skip 0 unambiguousReads
+        next if ($hitstats_line[6] == 0);
 
-	# add to hash or increment existing count
-	if ( !exists $taxa_from_hitmaps{$taxonshortstring} ) {	
-	    $taxa_from_hitmaps{$taxonshortstring} = $hitstats_line[6];
-	} else {
-	    $taxa_from_hitmaps{$taxonshortstring} += $hitstats_line[6];				
-	}
+        # truncate materialized path taxonomy string to 6 levels
+        my $taxonshortstring;
+        my @taxonstringarray = split (";", $hitstats_line[1]);
+        if ( $#taxonstringarray > 5 ) {
+            $taxonshortstring = join (";", @taxonstringarray[0..5]);
+        } else {
+            $taxonshortstring = $hitstats_line[1];
+        }
+
+        # add to hash or increment existing count
+        if ( !exists $taxa_from_hitmaps{$taxonshortstring} ) {
+            $taxa_from_hitmaps{$taxonshortstring} = $hitstats_line[6];
+        } else {
+            $taxa_from_hitmaps{$taxonshortstring} += $hitstats_line[6];
+        }
 
     }
     close($fh);
 
     @taxa_from_hitmaps_sorted =
-	sort { @$b[1] <=> @$a[1] }
+        sort { @$b[1] <=> @$a[1] }
         grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
-    	map  { [$_, $taxa_from_hitmaps{$_}] }
+        map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
 
-    $chao1 = 
-	$#taxa_from_hitmaps_sorted +
-	($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    $chao1 =
+        $#taxa_from_hitmaps_sorted +
+        ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
 
     msg("done...");
 }
- 
+
 sub spades_run {
     # running SPADES on bbmap output
     msg("creating phylotypes with SPAdes");
-    
+
     my $kmer;
     if ($readlength >= 134) {
-	$kmer = "99,111,127";
+        $kmer = "99,111,127";
     } else {
-	my $spades_rl = $readlength - $readlength % 2; # drop to even number
-	$kmer = ($spades_rl - 27).",".($spades_rl - 17).",".($spades_rl - 7);
+        my $spades_rl = $readlength - $readlength % 2; # drop to even number
+        $kmer = ($spades_rl - 27).",".($spades_rl - 17).",".($spades_rl - 7);
     }
     msg ("kmers for SPAdes are ".$kmer);
 
     my $args;
     if ($SEmode == 1) {
-	$args = "-s $libraryNAME.$readsf.SSU.1.fq";
+        $args = "-s $libraryNAME.$readsf.SSU.1.fq";
     } else {
-	$args = "-1 $libraryNAME.$readsf.SSU.1.fq -2 $libraryNAME.$readsf.SSU.2.fq";
+        $args = "-1 $libraryNAME.$readsf.SSU.1.fq -2 $libraryNAME.$readsf.SSU.2.fq";
     }
 
     run_prog("spades",
-	     "-o $libraryNAME.spades -t $cpus -m 6 -k $kmer "
-	     . $args,
-	     "$libraryNAME.spades.out","&1"
-	);
-	     
+             "-o $libraryNAME.spades -t $cpus -m 6 -k $kmer "
+             . $args,
+             "$libraryNAME.spades.out","&1"
+         );
+
     msg("done...");
 }
 
@@ -631,73 +633,75 @@ sub spades_parse {
 
     # run barrnap once for each domain
     foreach ('bac', 'arch', 'euk') {
-	my $args = 
-	run_prog("barrnap", 
-		 "--kingdom $_ --threads $cpus --evalue 1e-200 " .
-		 "--reject 0.6 $libraryNAME.spades/scaffolds.fasta",
-		 "$libraryNAME.scaffolds.$_.gff", 
-		 "$libraryNAME.barrnap.out");
+        run_prog("barrnap",
+                 "--kingdom $_ --threads $cpus --evalue 1e-200 " .
+                 "--reject 0.6 $libraryNAME.spades/scaffolds.fasta",
+                 "$libraryNAME.scaffolds.$_.gff",
+                 "$libraryNAME.barrnap.out");
     }
 
     # now merge multi-hits on the same scaffold-and-strand by picking
     # the lowest start and highest stop position.
-   
+
     my %ssus;
     # pre-filter with grep for speed
     my $fh;
     open_or_die(\$fh, "-|",
-	 "grep -hE '16S_rRNA\|18S_rRNA' $libraryNAME.scaffolds.{bac,arch,euk}.gff");
+                "grep -hE '16S_rRNA\|18S_rRNA' ".
+                "$libraryNAME.scaffolds.bac.gff ".
+                "$libraryNAME.scaffolds.arch.gff ".
+                "$libraryNAME.scaffolds.euk.gff");
     while (my $row = <$fh>) {
-	my @cols    = split("\t", $row);
-	# gff format:
-	# 0 seqname, 1 source, 2 feature, 3 start, 4 end, 
-	# 5 score, 6 strand, 7 frame, 8 attribute
+        my @cols    = split("\t", $row);
+        # gff format:
+        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+        # 5 score, 6 strand, 7 frame, 8 attribute
 
-	my $seqname = $cols[0];
-	my $start   = $cols[3];
-	my $stop    = $cols[4];
-	my $strand  = $cols[6];
+        my $seqname = $cols[0];
+        my $start   = $cols[3];
+        my $stop    = $cols[4];
+        my $strand  = $cols[6];
 
-	# put our desired output fasta name into "feature" col 3
-	# the may be "bug" using / mixing bed and gff formats
-	# but it saves us messing with the fasta afterwards
-	$seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
-	@cols[2] = "$libraryNAME.PFspades_$1_$2";
+        # put our desired output fasta name into "feature" col 3
+        # the may be "bug" using / mixing bed and gff formats
+        # but it saves us messing with the fasta afterwards
+        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
+        $cols[2] = "$libraryNAME.PFspades_$1_$2";
 
-	# do the actual merging, left most start and right most stop wins
-	if (exists $ssus{$seqname.$strand}) {
-	    my $old_start = $ssus{$seqname.$strand}[3];
-	    my $old_stop  = $ssus{$seqname.$strand}[4];
-	    @cols[3] = ($start < $old_start) ? $start : $old_start;
-	    @cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
-	} 
-	$ssus{$seqname.$strand} = [@cols];
+        # do the actual merging, left most start and right most stop wins
+        if (exists $ssus{$seqname.$strand}) {
+            my $old_start = $ssus{$seqname.$strand}[3];
+            my $old_stop  = $ssus{$seqname.$strand}[4];
+            $cols[3] = ($start < $old_start) ? $start : $old_start;
+            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+        }
+        $ssus{$seqname.$strand} = [@cols];
     }
     close($fh);
 
     open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
     for my $key (sort keys %ssus) {
-	print $fh join("\t",@{$ssus{$key}});
+        print $fh join("\t",@{$ssus{$key}});
     }
     close($fh);
-    
+
     # fastaFromBed will build a .fai index from the source .fasta
     # However, it does not notice if the .fasta changed. So we
     # delete the .fai if it is older than the .fasta.
     if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-	     file_is_newer("$libraryNAME.spades/scaffolds.fasta",
-		       "$libraryNAME.spades/scaffolds.fasta.fai")) {
-	unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+         file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+                       "$libraryNAME.spades/scaffolds.fasta.fai")) {
+        unlink("$libraryNAME.spades/scaffolds.fasta.fai");
     }
-   
+
     # extract rrna fragments from spades scaffolds accoding to gff
     run_prog("fastaFromBed",
-	     "  -fi $libraryNAME.spades/scaffolds.fasta "
-	     . "-bed tmp.$libraryNAME.scaffolds.final.gff "
-	     . "-fo $libraryNAME.spades_rRNAs.final.fasta "
-	     . "-s -name",
-	     "tmp.$libraryNAME.fastaFromBed.out",
-	     "&1");
+             "  -fi $libraryNAME.spades/scaffolds.fasta "
+             . "-bed tmp.$libraryNAME.scaffolds.final.gff "
+             . "-fo $libraryNAME.spades_rRNAs.final.fasta "
+             . "-s -name",
+             "tmp.$libraryNAME.fastaFromBed.out",
+             "&1");
 
     msg("done...");
 }
@@ -706,58 +710,57 @@ sub spades_parse {
 sub emirge_run {
     # running Emirge on bbmap output
     msg("creating phylotypes with Emirge");
-   
+
     my $cmd = "emirge";
     my $args = "-1 $libraryNAME.$readsf.SSU.1.fq ";
 
     if ($SEmode == 1) {
-	msg("only one read file provided - running in single end mode");
-	#$args = "-1 $libraryNAME.$readsf.SSU.1.fq ";
+        msg("only one read file provided - running in single end mode");
     } elsif ($readlength < 152) {
-	#long reads will hardly map with bowtie in paired end mode, using 
-	#forward+reverse reads combined as single read data when > 151bp
-	msg("reads < 152 bp - running in paired end mode");
-	
-	#------------------------------------------------- checking for too phyphysmall insert size
-	msg("setting library insert size according to insert size distribution");
-	# Calculate minimum insert size for emirge. 
-	my $min_ins = int(2.2 * $readlength + 0.5);
-	if ($ins_me < $min_ins) { 
-	    msg("Warning: estimated insert size very small: $ins_me, using $min_ins instead");
-	    $ins_used = $min_ins;
-	} else {
-	    $ins_used = $ins_me;
-	}
-	
-	msg("the insert size used is $ins_used +- $ins_std");
-	# FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
-	if ($SSU_total_pairs < 150000) {
-	    msg("Less than 300k SSU reads - using Emirge");
-	} else {
-	    $cmd = "emirge_amp";
-	    msg("Warning: More than 25k SSU reads - using Emirge Amplicon");
-	}
-	
-	$args = 
-	    "  -1 $libraryNAME.$readsf.SSU.1.fq "
-	    . "-2 $libraryNAME.$readsf.SSU.2.fq "
-	    . "-i $ins_used -s $ins_std ";
-    } else {
-	msg("reads > 151 bp - running in single end mode");
-	run_prog("cat",
-		 "$libraryNAME.$readsf.SSU.1.fq $libraryNAME.$readsf.SSU.2.fq",
-		 "tmp.$libraryNAME.SSU_all.fq");
-	# ename the reads with a running number to make emirge happy
-	# using awk for speed, these files can be huge
+        #long reads will hardly map with bowtie in paired end mode, using
+        #forward+reverse reads combined as single read data when > 151bp
+        msg("reads < 152 bp - running in paired end mode");
 
-	run_prog("awk",
-		 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-		 . "tmp.$libraryNAME.SSU_all.fq",
-		 "tmp.renamed.$libraryNAME.SSU_all.fq");
-	
-	$args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
+        # checking for too phyphysmall insert size
+        msg("setting library insert size according to insert size distribution");
+        # Calculate minimum insert size for emirge.
+        my $min_ins = int(2.2 * $readlength + 0.5);
+        if ($ins_me < $min_ins) {
+            msg("Warning: estimated insert size very small: $ins_me, "
+                . "using $min_ins instead");
+            $ins_used = $min_ins;
+        } else {
+            $ins_used = $ins_me;
+        }
+
+        msg("the insert size used is $ins_used +- $ins_std");
+        # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
+        if ($SSU_total_pairs < 150000) {
+            msg("Less than 300k SSU reads - using Emirge");
+        } else {
+            $cmd = "emirge_amp";
+            msg("Warning: More than 25k SSU reads - using Emirge Amplicon");
+        }
+
+        $args = "  -1 $libraryNAME.$readsf.SSU.1.fq "
+                . "-2 $libraryNAME.$readsf.SSU.2.fq "
+                . "-i $ins_used -s $ins_std ";
+    } else {
+        msg("reads > 151 bp - running in single end mode");
+        run_prog("cat",
+                 "$libraryNAME.$readsf.SSU.1.fq $libraryNAME.$readsf.SSU.2.fq",
+                 "tmp.$libraryNAME.SSU_all.fq");
+        # ename the reads with a running number to make emirge happy
+        # using awk for speed, these files can be huge
+
+        run_prog("awk",
+                 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
+                 . "tmp.$libraryNAME.SSU_all.fq",
+                 "tmp.renamed.$libraryNAME.SSU_all.fq");
+
+        $args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
     }
-    
+
     run_prog($cmd,
              " $libraryNAME "
              . $args
@@ -773,20 +776,20 @@ sub emirge_parse {
     # getting emirge output and reformatting it...
     msg("getting Emirge phylotypes and their abundances...");
     run_prog("emirge_rename_fasta",
-	     "./$libraryNAME/iter.40/",
-	     "tmp.$libraryNAME.emirge.result.fasta");
-    
+             "./$libraryNAME/iter.40/",
+             "tmp.$libraryNAME.emirge.result.fasta");
+
     my $fh_in;
     my $fh_out;
     open_or_die(\$fh_in, "<","tmp.$libraryNAME.emirge.result.fasta");
-    open_or_die(\$fh_out, ">", "$libraryNAME.emirge.final.fasta"); 
+    open_or_die(\$fh_out, ">", "$libraryNAME.emirge.final.fasta");
     while (<$fh_in>) {
-	chomp;
-	if ($_ =~ />(\d*)\|.*NormPrior=([\d.]*)/ ) { 
-	    print {$fh_out} ">$libraryNAME.PFemirge_".$1."_".$2."\n"; 
-	} else { 
-	    print {$fh_out} $_."\n"; 
-	}
+        chomp;
+        if ($_ =~ />(\d*)\|.*NormPrior=([\d.]*)/ ) {
+            print {$fh_out} ">$libraryNAME.PFemirge_".$1."_".$2."\n";
+        } else {
+            print {$fh_out} $_."\n";
+        }
     }
     close($fh_in);
     close($fh_out);
@@ -802,9 +805,9 @@ sub vsearch_best_match {
     # (vsearch takes a while to load, one run saves us time)
 
     run_prog("cat",
-	     "   $libraryNAME.emirge.final.fasta"
-	     . " $libraryNAME.spades_rRNAs.final.fasta",
-	     "$libraryNAME.all.final.fasta");
+             "   $libraryNAME.emirge.final.fasta"
+             . " $libraryNAME.spades_rRNAs.final.fasta",
+             "$libraryNAME.all.final.fasta");
 
     run_prog("vsearch",
              "-usearch_global $libraryNAME.all.final.fasta "
@@ -831,33 +834,33 @@ sub vsearch_best_match {
 
 sub vsearch_parse {
     my @vsearch_matches;            # list of vsearch best-match results
-    
+
     # Parse the output from Vsearch and store in the hash %SSU_assembly
     my $fh;
     open_or_die(\$fh, "<", "$libraryNAME.all.vsearch.csv");
     while (<$fh>) {
-	chomp;
-	# lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
-	s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
-	push @vsearch_matches, [split("\t",$_)];
+        chomp;
+        # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
+        s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
+        push @vsearch_matches, [split("\t",$_)];
     }
     close($fh);
 
-    # Sort numerically descending the list of 
+    # Sort numerically descending the list of
     # assembled SSU sequences by coverage value
-    
+
     @ssuassem_results_sorted =
-	sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] } 
-        grep { @{$_}[0] =~ /^$libraryNAME.PFspades/ } 
+        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
+        grep { @{$_}[0] =~ /^$libraryNAME.PFspades/ }
         @vsearch_matches;
 
-    # Sort numerically descending the list of reconstructed 
+    # Sort numerically descending the list of reconstructed
     # SSU sequences by mapping ratio
     @ssurecon_results_sorted =
-	sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
-	grep { @{$_}[0] =~ /^$libraryNAME.PFemirge/ }
+        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
+        grep { @{$_}[0] =~ /^$libraryNAME.PFemirge/ }
         @vsearch_matches;
-    
+
     msg("done...");
 }
 
@@ -866,13 +869,13 @@ sub vsearch_cluster {
     my $clusterid = 97;
     msg("clustering DB matches at $clusterid%");
     run_prog("vsearch",
-	     "  --cluster_fast $libraryNAME.all.final.phyloFlash.dbhits.fa "
-	     . "-id ".($clusterid/100)." "
-	     . "-centroids $libraryNAME.all.dbhits.NR97.fa "
-	     . "-notrunclabels ",
-	     "tmp.$libraryNAME.clusterdbhits.out",
-	     "&1");
-    
+             "  --cluster_fast $libraryNAME.all.final.phyloFlash.dbhits.fa "
+             . "-id ".($clusterid/100)." "
+             . "-centroids $libraryNAME.all.dbhits.NR97.fa "
+             . "-notrunclabels ",
+             "tmp.$libraryNAME.clusterdbhits.out",
+             "&1");
+
     msg("done...");
 }
 
@@ -880,15 +883,15 @@ sub mafft_run {
     msg("creating alignment and tree...");
 
     run_prog("cat",
-	     "$libraryNAME.all.dbhits.NR97.fa "
-	     . "$libraryNAME.spades_rRNAs.final.fasta "
-	     . "$libraryNAME.emirge.final.fasta ",
-	     "$libraryNAME.SSU.collection.fasta");
+             "$libraryNAME.all.dbhits.NR97.fa "
+             . "$libraryNAME.spades_rRNAs.final.fasta "
+             . "$libraryNAME.emirge.final.fasta ",
+             "$libraryNAME.SSU.collection.fasta");
 
     run_prog("mafft",
-	     "--treeout $libraryNAME.SSU.collection.fasta ",
-	     "$libraryNAME.SSU.collection.alignment.fasta",
-	     "tmp.$libraryNAME.SSU.collection.alignment.mafftout");
+             "--treeout $libraryNAME.SSU.collection.fasta ",
+             "$libraryNAME.SSU.collection.alignment.fasta",
+             "tmp.$libraryNAME.SSU.collection.alignment.mafftout");
 
     # fix missing ; at and of MaFFT newick tree
     my $fh;
@@ -903,21 +906,22 @@ sub run_plotscript {
     msg("generating histogram and tree graphics");
 
     #FIXME: crashes if .inserthistorgram contains no lines
-    
+
     run_prog("plotscript",
-	     "--args $libraryNAME.SSU.collection.fasta.tree "
-	     . "$libraryNAME.inserthistogram ",
-	     "tmp.$libraryNAME.plotscript.out",
-	     "&1");
+             "--args $libraryNAME.SSU.collection.fasta.tree "
+             . "$libraryNAME.inserthistogram ",
+             "tmp.$libraryNAME.plotscript.out",
+             "&1");
 }
 
-sub write_report_html {			
-    # Generate HTML-formatted report file -- lots of blocks of verbatim HTML in this section
+sub write_report_html {
+    # Generate HTML-formatted report file -- lots of blocks of verbatim HTML
+    # in this section
     msg("Generating HTML-formatted report and graphics...");
 
     my $fh;
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.html");
-    
+
     print {$fh} <<ENDHTML;
 <!DOCTYPE html>
 <html>
@@ -1136,11 +1140,14 @@ print {$fh} <<ENDHTML;
 ENDHTML
 
 ## write list of higher taxa found
-foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {                                                            # For each of these higher taxa
-  print {$fh} "  <tr>\n";
-  print {$fh} "    <td>".@$taxonshortstring[0]."</td>\n";									# print name of taxon
-  print {$fh} "    <td>".@$$taxonshortstring[1]."</td>\n";						# print no . of reads mapping unambiguously
-  print {$fh} "  </tr>\n";
+foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {
+    # For each of these higher taxa
+    print {$fh} "  <tr>\n";
+    # print name of taxon
+    print {$fh} "    <td>".@$taxonshortstring[0]."</td>\n";
+    # print no . of reads mapping unambiguously
+    print {$fh} "    <td>".@$taxonshortstring[1]."</td>\n";
+    print {$fh} "  </tr>\n";
 }
 
 print {$fh} <<ENDHTML;
@@ -1165,18 +1172,19 @@ print {$fh} <<ENDHTML;
 ENDHTML
 
 foreach (@ssuassem_results_sorted) {
-	my @split_entry = @$_;
-	my @get_genbank = split (/\./,$split_entry[2]);									# Parse the database entry number of the reference sequence to get Genbank accession
-	print {$fh} "  <tr>\n";
-	print {$fh} "    <td>".$split_entry[0]."</td>\n";
-	print {$fh} "    <td>".$split_entry[1]."</td>\n";
-	print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
-#	print {$fh} "    <td>".$split_entry[2]."</td>\n";
-	print {$fh} "    <td>".$split_entry[3]."</td>\n";
-	print {$fh} "    <td>".$split_entry[4]."</td>\n";
-	print {$fh} "    <td>".$split_entry[5]."</td>\n";
-	print {$fh} "    <td>".$split_entry[6]."</td>\n";
-	print {$fh} "  </tr>\n";
+    my @split_entry = @$_;
+    my @get_genbank = split (/\./,$split_entry[2]);
+        # Parse the database entry number of the reference sequence to get Genbank accession
+    print {$fh} "  <tr>\n";
+    print {$fh} "    <td>".$split_entry[0]."</td>\n";
+    print {$fh} "    <td>".$split_entry[1]."</td>\n";
+    print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
+    #	print {$fh} "    <td>".$split_entry[2]."</td>\n";
+    print {$fh} "    <td>".$split_entry[3]."</td>\n";
+    print {$fh} "    <td>".$split_entry[4]."</td>\n";
+    print {$fh} "    <td>".$split_entry[5]."</td>\n";
+    print {$fh} "    <td>".$split_entry[6]."</td>\n";
+    print {$fh} "  </tr>\n";
 }
 
 ## write list of reconstructed SSU sequences
@@ -1199,19 +1207,19 @@ print {$fh} <<ENDHTML;
 ENDHTML
 
 foreach (@ssurecon_results_sorted) {
-	print {$fh} "  <tr>\n";
-	my @split_entry = @$_;
-	my $test = $split_entry[2];
-	my @get_genbank = split (/\./,$test);
-	print {$fh} "    <td>".$split_entry[0]."</td>\n";
-	print {$fh} "    <td>".$split_entry[1]."</td>\n";
-	print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
+    print {$fh} "  <tr>\n";
+    my @split_entry = @$_;
+    my $test = $split_entry[2];
+    my @get_genbank = split (/\./,$test);
+    print {$fh} "    <td>".$split_entry[0]."</td>\n";
+    print {$fh} "    <td>".$split_entry[1]."</td>\n";
+    print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
 #	print {$fh} "    <td>".$split_entry[2]."</td>\n";
-	print {$fh} "    <td>".$split_entry[3]."</td>\n";
-	print {$fh} "    <td>".$split_entry[4]."</td>\n";
-	print {$fh} "    <td>".$split_entry[5]."</td>\n";
-	print {$fh} "    <td>".$split_entry[6]."</td>\n";
-	print {$fh} "  </tr>\n";
+    print {$fh} "    <td>".$split_entry[3]."</td>\n";
+    print {$fh} "    <td>".$split_entry[4]."</td>\n";
+    print {$fh} "    <td>".$split_entry[5]."</td>\n";
+    print {$fh} "    <td>".$split_entry[6]."</td>\n";
+    print {$fh} "  </tr>\n";
 }
 
 print {$fh} <<ENDHTML;
