@@ -154,7 +154,7 @@ require_tools((
     sed => "sed",
     awk => "awk",
     cat => "cat",
-    plotscript => "phyloFlash_plotscript_v1.r"
+    plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
     ));
 
 # constants
