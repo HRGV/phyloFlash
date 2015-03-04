@@ -124,8 +124,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 use strict;
 use warnings;
 
-use Time::Piece;
-use Time::Seconds;
+use FindBin;
+use lib $FindBin::RealBin;
+
+use PhyloFlash;
+
 use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
@@ -138,7 +141,7 @@ my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#confi
 #my $DBHOME = '/opt/extern/bremen/symbiosis/phyloFlash';#configuration for cologne cluster...
 
 # binaries needed by phyloFlash
-my %progs = (
+require_tools((
     bbmap => "bbmap.sh",
     spades => "spades.py",
     barrnap => "barrnap",
@@ -152,13 +155,11 @@ my %progs = (
     awk => "awk",
     cat => "cat",
     plotscript => "phyloFlash_plotscript_v1.r"
-    );
-    
+    ));
+
 # constants
 my $version       = 'phyloFlash v2.0';
-my $progname      = basename($0);
-my $syscpus = `cat /proc/cpuinfo | grep -c -P '^processor\\s+:'`;
-chomp($syscpus);
+my $progname      = $FindBin::Script;
 my $cwd = getcwd;
 
 # configuration variables / defaults
@@ -170,7 +171,7 @@ my $id          = 70;           # minimum %id for mapping
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
-my $cpus        = $syscpus;     # num cpus to use
+my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
 my $html_flag   = 0;		# generate HTML output? (default = 0, off)
@@ -194,110 +195,8 @@ my @xtons = (0,0);  # singleton and doubleton count
 my $readnr = 0;
 my $ins_me = 0;
 my $ins_std =0;
-my $prettytime;                 # Wall clock time of program run
+my $runtime;
 
-
-#------------------------------ subroutines
-
-#234567890123456789012345678901234567890123456789012345678901234567
-
-
-
-###SUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINES###
-
-# prettyprint a log message
-sub msg {
-  my $t = localtime;
-  my $line = "[".$t->hms."] @_\n";
-  print STDERR $line;
-}
-
-# check of arg1 was modified more recently than arg2
-sub file_is_newer {
-    my $file1 = shift;
-    my $file2 = shift;
-    
-    return (stat($file1))[9] > (stat($file2))[9];
-}
-
-# open a filehandle
-# dies with message on error
-sub open_or_die {
-    my ($fh, $mode, $fname) = @_;
-    my $msg;
-    
-    if ($mode eq ">") {
-	$msg = "write to file";
-    } elsif ($mode eq ">>") {
-	$msg = "append to file";
-    } elsif ($mode eq "<") {
-	$msg = "read from file";
-    } elsif ($mode eq "-|") {
-	$msg = "run command";
-    }
-    
-    open($$fh, $mode, $fname)
-	or die "Failed to $msg '$fname': $!";
-}
-
-# escape array or scalar for CSV output
-sub csv_escape {
-    return unless defined wantarray;
-
-    my @parms = @_;
-
-    for (@parms) {
-	if (m/[",\r\n]/) {
-	    s/"/""/g;
-	    $_='"'.$_.'"';
-	}
-    }
-
-    return wantarray ? @parms : $parms[0];
-}
-
-
-# verify that all required tools are available and locate their paths
-sub check_environment {
-    my $error = 0;
-    foreach my $prog (keys %progs) {
-	my $progname = $progs{$prog};
-	$progs{$prog} = can_run($progname) or $error = 1;
-	msg("Using $prog found at \"$progs{$prog}\".");
-    }
-    if ($error == 1) {
-	msg("Unable to find all required tools. Missing where:");
-	foreach my $prog (keys %progs) {
-	    msg($prog) if (!defined($progs{$prog}));
-	}
-	die "Please make sure these are installed and in your PATH.\n\n";
-    }
-}
-
-# run a tool
-#   prog:         the name of the tool (see %progs at the top)
-#   args:         command line arguments to be passed
-#   redir_stdout: file or file descriptor to redirect stdout to
-#   redir_stdin:  same for stderr
-#
-# does not return if the tool failed
-sub run_prog {
-    my ($prog, $args, $redir_stdout, $redir_stderr) = @_;
-    
-    if (not exists $progs{$prog}) {
-	msg("trying to launch unknown tool \"$prog\". pls add to %progs");
-	$progs{$prog} = can_run($progname) or die "Failed to find $prog";
-    }
-    my $cmd = $progs{$prog}." ".$args;
-    $cmd .= " >".$redir_stdout if ($redir_stdout);
-    $cmd .= " 2>".$redir_stderr if ($redir_stderr);
-
-    msg("executing [$cmd]");
-    system($cmd) == 0
-	or die "Couldn't launch [$cmd]: $!/$?";
-
-    # FIXME: print tail of stderr if redirected
-}
 
 # parse arguments passed on commandline and do some
 # sanity checks
@@ -377,7 +276,7 @@ sub parse_cmdline {
 
     # check CPUS
     if ($cpus eq "all" or $cpus < 0) {
-	$cpus = $syscpus;
+        $cpus = get_cpus();
     }
     
     # check surplus arguments
@@ -408,27 +307,27 @@ Current working directory\t$cwd
 ---
 Minimum mapping identity:\t$id%
 ~;
-    
+
     if ($SEmode == 1) {
-	print {$fh} qq~
+        print {$fh} qq~
 ---
 Input PE-reads:\t$readnr_pairs
 Mapped SSU read pairs:\t$SSU_total_pairs
 ~;
     } else {
-	print {$fh} qq~
+        print {$fh} qq~
 ---
 Input SE-reads:\t$readnr_pairs
 Mapped SSU reads:\t$SSU_total_pairs
 ~;
     }
-    
+
     print {$fh} qq~Mapping ratio:\t$SSU_ratio_pc%
 Detected median insert size:\t$ins_me
 Used insert size:\t$ins_used
 Insert size standard deviation:\t$ins_std
 ---
-Runtime:\t$prettytime
+Runtime:\t$runtime
 CPUs used:\t$cpus
 ---
 Read mapping based higher taxa (NTUs) detection
@@ -1338,7 +1237,7 @@ close($fh);
 parse_cmdline();
 check_environment();
 
-my $starttime = localtime;
+my $timer = new Timer;
 
 bbmap_fast_filter_run();
 bbmap_fast_filter_parse();
@@ -1352,9 +1251,7 @@ vsearch_parse();
 vsearch_cluster();
 mafft_run();
 
-my $endtime = localtime;
-my $walltime = $endtime - $starttime;
-$prettytime = sprintf "%.2f minutes", $walltime->minutes;
+$runtime = $timer->minutes;
 
 print_report();
 write_csv()         if ($csv_flag);
@@ -1362,15 +1259,14 @@ run_plotscript()    if ($html_flag);
 write_report_html() if ($html_flag);
 
 
-#------------------------------------------------- cleanup of intermediate files
+# cleanup of intermediate files
 #msg("cleaning temp files...");
 #system ("rm ./$libraryNAME.spades -r");
 #system ("rm ./$libraryNAME -r");
 #system ("rm tmp.* -r");
 
-$endtime = localtime;
-$walltime = $endtime - $starttime;
-$prettytime = sprintf "%.2f minutes", $walltime->minutes;
-msg("Walltime used: $prettytime with $cpus CPU cores");
-msg("Thank you for using phyloFlash\nYou can find your results in $libraryNAME.*,\nYour main result file is $libraryNAME.phyloFlash");
+msg("Walltime used: $runtime with $cpus CPU cores");
+msg("Thank you for using phyloFlash
+You can find your results in $libraryNAME.*,
+Your main result file is $libraryNAME.phyloFlash");
 
