@@ -65,6 +65,7 @@ my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 my $dbsource;
 my $cwd = getcwd;
 my $timer = new Timer;
+my $cpus        = get_cpus      # num cpus to use
 
 # parse cmdline
 
@@ -166,7 +167,7 @@ sub find_LSU {
         #1 or run_prog("barrnapHGV",
         run_prog("barrnapHGV",
                  "  --kingdom $_ "
-                 . "--threads $PhyloFlash::cpucount "
+                 . "--threads $cpus "
                  . "--evalue 1e-50 "
                  . " --gene lsu "
                  . "--reject 0.01 "
