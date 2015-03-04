@@ -34,7 +34,6 @@ Python installed. (OSX is for the brave, we have not tested this!)
  - spades (http://bioinf.spbau.ru/spades)
  - barrnap (http://www.vicbioinformatics.com/software.barrnap.shtml)
  - fastaFromBed (https://github.com/arq5x/bedtools2/releases)
- - faSomeRecords (https://github.com/ENCODE-DCC/kentUtils)
 
  These tools need to be "in your $PATH" so that *phyloFlash* can find
  them. To see whether all required tools are available, just run
