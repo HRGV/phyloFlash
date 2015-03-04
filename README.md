@@ -34,6 +34,7 @@ Python installed. (OSX is for the brave, we have not tested this!)
  - spades (http://bioinf.spbau.ru/spades)
  - barrnap (http://www.vicbioinformatics.com/software.barrnap.shtml)
  - fastaFromBed (https://github.com/arq5x/bedtools2/releases)
+ - faSomeRecords (https://github.com/ENCODE-DCC/kentUtils)
 
  These tools need to be "in your $PATH" so that *phyloFlash* can find
  them. To see whether all required tools are available, just run
@@ -81,13 +82,13 @@ than 5 minutes on a normal 2014 desktop PC with 4 CPU cores and 4 GB
 of RAM.
 
 *phyloFlash* usually detects most lifeforms on earth that have a SSU
-rRNA sequence that is at least 80% identical to anything in the
+rRNA sequence that is at least 70% identical to anything in the
 databases, more exotic organisms might be problematic, but test data
 is hard to come by. If you happen to have such a test case and you are
 willing to share please drop me a line... If you think *phyloFlash* is
 not detecting a certain organism that is very distant from the known
 SSU rRNA sequences please try lowering the minimal id by using
-e.g. -minid .75
+e.g. -minid .63
 
 Test data
 ---------

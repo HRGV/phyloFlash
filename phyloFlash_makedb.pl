@@ -85,10 +85,7 @@ check_environment();
 
 ### MAIN ###
 
-
-run_stage(msg => "downloading lastest UniVec DB from NCBI",
-
-asd
+#run_stage(msg => "downloading lastest UniVec DB from NCBI",
 
 msg("downloading latest univec from ncbi");
 #my $univec_file = file_download($univec_url);

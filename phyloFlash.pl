@@ -134,11 +134,11 @@ use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
 use Cwd;
+use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = '/home/hgruber/data/phyloFlash_release_code/database_script';#configuration for HGV
-#my $DBHOME = '/opt/extern/bremen/symbiosis/phyloFlash';#configuration for cologne cluster...
+my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db dir release version 119
 
 # binaries needed by phyloFlash
 require_tools((
@@ -152,6 +152,7 @@ require_tools((
     mafft => "mafft",
     fastaFromBed => "fastaFromBed",
     sed => "sed",
+    grep => "grep",
     awk => "awk",
     cat => "cat",
     plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
@@ -199,6 +200,12 @@ my $readnr = 0;
 my $ins_me = 0;
 my $ins_std =0;
 my $runtime;
+
+
+# display welcome message incl. version
+sub welcome {
+  print STDERR "\nThis is $version\n\n";
+}
 
 
 # parse arguments passed on commandline and do some
@@ -1244,9 +1251,10 @@ close($fh);
 }
 
 ######################### MAIN ###########################
-
-parse_cmdline();
+welcome();
 check_environment();
+parse_cmdline();
+
 
 my $timer = new Timer;
 
