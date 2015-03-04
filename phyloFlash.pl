@@ -144,7 +144,7 @@ my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db
 require_tools((
     bbmap => "bbmap.sh",
     spades => "spades.py",
-    barrnap => "barrnap",
+    barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
     emirge => "emirge.py",
     emirge_amp => "emirge_amplicon.py",
     emirge_rename_fasta => "emirge_rename_fasta.py",
@@ -639,7 +639,8 @@ sub spades_parse {
     # run barrnap once for each domain
     foreach ('bac', 'arch', 'euk') {
         run_prog("barrnap",
-                 "--kingdom $_ --threads $cpus --evalue 1e-200 " .
+                 "--kingdom $_ --gene ssu --threads $cpus " .
+		 "--evalue 1e-200 " .
                  "--reject 0.6 $libraryNAME.spades/scaffolds.fasta",
                  "$libraryNAME.scaffolds.$_.gff",
                  "$libraryNAME.barrnap.out");

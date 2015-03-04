@@ -65,6 +65,7 @@ my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 my $dbsource;
 my $cwd = getcwd;
 my $timer = new Timer;
+my $cpus        = get_cpus      # num cpus to use
 
 # parse cmdline
 
@@ -72,13 +73,12 @@ GetOptions();
 
 # binaries needed by phyloFlash
 require_tools((
-    barrnapHGV => "./barrnap-HGV/bin/barrnap_HGV",
+    barrnapHGV => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
     grep => "grep",
     bbmask => "bbmask.sh",
     bbduk => "bbduk.sh",
     bbmap => "bbmap.sh",
     bowtiebuild => "bowtie-build",
-    fixchars => "./fix_nonstandard_chars_X.py",
     ));
 
 check_environment();
@@ -88,12 +88,12 @@ check_environment();
 #run_stage(msg => "downloading lastest UniVec DB from NCBI",
 
 msg("downloading latest univec from ncbi");
-#my $univec_file = file_download($univec_url);
-my $univec_file = "UniVec";
+my $univec_file = file_download($univec_url);
+#my $univec_file = "UniVec";
 
 msg("downloading latest SSU RefNR from www.arb-silva.de");
-#my $silva_file  = file_download($silva_url);
-my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+my $silva_file  = file_download($silva_url);
+#my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
 
 # extract SILVA version
 my ($silva_release) = ($silva_file =~ m/SILVA_(\d+)_/);
@@ -164,10 +164,12 @@ sub find_LSU {
     foreach ('bac', 'arch', 'euk') {
         my $log = "tmp.barrnap_hits.$_.barrnap.out";
         my $res = "tmp.barrnap_hits.$_.gff";
-        1 or run_prog("barrnapHGV",
+        #1 or run_prog("barrnapHGV",
+        run_prog("barrnapHGV",
                  "  --kingdom $_ "
-                 . "--threads $PhyloFlash::cpucount"
+                 . "--threads $cpus "
                  . "--evalue 1e-50 "
+                 . " --gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
                  $res, $log);

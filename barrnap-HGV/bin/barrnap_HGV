@@ -9,15 +9,16 @@ use FindBin;
 # global variables
 
 my $EXE = $FindBin::RealScript;
-my $VERSION = "0.5";
+my $VERSION = "0.7";
 my $DESC = "rapid ribosomal RNA prediction";
-my $AUTHOR = 'Torsten Seemann <torsten.seemann@monash.edu>';
-my $URL = 'http://www.vicbioinformatics.com/';
-my $DBDIR = "$FindBin::RealBin/../db/LSU_only";#HGV: edited to point to the dir that only has the LSU profiles
+my $AUTHOR = 'Torsten Seemann <torsten.seemann@gmail.com>';
+my $URL = 'https://github.com/Victorian-Bioinformatics-Consortium/barrnap';
+my $DBDIR = "$FindBin::RealBin/../db";
 my $OPSYS = $^O;
 my $NHMMER = "$FindBin::RealBin/../binaries/$OPSYS/nhmmer";
 
 my %KINGDOM = (map { substr($_,0,1) => $_ } qw(bac arc euk mito));
+my %RRNA = (map { substr($_,0,1) => $_ } qw(all ssu lsu));
 my %LENG = (
   "5S_rRNA"  =>119, "16S_rRNA"=>1585, "23S_rRNA"=>3232,
   "5_8S_rRNA"=>156, "18S_rRNA"=>1869, "28S_rRNA"=>2912, "12S_rRNA"=>954,
@@ -27,7 +28,7 @@ my $MAXLEN = int( 1.2 * max(values %LENG) );
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 # command line options
 
-my(@Options, $quiet, $kingdom, $threads, $evalue, $lencutoff, $reject, $incseq);
+my(@Options, $quiet, $kingdom, $rrnas, $threads, $evalue, $lencutoff, $reject, $incseq);
 setOptions();
 
 # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
@@ -55,8 +56,11 @@ msg("Will reject genes < $reject of expected length.");
 
 my $kdom = $KINGDOM{ lc substr($kingdom,0,1) } or
   err("I don't recognise --kingdom '$kingdom'. Try: bac arc euk mito");
+  
+my $rna = $RRNA{ lc substr($rrnas,0,1) } or
+  err("I don't recognise --gene '$rrnas'. Try: all lsu ssu");
 
-my $hmmdb = "$DBDIR/$kdom.hmm";
+my $hmmdb = "$DBDIR/$rna/$kdom.hmm";
 err("Can't find database: $hmmdb") unless -r $hmmdb;
 msg("Using database: $hmmdb");
 
@@ -66,7 +70,7 @@ msg("Using database: $hmmdb");
 my $fasta = shift @ARGV;
 $fasta && -r $fasta or err("Usage: $EXE <file.fasta>");
 
-msg("Scanning $fasta for $kdom rRNA genes... please wait");
+msg("Scanning $fasta for $rna $kdom rRNA genes... please wait");
 my $cmd = "$NHMMER --cpu $threads -E $evalue --w_length $MAXLEN  -o /dev/null --tblout /dev/stdout \Q$hmmdb\E \Q$fasta\E";
 msg("Command: $cmd");
 my @hits = qx($cmd 2>&1);
@@ -86,6 +90,7 @@ foreach (@hits) {
 
   my($begin,$end,$strand) = $x[6] < $x[7] ? ($x[6],$x[7],'+') : ($x[7],$x[6],'-');
   my($seqid, $gene, $prod) = ($x[0], $x[2], $x[2]);
+  my $score = defined $x[12]  ? $x[12] : '.';
 
   # check if hit makes sense to us
   exists $LENG{$gene} or err("Detected unknown gene '$gene' in scan, aborting.");
@@ -111,7 +116,7 @@ foreach (@hits) {
   my $tags = "Name=$gene;product=$prod";
   $tags .= ";note=$note" if $note;
   push @feat, [
-    $seqid, "$EXE:$VERSION", 'rRNA', $begin, $end, '.', $strand, '.', $tags,
+    $seqid, "$EXE:$VERSION", 'rRNA', $begin, $end, $score, $strand, '.', $tags,
   ];
 }
 
@@ -190,11 +195,13 @@ sub setOptions {
     {OPT=>"citation",VAR=>\&show_citation,     DESC=>"Print citation for referencing $EXE"},
     {OPT=>"kingdom=s", VAR=>\$kingdom,  DEFAULT=>'bac', 
        DESC=>"Kingdom: ".join(' ', values %KINGDOM) },
+    {OPT=>"gene=s", VAR=>\$rrnas,  DEFAULT=>'all', 
+       DESC=>"rRNA genes: ".join(' ', values %RRNA) },
     {OPT=>"quiet!",  VAR=>\$quiet, DEFAULT=>0, DESC=>"No screen output"},
     {OPT=>"threads=i",  VAR=>\$threads, DEFAULT=>8,  DESC=>"Number of threads/cores/CPUs to use"},
     {OPT=>"lencutoff=f",VAR=>\$lencutoff, DEFAULT=>0.8, DESC=>"Proportional length threshold to label as partial"},
     {OPT=>"reject=f",VAR=>\$reject, DEFAULT=>0.5, DESC=>"Proportional length threshold to reject prediction"},
-    {OPT=>"evalue=f",VAR=>\$evalue, DEFAULT=>1E-9, DESC=>"Similarity e-value cut-off"},
+    {OPT=>"evalue=f",VAR=>\$evalue, DEFAULT=>1E-6, DESC=>"Similarity e-value cut-off"},
     {OPT=>"incseq!",  VAR=>\$incseq, DEFAULT=>0, DESC=>"Include FASTA input sequences in GFF3 output"},
   );
 
