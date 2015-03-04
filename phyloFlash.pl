@@ -1,46 +1,132 @@
 #!/usr/bin/perl -w
-#
-#  phyloFlash - A script to rapidly estimate the phylogenetic composition of
-#  an illumina (meta)genomic dataset. 10Mio PE-reads are processed in <5min 
-#  on a normal desktop PC
-#
-#    Copyright (C) 2014- by Harald Gruber-Vodicka 
-#                    with help from Brandon Seah mail:hgruber@mpi-bremen.de
-#
-#  - Assumes the script is executed in a dir with write access and
-#  - Dependencies: bbmap, Emirge, vsearch, spades, sed, fastaFromBed
-#   
-#  a lot of this code could have been written in native perl, but due to 
-#  time constraints I have simply constructed a perl wrapper around my 
-#  commandline workflow. Feel free to optimize this code, any input 
-#  appreciated.
-#
-#  Thanks goes to Torsten Seeman for the code to have a CPUs switch and give
-#  some timing informations. The code snippets for this were initially 
-#  distributed in Prokka 1.7.1
-#
-#  LICENCE
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-#  Version 2.0
+=head1 NAME
+
+phyloFlash - A script to rapidly estimate the phylogenetic composition of
+             an illumina (meta)genomic dataset.
+
+
+=head1 SYNOPSIS
+
+B<phyloFlash.pl> -dbhome F<dir> -lib B<name> -read1 F<<file>> -read2 F<<file>>
+
+=head1 DESCRIPTION
+
+This tool rapidly approximates the phylogenetic composition of a
+(meta)genomic read set based on SSU mapping and reconstruction.
+Right now Illumina paired end or single HiSeq and MiSeq reads
+are supported.
+
+=head1 ARGUMENTS
+
+=over 15
+
+=item -lib I<name>
+
+Library I<name> to use for output file. The name must be one word comprising
+only letters, numbers and "_" or "-" (no whitespace or other punctuation).
+
+=item -read1 F<file>
+
+File containing forward reads. Both FASTA and FASTQ formats are understood.
+The file may be compressed (.gz).
+
+=item -read2 F<file>
+
+File containing reverse reads. If this option is omitted, B<phyloFlash>
+will run in B<experimental> single-end mode.
+
+=back
+
+=head1 OPTIONS
+
+=over 15
+
+=item -dbhome F<dir>
+
+Directory containing phyloFlash reference databases.
+Use F<phyloFlash_makedb.pl> to create an appropriate directory.
+
+=item -readlength I<N>
+
+Sets the expected readlength. Always use this if your read length
+differs from 100 (the default). Must be within 50..500.
+
+=item -CPUs I<N>
+
+Set the number of threads to use. Defaults to all available CPU cores.
+
+=item -readlimit I<N>
+
+Limits processing to the first I<N> reads in each input file. Use this
+for transcriptomes with a lot of rRNA reads (use values <1000000).
+Default: unlimited
+
+=item -id I<N>
+
+Minimum allowed identity for read mapping process in %. Must be within
+63..95. Set this to a lower value for very divergent taxa
+Default: 70
+
+=item -clusterid I<N>
+
+Identity threshold for clustering with vsearch in %.
+Must be within 50..100. Default: 97
+
+=item -maxinsert I<N>
+
+Maximum insert size allowed for paired end read mapping. Must be within
+0..1200. Default: 1200
+
+=item -html
+
+Also generate output in HTML format.
+
+=item -csv
+
+Also generate output in CVS format.
+
+=item -crlf
+
+Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
+
+=item -help
+
+Print brief help.
+
+=item -man
+
+Show manual.
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+                    with help from Brandon Seah mail:
+
+
+LICENCE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+=cut
 
 use strict;
 use warnings;
 
 use Time::Piece;
 use Time::Seconds;
+use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
@@ -114,61 +200,7 @@ my $prettytime;                 # Wall clock time of program run
 #------------------------------ subroutines
 
 #234567890123456789012345678901234567890123456789012345678901234567
-my $usage = qq~
-$version
 
-This tool rapidly approximates the phylogenetic composition of a 
-(meta)genomic read set based on SSU mapping and reconstruction.
-Right now Illumina paired end or single HiSeq and MiSeq reads 
-are supported. 
-
-Usage: 
-$0 <options> -lib libname -read1 forward_reads.fq(.gz) \\
-    -read2 reverse_reads.fq(.gz)
-
-Required arguments:
-  -lib   <file>  Library name to use for output files. Must not be longer
-                 than 8 characters and contain no whitespaces or any of
-                 '-:_'.
-  -read1 <file>
-  -read2 <file>  fastq files of reads, may be gzipped.
-                 If only one read file is provided, the experimental 
-                 single-end mode is used.
-
-Options:
-  -dbhome      /path/to/your/databases/
-
-  -readlength  Length of reads. Always set this when you have another
-               read length!
-               Default: $readlength.
-
-  -CPUs        Number of CPUs to use. 
-               Default: $cpus (all detected cpus)
-
-  -readlimit   Maximum number of reads to use. For transcriptomes 
-               with a lot of rRNA limit this to <1000000.
-               Defaullt: unlimited
-
-  -id          Minimum allowed identity for for read mapping process,
-               given in % [range 63 to 95]. Set this to a lower 
-               value for very divergent taxa
-               Default: $id
-
-  -clusterid   Identity threshold for clustering with vsearch in %.
-               Default: $clusterid
-
-  -maxinsert   Maximum insert size allowed for paired end read mapping
-               Default: $maxinsert
-
-  -html        Generate HTML-formatted reports and graphical plots.
-               (requires R and R package ape)
-
-  -csv         Generate CSV format output
-
-  -crlf        Use CRLF as CSV line terminator
-
-  -help        print this help;
-~;
 
 
 ###SUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINESSUBROUTINES###
@@ -270,51 +302,50 @@ sub run_prog {
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
-    my $help = undef;
+    print STDERR "This is $version\n";
 
-    print STDERR "\nThis is $version\n";
-    
     GetOptions('read1=s' => \$readsf,
-	       'read2=s' => \$readsr,
-	       'lib=s' => \$libraryNAME,
-	       'dbhome=s' => \$DBHOME,
-	       'readlength=i' => \$readlength,
-	       'readlimit=i' => \$readlimit,
-	       'maxinsert=i' => \$maxinsert,
-	       'id=i' => \$id,
-	       'clusterid=i' => \$clusterid,
-	       'CPUs=i' => \$cpus,
-	       'html' => \$html_flag,
-	       'csv' => \$csv_flag,
-	       'crlf' => \$crlf,
-	       'help'=> \$help) 
-	or die "Invalid command line options\n";
+               'read2=s' => \$readsr,
+               'lib=s' => \$libraryNAME,
+               'dbhome=s' => \$DBHOME,
+               'readlength=i' => \$readlength,
+               'readlimit=i' => \$readlimit,
+               'maxinsert=i' => \$maxinsert,
+               'id=i' => \$id,
+               'clusterid=i' => \$clusterid,
+               'CPUs=i' => \$cpus,
+               'html' => \$html_flag,
+               'csv' => \$csv_flag,
+               'crlf' => \$crlf,
+               'help' => sub { pod2usage(1) },
+               'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
+           )
+        or pod2usage(2);
 
-    die $usage if defined($help);
-    
     # check correct $libraryNAME
-    die "Please specify output file basename with -lib" 
-	if !defined($libraryNAME);
-    die "Argument to -lib may not be empty" 
-	if length($libraryNAME) == 0;
-    die "Argument to -lib may contain only alphanumeric characters, '_' and '-'." 
-	if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
+    pod2usage("Please specify output file basename with -lib")
+        if !defined($libraryNAME);
+    pod2usage("Argument to -lib may not be empty")
+        if length($libraryNAME) == 0;
+    pod2usage("Argument to -lib may contain only alphanumeric characters,"
+              ."'_' and '-'.")
+        if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
 
     msg("working on library $libraryNAME");
     
     # check correct read file(s)
-    die "Please specify input forward read file with -read1" 
-	if !defined($readsf);
-    die "Unable to open forward read file '$readsf'. ".
-	"Make sure the file exists and is readable by you." 
-	if ! -e $readsf;
+    pod2usage("Please specify input forward read file with -read1")
+        if !defined($readsf);
+    pod2usage("Unable to open forward read file '$readsf'. ".
+              "Make sure the file exists and is readable by you.")
+        if ! -e $readsf;
 
     if (defined($readsr)) {
-	die "Unable to open reverse read file '$readsr'.".
-	    "Make sure the file exists and is readable by you." 
-	    if ! -e $readsr;
-	die "Forward and reverse input read file need to be different"
-	    if ($readsr eq $readsf);
+        pod2usage("Unable to open reverse read file '$readsr'.".
+                  "Make sure the file exists and is readable by you.")
+            if ! -e $readsr;
+        pod2usage("Forward and reverse input read file need to be different")
+            if ($readsr eq $readsf);
     } else {
 	$SEmode = 1; # no reverse reads, we operate in single ended mode
 	$readsr = "<NONE>";
@@ -333,14 +364,14 @@ sub parse_cmdline {
     msg("Using dbhome '$DBHOME'");
 
     # check lengths
-    die "Readlength must be between 50 and 500" 
-	if ($readlength < 50 or $readlength > 500);
-    die "Maxinsert must be smaller than 1200" 
-	if ($maxinsert > 1200);
-    die "Readmapping identity (-id) must be between 63 and 95" 
-	if ($id < 63 or $id > 95);
-    die "Clustering identidy (-clustid) must be between 50 and 100"
-	if ($clusterid < 50 or $clusterid > 100);
+    pod2usage("Readlength must be within 50...500")
+        if ($readlength < 50 or $readlength > 500);
+    pod2usage("Maxinsert must be within 0..1200")
+        if ($maxinsert < 0 or $maxinsert > 1200);
+    pod2usage("Readmapping identity (-id) must be within 63..95")
+        if ($id < 63 or $id > 95);
+    pod2usage("Clustering identidy (-clusterid) must be within 50..100")
+        if ($clusterid < 50 or $clusterid > 100);
 
     $crlf = $crlf ? "\r\n":"\n";
 
