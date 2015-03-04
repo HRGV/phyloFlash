@@ -72,7 +72,7 @@ GetOptions();
 
 # binaries needed by phyloFlash
 require_tools((
-    barrnapHGV => "./barrnap-HGV/bin/barrnap_HGV",
+    barrnapHGV => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
     grep => "grep",
     bbmask => "bbmask.sh",
     bbduk => "bbduk.sh",
@@ -163,10 +163,12 @@ sub find_LSU {
     foreach ('bac', 'arch', 'euk') {
         my $log = "tmp.barrnap_hits.$_.barrnap.out";
         my $res = "tmp.barrnap_hits.$_.gff";
-        1 or run_prog("barrnapHGV",
+        #1 or run_prog("barrnapHGV",
+        run_prog("barrnapHGV",
                  "  --kingdom $_ "
                  . "--threads $PhyloFlash::cpucount"
                  . "--evalue 1e-50 "
+                 . " --gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
                  $res, $log);
