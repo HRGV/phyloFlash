@@ -181,7 +181,7 @@ my $crlf        = 0;            # csv line terminator
                                 # (0 will be turned into "\n" in parsecmdline)
 
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
-my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed.NR96";
+my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
 my $ins_used = "SE mode!";
 
