@@ -1,33 +1,27 @@
-#  PhyloFlash.pm
-#
-#  Copyright (C) 2015- Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-#                      Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-#
-#  LICENCE
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.
-#  If not, see <http://www.gnu.org/licenses/>.
-#
-#
-#  This file contains helper functions shared by the phyloFlash scripts
-#
-
+use strict;
+# see bottom of file for copyright & license
 
 package PhyloFlash;
-use strict;
 use Exporter qw(import);
 use Time::Piece;
+
+=head1 NAME
+
+PhyloFlash Perl module - functions for phyloFlash
+
+=head1 SYNOPSIS
+
+   use PhyloFlash;
+
+=head1 DESCRIPTION
+
+This module contains helper functions shared by the phyloFlash scripts.
+
+=head2 FUNCTIONS
+
+=over
+
+=cut
 
 our $VERSION     = 2.00;
 our @ISA         = qw(Exporter);
@@ -48,20 +42,35 @@ our @EXPORT      = qw(
 
 use IPC::Cmd qw(can_run);
 
+=item get_cpus ()
+
+Returns the number of CPUs as listed in F</proc/cpuinfo>
+
+=cut
 sub get_cpus {
     my $cpus = `grep -c -P '^processor\\s+:' /proc/cpuinfo`;
     chomp($cpus);
     return $cpus;
 }
 
-# log a message to STDERR with time stamp prefix
+
+=item msg ($msg)
+
+Logs a message to STDERR with time stamp prefix.
+
+=cut
 sub msg {
   my $t = localtime;
   my $line = "[".$t->hms."] @_\n";
   print STDERR $line;
 }
 
-# check of arg1 was modified more recently than arg2
+=item file_is_newer ($file1, $file2)
+
+Compares the time stamps of two files. Returns true if file1
+is newer than file2.
+
+=cut
 sub file_is_newer {
     my $file1 = shift;
     my $file2 = shift;
@@ -69,8 +78,12 @@ sub file_is_newer {
     return (stat($file1))[9] > (stat($file2))[9];
 }
 
-# open a filehandle
-# dies with message on error
+=item open_or_die (\$fh, $mode, $filename)
+
+Opens a file handle and terminates with an error if the
+open failed. $fh must be passed as reference!
+
+=cut
 sub open_or_die {
     my ($fh, $mode, $fname) = @_;
     my $msg;
@@ -89,7 +102,11 @@ sub open_or_die {
         or die "Failed to $msg '$fname': $!";
 }
 
-# escape array or scalar for CSV output
+=item csv_escape ($var)
+
+Escapes data for CSV output according to RFC4180.
+
+=cut
 sub csv_escape {
     return unless defined wantarray;
 
@@ -110,13 +127,28 @@ my %progs = (
     vsearch => "vsearch"
     );
 
-# add a hash of tools
+=item require_tools (%hash)
+
+Adds tools to the list of required tools. Argument must be
+a hash. Use like so:
+
+  require_tools(("tool" => "mytool.pl"))
+
+=cut
 sub require_tools {
     my %arg = @_;
     %progs = (%progs, %arg);
 }
 
-# verify that all required tools are available and locate their paths
+=item check_environment ()
+
+Verifies availability of all tools requested using require_tools().
+
+The required tools are located using can_run and the paths determined
+printed using msg(). If any of the tools are missing, this function
+will abort, asking the user to fix the prerequisites.
+
+=cut
 sub check_environment {
     my $error = 0;
     msg("Checking for required tools.");
@@ -139,13 +171,32 @@ sub check_environment {
     }
 }
 
-# run a tool
-#   prog:         the name of the tool (see %progs at the top)
-#   args:         command line arguments to be passed
-#   redir_stdout: file or file descriptor to redirect stdout to
-#   redir_stdin:  same for stderr
-#
-# does not return if the tool failed
+=item run_prog ($progname, $args, $redir_stdout, $redir_sterr)
+
+Runs a tool by the name given in require_tools.
+Aborts the script if the tool returned with an error code.
+
+=over 15
+
+=item $progname
+
+the name of the tool
+
+=item $args
+
+command line arguments to be passed
+
+=item $redir_stdout
+
+file or file descriptor to redirect stdout to
+
+=item $redir_stdin
+
+same for stderr
+
+=back
+
+=cut
 sub run_prog {
     my ($prog, $args, $redir_stdout, $redir_stderr) = @_;
 
@@ -164,9 +215,11 @@ sub run_prog {
     # FIXME: print tail of stderr if redirected
 }
 
-# compute md5 sum on local file
-# @parm   file: path to name of file
-# @return       md5 sum as hex
+=item file_md5 ($filename)
+
+Computes the (hex coded) MD5 sum for the contents of a local file ($filename).
+
+=cut
 sub file_md5 {
     my $file = shift;
     my $fh;
@@ -178,10 +231,14 @@ sub file_md5 {
     return $ctx->hexdigest;
 }
 
-# fetch file from ftp into string
-# @parm   ftp: Net:FTP object
-# @parm   pat: string pattern in current path
-# @return      content of file as string
+=item ftp_read_var ($ftp, $pattern)
+
+Fetches the contents of a file from FTP. $ftp must be a connected
+Net::FTP object and $pattern a file pattern relative to the
+current path of $ftp. If the file exists, the contents are returned. 
+Otherwise returns an empty string
+
+=cut
 sub ftp_read_var {
     my $ftp = shift;
     my $pat = shift;
@@ -201,17 +258,36 @@ sub ftp_read_var {
 }
 
 
-# download a file from FTP
-#
-# Existing file is overwritten if
-#  - byte sizes do not match
-#  - *.md5 exists on server and md5 does not match
-#
-# Shows license promit if LICENSE.txt exists on server
-#
-# @param path: "ftp.somedomain.tld/some/dirs/pa.*ttern"
-# @return      filename downloaded into CWD
-#
+=item file_download ($path)
+
+Downloads a file from a FTP server.
+
+$path should be of the form "ftp.somedomain.tld/some/dirs/pa.*ttern".
+
+Returns the name of the downloaded file.
+
+=over 3
+
+=item -
+
+Compares byte sizes before and after download.
+
+=item -
+
+Compares MD5 sum if <file>.md5 exists on server.
+
+=item -
+
+File download is skipped if both size and MD5 (if exists) are correct
+
+=item -
+
+Asks user to confirm license if the directory containing the target
+file also contains a file named LICENSE.txt.
+
+=back
+
+=cut
 sub file_download {
     my ($server,$path,$pat) = ($_[0] =~ /([^\/]*)(\/.*\/)([^\/]*)/);
 
@@ -321,10 +397,12 @@ sub file_download {
     die;
 }
 
-# copies a FASTA file filtering out some sequences
-# @param source: source file
-# @param dest:   destination file
-# @param accs:   accessions to be excluded
+=item fasta_copy_except ($source, $dest, @accs)
+
+Extracts all but the sequences listed in @accs from FASTA file
+$source into FASTA file $dest.
+
+=cut
 sub fasta_copy_except {
     my ($source, $dest, @accs) = @_;
     my $sfh;
@@ -344,10 +422,12 @@ sub fasta_copy_except {
     }
 }
 
-# create non-redundant DB using vsearch cluster_fast
-# @param src: source FASTA
-# @param dst: destination FASTA
-# @param id:  identity threshold for clustering
+=item cluster ($source, $dest, $id) 
+
+Runs vsearch's cluster_fast algorithm to extract centroids
+from $source into $dest at a cluster size of $id.
+
+=cut
 sub cluster {
     my ($src, $dst, $id) = @_;
     msg("clustering database");
@@ -373,11 +453,33 @@ my %IUPAC_DECODE = (
     "V" => "ACG",
     "N" => "ACTG");
 
-# normalize FASTA
-# - remove alignment characters "." and ","
-# - uppercase
-# - DNAify (U->T)
-# - replace IUPAC coded ambiguous bases with random matching base
+
+=item fasta_copy_iupac_randomize ($source, $dest)
+
+Creates a normalized FASTA file $dest from FASTA file $source.
+
+=over 3
+
+=item -
+
+removes alignment characters ("." and "-")
+
+=item -
+
+uppercases all bases
+
+=item -
+
+turns RNA into DNA (U->T)
+
+=item -
+
+replaces echo IUPAC coded ambiguous base with a base randomly chosen
+from the set of options (i.e. replaces B with C, T or G).
+
+=back
+
+=cut
 sub fasta_copy_iupac_randomize {
     my ($infile, $outfile) = @_;
     my ($ifh, $ofh);
@@ -412,22 +514,29 @@ sub fasta_copy_iupac_randomize {
     }
 }
 
-sub run_stage {
-    my %opts = @_;
-}
-
-
 {
     package Timer;
     use strict;
     use Time::Piece;
     use Time::Seconds;
+
+=item Timer->new ()
+
+starts a new timer
+
+=cut
     sub new {
         my ($class) = @_;
         my $self = bless {}, $class;
         $self->{time} = localtime;
         return $self;
     }
+
+=item Timer->minutes ()
+
+returns the runtime of the timer in minuts
+
+=cut
     sub minutes {
         my ($self) = @_;
         my $endtime = localtime;
@@ -436,5 +545,27 @@ sub run_stage {
     }
 }
 
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2015 Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                   Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+
+LICENCE
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.
+If not, see L<http://www.gnu.org/licenses/>.
+=cut
 
 1; # keep require happy
