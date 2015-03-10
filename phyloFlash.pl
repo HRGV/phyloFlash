@@ -81,10 +81,6 @@ Maximum insert size allowed for paired end read mapping. Must be within
 
 Also generate output in HTML format.
 
-=item -csv
-
-Also generate output in CVS format.
-
 =item -crlf
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
@@ -176,7 +172,6 @@ my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
-my $csv_flag    = 0;            # generate CSV output?
 my $crlf        = 0;            # csv line terminator
                                 # (0 will be turned into "\n" in parsecmdline)
 
@@ -222,7 +217,6 @@ sub parse_cmdline {
                'clusterid=i' => \$clusterid,
                'CPUs=i' => \$cpus,
                'html' => \$html_flag,
-               'csv' => \$csv_flag,
                'crlf' => \$crlf,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -1272,7 +1266,7 @@ mafft_run();
 $runtime = $timer->minutes;
 
 print_report();
-write_csv()         if ($csv_flag);
+write_csv();
 run_plotscript()    if ($html_flag);
 write_report_html() if ($html_flag);
 
