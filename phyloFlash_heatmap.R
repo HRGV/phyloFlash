@@ -23,15 +23,19 @@
 #  along with this program.
 #  If not, see <http://www.gnu.org/licenses/>.
 
-library(methods);
-library(grid);
-library(ggplot2);
-library(reshape2);
-library(ggdendro);
-library(gtable);
 library(optparse);
 
-NtuMinObserved <- 50;
+load_libraries <- function() {
+    library(methods);
+    library(grid);
+    library(ggplot2);
+    library(reshape2);
+    library(ggdendro);
+    library(gtable);
+}
+
+
+
 defaultColorScheme <- c("#313695", "#4575B4", "#74ADD1", "#ABD9E9",
                         "#E0F3F8", "#FFFFBF", "#FEE090", "#FDAE61",
                         "#F46D43", "#D73027", "#A50026");
@@ -381,7 +385,8 @@ Files:
     } else if (conf$options$verbose) {
         pf_setLogLevel(3);
     }
-    
+
+    load_libraries();
 
     pdata <- read.phyloFlash(conf$args);
     pdata <- shorten_taxnames(pdata);
@@ -419,4 +424,6 @@ Files:
 # if we are run as a script from the cmdline
 if (!interactive()) {
     pF_main();
-} 
+} else {
+    load_libraries();
+}
