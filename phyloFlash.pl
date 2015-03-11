@@ -908,6 +908,17 @@ sub mafft_run {
     msg("done...");
 }
 
+
+
+sub clean_up {
+    # cleanup of intermediate files and folders
+    msg("cleaning temp files...");
+    system ("rm ./$libraryNAME.spades -r");
+    system ("rm ./$libraryNAME -r");
+    system ("rm tmp.* -r");
+    msg("done...");
+}
+
 sub run_plotscript {
     msg("generating histogram and tree graphics");
 
@@ -1269,19 +1280,14 @@ vsearch_parse();
 vsearch_cluster();
 mafft_run();
 
+
 $runtime = $timer->minutes;
 
 print_report();
 write_csv()         if ($csv_flag);
 run_plotscript()    if ($html_flag);
 write_report_html() if ($html_flag);
-
-
-# cleanup of intermediate files
-#msg("cleaning temp files...");
-#system ("rm ./$libraryNAME.spades -r");
-#system ("rm ./$libraryNAME -r");
-#system ("rm tmp.* -r");
+clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
