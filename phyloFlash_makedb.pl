@@ -124,7 +124,7 @@ univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
 
 
-# the cleaned, masked and trimmed databases are clustered
+#the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
 # 2) at 96id for emirge
 
@@ -138,7 +138,7 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
 
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
+             "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
 
@@ -168,7 +168,7 @@ sub find_LSU {
         run_prog("barrnapHGV",
                  "  --kingdom $_ "
                  . "--threads $cpus "
-                 . "--evalue 1e-50 "
+                 . "--evalue 1e-10 "
                  . " --gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
