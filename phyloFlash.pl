@@ -89,6 +89,14 @@ Also generate output in CVS format.
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 
+=item -skip_emirge
+
+Turn off EMIRGE reconstruction of SSU sequences
+
+=item -skip_spades
+
+Turn off SPAdes assembly of SSU sequences
+
 =item -help
 
 Print brief help.
@@ -140,24 +148,6 @@ use FindBin;
 
 my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db dir release version 119
 
-# binaries needed by phyloFlash
-require_tools((
-    bbmap => "bbmap.sh",
-    spades => "spades.py",
-    barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
-    emirge => "emirge.py",
-    emirge_amp => "emirge_amplicon.py",
-    emirge_rename_fasta => "emirge_rename_fasta.py",
-    vsearch => "vsearch",
-    mafft => "mafft",
-    fastaFromBed => "fastaFromBed",
-    sed => "sed",
-    grep => "grep",
-    awk => "awk",
-    cat => "cat",
-    plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
-    ));
-
 # constants
 my $version       = 'phyloFlash v2.0';
 my $progname      = $FindBin::Script;
@@ -178,6 +168,10 @@ my $clusterid   = 97;           # threshold for vsearch clustering
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $csv_flag    = 0;            # generate CSV output?
 my $crlf        = 0;            # csv line terminator
+my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
+my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
+my $check_env = 0;              # Check environment (runs check_environment subroutine only)
+my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
@@ -207,6 +201,49 @@ sub welcome {
   print STDERR "\nThis is $version\n\n";
 }
 
+# Specify list of required tools. Run this subroutine AFTER parse_cmdline()
+sub process_required_tools {
+  # binaries needed by phyloFlash
+  @tools_list = (
+    bbmap => "bbmap.sh",
+    barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
+    vsearch => "vsearch",
+    mafft => "mafft",
+    fastaFromBed => "fastaFromBed",
+    sed => "sed",
+    grep => "grep",
+    awk => "awk",
+    cat => "cat",
+    plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
+    );
+  if ($skip_spades == 0) {
+    @tools_list = (@tools_list,
+                    spades => "spades.py");
+  }
+  if ($skip_emirge == 0) {
+    @tools_list = (@tools_list,
+                    emirge => "emirge.py",
+                    emirge_amp => "emirge_amplicon.py",
+                    emirge_rename_fasta => "emirge_rename_fasta.py");
+  }
+  require_tools(@tools_list);
+  #require_tools((
+  #  bbmap => "bbmap.sh",
+  #  spades => "spades.py",
+  #  barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
+  #  emirge => "emirge.py",
+  #  emirge_amp => "emirge_amplicon.py",
+  #  emirge_rename_fasta => "emirge_rename_fasta.py",
+  #  vsearch => "vsearch",
+  #  mafft => "mafft",
+  #  fastaFromBed => "fastaFromBed",
+  #  sed => "sed",
+  #  grep => "grep",
+  #  awk => "awk",
+  #  cat => "cat",
+  #  plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
+  #  ));  
+}
 
 # parse arguments passed on commandline and do some
 # sanity checks
@@ -224,12 +261,20 @@ sub parse_cmdline {
                'html' => \$html_flag,
                'csv' => \$csv_flag,
                'crlf' => \$crlf,
+               'skip_emirge' => \$skip_emirge,
+               'skip_spades' => \$skip_spades,
+               'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
         or pod2usage(2);
 
     # check correct $libraryNAME
+    if ($check_env == 1) {
+      process_required_tools();
+      check_environment();
+      exit;
+    }
     pod2usage("Please specify output file basename with -lib")
         if !defined($libraryNAME);
     pod2usage("Argument to -lib may not be empty")
@@ -297,7 +342,6 @@ sub parse_cmdline {
     }
 }
 
-
 sub print_report {
     ## Write plaintext report file
 
@@ -357,23 +401,27 @@ NTU\treads
         print {$fh} join("\t",@$taxonshortstring)."\n";
     }
 
-    ## Print the table of SSU assembly-based taxa to report file
-    print {$fh} "---\n";
-    print {$fh} "SSU assembly based taxa:\n";
-    print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-
-    foreach my $arr (@ssuassem_results_sorted) {
-        print {$fh} join("\t",  @$arr)."\n";
+    if ($skip_spades == 0) {
+      ## Print the table of SSU assembly-based taxa to report file
+      print {$fh} "---\n";
+      print {$fh} "SSU assembly based taxa:\n";
+      print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+  
+      foreach my $arr (@ssuassem_results_sorted) {
+          print {$fh} join("\t",  @$arr)."\n";
+      }
     }
-
-    ## Print the table of SSU reconstruction-based taxa to report file
-    print {$fh} "---\n";
-    print {$fh} "SSU reconstruction based taxa:\n";
-    print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-    foreach my $arr (@ssurecon_results_sorted) {
-        print {$fh} join("\t", @$arr)."\n";
+    
+    if ($skip_emirge == 0) {
+      ## Print the table of SSU reconstruction-based taxa to report file
+      print {$fh} "---\n";
+      print {$fh} "SSU reconstruction based taxa:\n";
+      print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+      foreach my $arr (@ssurecon_results_sorted) {
+          print {$fh} join("\t", @$arr)."\n";
+      }
     }
-
+    
     close($fh);
 }
 
@@ -415,15 +463,21 @@ sub write_csv {
     }
     close($fh);
 
-    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
-    print $fh "OTU,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
-    foreach my $arr (@ssuassem_results_sorted) {
-        print {$fh} join(",",csv_escape(@$arr)).$crlf;
+    if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
+      open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
+      print $fh "OTU,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
+      if ($skip_spades == 0) {
+        foreach my $arr (@ssuassem_results_sorted) {
+            print {$fh} join(",",csv_escape(@$arr)).$crlf;
+        }
+      }
+      if ($skip_emirge == 0) {
+        foreach my $arr (@ssurecon_results_sorted) {
+            print {$fh} join(",",csv_escape(@$arr)).$crlf;
+        }
+      }
+      close($fh);
     }
-    foreach my $arr (@ssurecon_results_sorted) {
-        print {$fh} join(",",csv_escape(@$arr)).$crlf;
-    }
-    close($fh);
 }
 
 
@@ -809,12 +863,23 @@ sub vsearch_best_match {
 
     # join emirge and spades hits into one file
     # (vsearch takes a while to load, one run saves us time)
-
-    run_prog("cat",
+    if ($skip_spades == 1 && $skip_emirge == 0) {
+      run_prog("cat",
+               "   $libraryNAME.emirge.final.fasta",
+               "$libraryNAME.all.final.fasta");
+    }
+    elsif ($skip_emirge == 1 && $skip_spades == 0){
+      run_prog("cat",
+               "   $libraryNAME.spades_rRNAs.final.fasta",
+               "$libraryNAME.all.final.fasta");
+    }
+    elsif ($skip_emirge == 0 && $skip_spades == 0){
+      run_prog("cat",
              "   $libraryNAME.emirge.final.fasta"
              . " $libraryNAME.spades_rRNAs.final.fasta",
              "$libraryNAME.all.final.fasta");
-
+    }
+    
     run_prog("vsearch",
              "-usearch_global $libraryNAME.all.final.fasta "
              . "-db ${DBHOME}/${vsearch_db}.fasta "
@@ -870,7 +935,6 @@ sub vsearch_parse {
     msg("done...");
 }
 
-
 sub vsearch_cluster {
     my $clusterid = 97;
     msg("clustering DB matches at $clusterid%");
@@ -888,11 +952,32 @@ sub vsearch_cluster {
 sub mafft_run {
     msg("creating alignment and tree...");
 
-    run_prog("cat",
+    if ($skip_spades == 0 && $skip_emirge == 1) {
+          run_prog("cat",
              "$libraryNAME.all.dbhits.NR97.fa "
-             . "$libraryNAME.spades_rRNAs.final.fasta "
+             . "$libraryNAME.spades_rRNAs.final.fasta ",
+#             . "$libraryNAME.emirge.final.fasta ",
+             "$libraryNAME.SSU.collection.fasta");
+
+    }
+    
+    elsif ($skip_spades == 1 && $skip_emirge == 0) {
+          run_prog("cat",
+             "$libraryNAME.all.dbhits.NR97.fa "
+             #. "$libraryNAME.spades_rRNAs.final.fasta "
              . "$libraryNAME.emirge.final.fasta ",
              "$libraryNAME.SSU.collection.fasta");
+
+    }
+    
+    elsif ($skip_spades == 0 && $skip_emirge == 0) {
+      run_prog("cat",
+               "$libraryNAME.all.dbhits.NR97.fa "
+               . "$libraryNAME.spades_rRNAs.final.fasta "
+               . "$libraryNAME.emirge.final.fasta ",
+               "$libraryNAME.SSU.collection.fasta");
+      
+    }
 
     run_prog("mafft",
              "--treeout $libraryNAME.SSU.collection.fasta ",
@@ -908,8 +993,6 @@ sub mafft_run {
     msg("done...");
 }
 
-
-
 sub clean_up {
     # cleanup of intermediate files and folders
     msg("cleaning temp files...");
@@ -923,12 +1006,20 @@ sub run_plotscript {
     msg("generating histogram and tree graphics");
 
     #FIXME: crashes if .inserthistorgram contains no lines
-
-    run_prog("plotscript",
-             "--args $libraryNAME.SSU.collection.fasta.tree "
+    if ($skip_spades + $skip_emirge == 2) {
+          run_prog("plotscript",
+             "--args NULL "
              . "$libraryNAME.inserthistogram ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
+    }
+    else {
+      run_prog("plotscript",
+               "--args $libraryNAME.SSU.collection.fasta.tree "
+               . "$libraryNAME.inserthistogram ",
+               "tmp.$libraryNAME.plotscript.out",
+               "&1");
+    }
 }
 
 sub write_report_html {
@@ -998,7 +1089,11 @@ print {$fh} <<ENDHTML;
 </head>
 <body>
 
-<h3>phyloFlash v1.5 by <a href="mailto:hgruber\@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+<h3>
+ENDHTML
+print {$fh} $version; # Print phyloFlash name and version number
+print {$fh} <<ENDHTML;
+ by <a href="mailto:hgruber\@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
 ENDHTML
 
 print {$fh} "<h1>Library name: ".$libraryNAME."</h1>\n";
@@ -1080,9 +1175,13 @@ print {$fh} <<ENDHTML;
     <th>Detected median insert size</th>
 ENDHTML
 
-print {$fh} "    <td>".$ins_used."</td>\n";
+print {$fh} "    <td>".$ins_me."</td>\n";
 print {$fh} <<ENDHTML;
   </tr>
+ENDHTML
+
+if ($skip_emirge == 0) {
+print {$fh} <<ENDHTML;
   <tr>
     <th>Used insert size</th>
 ENDHTML
@@ -1090,6 +1189,10 @@ ENDHTML
 print {$fh} "     <td>".$ins_used."</td>\n";
 print {$fh} <<ENDHTML;
   </tr>
+ENDHTML
+}
+
+print {$fh} <<ENDHTML;
   <tr>
     <th>Insert size standard deviation</th>
 ENDHTML
@@ -1132,6 +1235,8 @@ print {$fh} "    <th>Insert size histogram (graphics)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".inserthistogram.png or .pdf</td>\n";
 print {$fh} "  </tr>\n";
 
+if ($skip_spades + $skip_emirge < 2) {
+
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Tree of recovered SSU sequences (Newick)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree</td>\n";
@@ -1141,6 +1246,8 @@ print {$fh} "  <tr>\n";
 print {$fh} "    <th>Tree of recovered SSU sequences (graphics)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree.png or .pdf</td>\n";
 print {$fh} "  </tr>\n";
+
+}
 
 print {$fh} <<ENDHTML;
 </table>
@@ -1172,6 +1279,7 @@ print {$fh} <<ENDHTML;
 </div>
 ENDHTML
 
+if ($skip_spades == 0) {
 ## write list of assembled SSU sequences
 print {$fh} <<ENDHTML;
 <h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
@@ -1203,7 +1311,9 @@ foreach (@ssuassem_results_sorted) {
     print {$fh} "    <td>".$split_entry[6]."</td>\n";
     print {$fh} "  </tr>\n";
 }
+}
 
+if ($skip_emirge == 0) {
 ## write list of reconstructed SSU sequences
 print {$fh} <<ENDHTML;
 </table>
@@ -1238,7 +1348,9 @@ foreach (@ssurecon_results_sorted) {
     print {$fh} "    <td>".$split_entry[6]."</td>\n";
     print {$fh} "  </tr>\n";
 }
+}
 
+if ($skip_spades + $skip_emirge < 2) {
 print {$fh} <<ENDHTML;
 </table>
 </div>
@@ -1248,6 +1360,7 @@ ENDHTML
 
 print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.png\" />\n";
 print {$fh} "<p><a href=\"".$libraryNAME.".SSU.collection.fasta.tree.pdf\">PDF version</a></p>\n";
+}
 
 print {$fh} <<ENDHTML;
 </div>
@@ -1262,24 +1375,29 @@ close($fh);
 
 ######################### MAIN ###########################
 welcome();
-check_environment();
 parse_cmdline();
-
+process_required_tools();
+check_environment();
 
 my $timer = new Timer;
 
 bbmap_fast_filter_run();
 bbmap_fast_filter_parse();
 bbmap_hitstats_parse();
-spades_run();
-spades_parse();
-emirge_run();
-emirge_parse();
-vsearch_best_match();
-vsearch_parse();
-vsearch_cluster();
-mafft_run();
-
+if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
+  spades_run();
+  spades_parse();
+}
+if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
+  emirge_run();
+  emirge_parse();
+}
+if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
+  vsearch_best_match();
+  vsearch_parse();
+  vsearch_cluster();
+  mafft_run();
+}
 
 $runtime = $timer->minutes;
 
@@ -1293,4 +1411,3 @@ msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
-
