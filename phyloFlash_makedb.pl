@@ -203,6 +203,8 @@ sub univec_trim {
     msg("removing UniVec contamination in SSU RefNR");
     run_prog("bbduk",
              "ref=$univec "
+             . "  overwrite=t "
+             . "-Xmx4g "
              . "fastawrap=0 "
              . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
              . "in=$src "
