@@ -678,7 +678,7 @@ sub spades_run {
     }
 
     run_prog("spades",
-             "-o $libraryNAME.spades -t $cpus -m 12 -k $kmer "
+             "-o $libraryNAME.spades -t $cpus -m 20 -k $kmer "
              . $args,
              "$libraryNAME.spades.out","&1"
          );
