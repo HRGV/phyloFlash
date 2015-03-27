@@ -76,8 +76,8 @@ and the NCBI Univec database, you can supply the paths:
 
 By default, ```phyloFlash.pl``` will look for a directory named "119" 
 (the most recent SILVA release as of March 2015). You can change this
-by passing the "-dbhome <dir>" switch to phyloFlash.pl or 
-by modifying the "DBHOME" variable in phyloFlash.pl 
+by passing the ```-dbhome <dir>``` switch to phyloFlash.pl or 
+by modifying the ```DBHOME``` variable in phyloFlash.pl 
 
 Synopsis
 --------
