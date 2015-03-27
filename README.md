@@ -59,13 +59,20 @@ Preparing the Reference Database
 To create a suitable database, just run
 
 ```bash
-./phyloFlash_makedb.pl
+./phyloFlash_makedb.pl --remote
 ```
 
 in the directory where you unpacked *phyloFlash*. The script will download
 the most current source databases and prepare the files required by ```phyloFlash.pl```.
 
 > NOTE: This currently only works if you are not behind a proxy
+
+If you have a local copy of the SILVA SSU NR99 database (Fasta format) 
+and the NCBI Univec database, you can supply the paths:
+
+```bash
+./phyloFlash_makedb.pl --univec_file /path/to/univec --silva_file /path/to/silva_db
+```
 
 By default, ```phyloFlash.pl``` will look for a directory named "119" 
 (the most recent SILVA release as of March 2015). You can change this
