@@ -7,7 +7,13 @@ phyloFlash_makedb.pl - prepares the phyloFlash dbdir
 
 =head1 SYNOPSIS
 
-phyloFlash_makedb.pl
+### download databases via FTP
+
+phyloFlash_makedb.pl --remote
+
+### use local copies
+
+phyloFlash makedb.pl --silva_file F<path/to/silva_db> --univec_file F<path/to/univec_db> 
 
 =head1 DESCRIPTION
 
@@ -26,6 +32,22 @@ Dependencies: wget, vsearch, bbmap and Emirge
 This script generates approx. 5Gbytes of extracted databases
 
 =back
+
+=head1 ARGUMENTS
+
+=over 3
+
+=item --remote
+
+Download databases via FTP
+
+=item --silva_file F<path/to/silva_db>
+
+Path to local copy of SILVA database file. Ignored if --remote flag is used.
+
+=item --univec_file F<path/to/univec_db>
+
+Path to local copy of Univec database file. Ignored if --remote flag is used.
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -50,6 +72,7 @@ use strict;
 use FindBin;
 use lib $FindBin::Bin;
 use PhyloFlash;
+use Pod::Usage;
 use Getopt::Long;
 use Net::FTP;
 use Digest::MD5;
@@ -63,13 +86,27 @@ my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 
 # constants
 my $dbsource;
+my $silva_file = "";
+my $univec_file = "";
 my $cwd = getcwd;
 my $timer = new Timer;
-my $cpus        = get_cpus      # num cpus to use
+my $cpus = get_cpus      # num cpus to use
+
+# commandline arguments
+my $use_remote = 0;     # Download SILVA and Univec databases via FTP
 
 # parse cmdline
 
-GetOptions();
+GetOptions("remote|r" => \$use_remote,
+           "silva_file=s" => \$silva_file,
+           "univec_file=s" => \$univec_file,
+           "CPUs=i" => \$cpus,  # override default CPU usage if necessary
+           "help|h" => sub{pod2usage(0)})
+or pod2usage(2);
+
+if ($use_remote==0 && ($silva_file eq "" | $univec_file eq "")) {
+    pod2usage("Please specify paths to local copies of SILVA and Univec databases.");
+}
 
 # binaries needed by phyloFlash
 require_tools((
@@ -85,15 +122,24 @@ check_environment();
 
 ### MAIN ###
 
-#run_stage(msg => "downloading lastest UniVec DB from NCBI",
+if ($use_remote==1 && $univec_file eq "") {
+    #run_stage(msg => "downloading lastest UniVec DB from NCBI",
+    msg("downloading latest univec from ncbi");
+    $univec_file = file_download($univec_url);
+    #my $univec_file = "UniVec";
+}
+elsif ($use_remote==0 && $univec_file ne "") {
+    msg("using local copy of univec: $univec_file");
+}
 
-msg("downloading latest univec from ncbi");
-my $univec_file = file_download($univec_url);
-#my $univec_file = "UniVec";
-
-msg("downloading latest SSU RefNR from www.arb-silva.de");
-my $silva_file  = file_download($silva_url);
-#my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+if ($use_remote==1 && $silva_file eq "") {
+    msg("downloading latest SSU RefNR from www.arb-silva.de");
+    $silva_file  = file_download($silva_url);
+    #my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+}
+elsif ($use_remote==0 && $silva_file ne "") {
+    msg("using local copy of Silva SSU RefNR: $silva_file");
+}
 
 # extract SILVA version
 my ($silva_release) = ($silva_file =~ m/SILVA_(\d+)_/);
@@ -124,7 +170,7 @@ univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
 
 
-# the cleaned, masked and trimmed databases are clustered
+#the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
 # 2) at 96id for emirge
 
@@ -138,7 +184,7 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
 
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
+             "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
 
@@ -168,7 +214,7 @@ sub find_LSU {
         run_prog("barrnapHGV",
                  "  --kingdom $_ "
                  . "--threads $cpus "
-                 . "--evalue 1e-50 "
+                 . "--evalue 1e-10 "
                  . " --gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
@@ -203,6 +249,8 @@ sub univec_trim {
     msg("removing UniVec contamination in SSU RefNR");
     run_prog("bbduk",
              "ref=$univec "
+             . "  overwrite=t "
+             . "-Xmx4g "
              . "fastawrap=0 "
              . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
              . "in=$src "

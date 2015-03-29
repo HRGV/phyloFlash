@@ -46,11 +46,11 @@ Python installed. (OSX is for the brave, we have not tested this!)
 
  These tools need to be "in your $PATH" so that *phyloFlash* can find
  them. To see whether all required tools are available, just run
- *phyloFlash* without arguments:
+ *phyloFlash* with the option ```check_env```:
 
  ```bash
  cd phyloFlash-2.0
- ./phyloFlash.pl
+ ./phyloFlash.pl -check_env
  ```
 
 Preparing the Reference Database
@@ -59,13 +59,20 @@ Preparing the Reference Database
 To create a suitable database, just run
 
 ```bash
-./phyloFlash_makedb.pl
+./phyloFlash_makedb.pl --remote
 ```
 
 in the directory where you unpacked *phyloFlash*. The script will download
 the most current source databases and prepare the files required by ```phyloFlash.pl```.
 
 > NOTE: This currently only works if you are not behind a proxy
+
+If you have a local copy of the SILVA SSU NR99 database (Fasta format) 
+and the NCBI Univec database, you can supply the paths:
+
+```bash
+./phyloFlash_makedb.pl --univec_file /path/to/univec --silva_file /path/to/silva_db
+```
 
 By default, ```phyloFlash.pl``` will look for a directory named "119" 
 (the most recent SILVA release as of March 2015). You can change this
@@ -82,6 +89,9 @@ Synopsis
 
 Use the ```-help``` option to display a brief help and the ```-man``` 
 option to display a man-file. 
+
+Use the ```-skip_spades``` and/or ```-skip_emirge``` options to turn off
+SSU sequence reconstruction with SPAdes assembler or EMIRGE respectively.
 
 Expected Performance
 --------------------

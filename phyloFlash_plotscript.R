@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-## plotscript.r by Brandon
+## plotscript.r by Brandon Seah (kbseah@mpi-bremen.de)
 
 ## Prerequisites: APE package in R
 ## Usage: Rscript plotscript.r --args <treefile> <histofile>
@@ -10,18 +10,19 @@ args <- commandArgs(trailingOnly=TRUE)
 treefile <- args[2]
 histofile <- args[3]
 
-## Plot tree from Newick .tree file (guide tree produced by MAFFT) and output PDF plot
-library(ape)							# ape package for phylogenetics
-thetree <- read.tree(file=treefile)
-
-pdf(file=paste(treefile,"pdf",sep="."),width=11,height=8)
-plot(thetree,type="phylogram",no.margin=TRUE,font=1,cex=0.5)
-dev.off()
-
-png(file=paste(treefile,"png",sep="."),width=1100,height=800)
-plot(thetree,type="phylogram",no.margin=TRUE,font=1,cex=0.5)
-dev.off()
-
+if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_emirge and -skip_spades options activated), skip this step
+    ## Plot tree from Newick .tree file (guide tree produced by MAFFT) and output PDF plot
+    library(ape)							# ape package for phylogenetics
+    thetree <- read.tree(file=treefile)
+    
+    pdf(file=paste(treefile,"pdf",sep="."),width=11,height=8)
+    plot(thetree,type="phylogram",no.margin=TRUE,font=1,cex=0.5)
+    dev.off()
+    
+    png(file=paste(treefile,"png",sep="."),width=1100,height=800)
+    plot(thetree,type="phylogram",no.margin=TRUE,font=1,cex=0.5)
+    dev.off()
+}
 
 ## Plot insert size histogram
 histo <- read.table(file=histofile,header=F,sep="\t",skip=1)
