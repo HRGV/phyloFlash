@@ -41,6 +41,12 @@ will run in B<experimental> single-end mode.
 
 =over 15
 
+=item -check_env
+
+Invokes checking of working environment and dependencies without data input.
+Use to test setup.
+
+
 =item -dbhome F<dir>
 
 Directory containing phyloFlash reference databases.
