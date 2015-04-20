@@ -99,6 +99,10 @@ Turn off EMIRGE reconstruction of SSU sequences
 
 Turn off SPAdes assembly of SSU sequences
 
+=item -sc
+
+Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
+
 =item -help
 
 Print brief help.
@@ -171,6 +175,7 @@ my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
+my $sc = 0;			# Flag - single cell data? (default = 0, no)
 my $check_env = 0;              # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
@@ -190,7 +195,7 @@ my $SSU_total_pairs;
 my $SSU_ratio;
 my $SSU_ratio_pc;
 my $chao1 = 0;
-my @xtons = (0,0);  # singleton and doubleton count
+my @xtons = (0,0,0);  # singleton, doubleton and tripleton count
 my $readnr = 0;
 my $ins_me = 0;
 my $ins_std =0;
@@ -263,6 +268,7 @@ sub parse_cmdline {
                'crlf' => \$crlf,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
+	       'sc' => \$sc,
                'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -277,26 +283,26 @@ sub parse_cmdline {
     }
     pod2usage("Please specify output file basename with -lib")
         if !defined($libraryNAME);
-    pod2usage("Argument to -lib may not be empty")
+    pod2usage("\nArgument to -lib may not be empty")
         if length($libraryNAME) == 0;
-    pod2usage("Argument to -lib may contain only alphanumeric characters,"
+    pod2usage("\nArgument to -lib may contain only alphanumeric characters,"
               ."'_' and '-'.")
         if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
 
     msg("working on library $libraryNAME");
 
     # check correct read file(s)
-    pod2usage("Please specify input forward read file with -read1")
+    pod2usage("\nPlease specify input forward read file with -read1")
         if !defined($readsf);
-    pod2usage("Unable to open forward read file '$readsf'. ".
+    pod2usage("\nUnable to open forward read file '$readsf'. ".
               "Make sure the file exists and is readable by you.")
         if ! -e $readsf;
 
     if (defined($readsr)) {
-        pod2usage("Unable to open reverse read file '$readsr'.".
+        pod2usage("\nUnable to open reverse read file '$readsr'.".
                   "Make sure the file exists and is readable by you.")
             if ! -e $readsr;
-        pod2usage("Forward and reverse input read file need to be different")
+        pod2usage("\nForward and reverse input read file need to be different")
             if ($readsr eq $readsf);
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
@@ -313,23 +319,21 @@ sub parse_cmdline {
     # check dbhome
     foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
              $vsearch_db.".fasta") {
-        pod2usage("
-Broken dbhome directory: missing file \"$DBHOME/$_\"
-=> Please rerun phyloFlash_makedb.pl
-    ")
+        pod2usage("\nBroken dbhome directory: missing file \"$DBHOME/$_\"
+	=> Please rerun phyloFlash_makedb.pl")
             unless -r "${DBHOME}/$_";
     }
 
     msg("Using dbhome '$DBHOME'");
 
     # check lengths
-    pod2usage("Readlength must be within 50...500")
+    pod2usage("\nReadlength must be within 50...500")
         if ($readlength < 50 or $readlength > 500);
-    pod2usage("Maxinsert must be within 0..1200")
+    pod2usage("\nMaxinsert must be within 0..1200")
         if ($maxinsert < 0 or $maxinsert > 1200);
-    pod2usage("Readmapping identity (-id) must be within 63..95")
+    pod2usage("\nReadmapping identity (-id) must be within 63..95")
         if ($id < 63 or $id > 95);
-    pod2usage("Clustering identidy (-clusterid) must be within 50..100")
+    pod2usage("\nClustering identidy (-clusterid) must be within 50..100")
         if ($clusterid < 50 or $clusterid > 100);
 
     $crlf = $crlf ? "\r\n":"\n";
@@ -393,7 +397,7 @@ Read mapping based higher taxa (NTUs) detection
 
 NTUs observed once:\t$xtons[0]
 NTUs observed twice:\t$xtons[1]
-NTUs observed three or more times:\t$#taxa_from_hitmaps_sorted
+NTUs observed three or more times:\t$xtons[2]
 NTU Chao1 richness estimate:\t$chao1
 
 List of NTUs in order of abundance:
@@ -454,7 +458,7 @@ sub write_csv {
         "CPUs",$cpus,
         "NTUs observed once",$xtons[0],
         "NTUs observed twice",$xtons[1],
-        "NTUs observed three or more times",$#taxa_from_hitmaps_sorted,
+        "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",$chao1
     ));
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.report.csv");
@@ -657,10 +661,15 @@ sub bbmap_hitstats_parse {
         map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
 
-    $chao1 =
-        $#taxa_from_hitmaps_sorted +
-        ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-
+    $xtons[2] = $#taxa_from_hitmaps_sorted +1;	
+	
+    if ($xtons[1] > 0) {
+	$chao1 =
+	  $xtons[2] +
+	  ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    } else {
+      $chao1 = 'n.d.';
+    }
     msg("done...");
 }
 
@@ -677,11 +686,15 @@ sub spades_run {
     }
     msg ("kmers for SPAdes are ".$kmer);
 
+  
     my $args;
+    if ($sc == 1) {
+      $args = '--sc ';
+    }
     if ($SEmode == 1) {
-        $args = "-s $libraryNAME.$readsf.SSU.1.fq";
+        $args = $args."-s $libraryNAME.$readsf.SSU.1.fq";
     } else {
-        $args = "-1 $libraryNAME.$readsf.SSU.1.fq -2 $libraryNAME.$readsf.SSU.2.fq";
+        $args = $args."-1 $libraryNAME.$readsf.SSU.1.fq -2 $libraryNAME.$readsf.SSU.2.fq";
     }
 
     run_prog("spades",
@@ -698,11 +711,19 @@ sub spades_parse {
     msg("getting 16S phylotypes and their coverages...");
 
     # run barrnap once for each domain
+    # if single cell data - accept partial rRNAs down to 0.1
+    # and use lower e-value setting 
+    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+    if ($sc == 1) {
+      $b_args = " --evalue 1e-20 --reject 0.1 ";
+    }
+    
+    
     foreach ('bac', 'arch', 'euk') {
         run_prog("barrnap",
-                 "--kingdom $_ --gene ssu --threads $cpus " .
-		 "--evalue 1e-200 " .
-                 "--reject 0.6 $libraryNAME.spades/scaffolds.fasta",
+                 $b_args.
+		 "--kingdom $_ --gene ssu --threads $cpus " .
+		 "$libraryNAME.spades/scaffolds.fasta",
                  "$libraryNAME.scaffolds.$_.gff",
                  "$libraryNAME.barrnap.out");
     }
@@ -1003,8 +1024,12 @@ sub mafft_run {
 sub clean_up {
     # cleanup of intermediate files and folders
     msg("cleaning temp files...");
-    system ("rm ./$libraryNAME.spades -r");
-    system ("rm ./$libraryNAME -r");
+    if ($skip_spades == 0)
+      { system ("rm ./$libraryNAME.spades -r");
+      }
+    if ($skip_emirge == 0)
+      { system ("rm ./$libraryNAME -r");
+      }
     system ("rm tmp.* -r");
     msg("done...");
 }
