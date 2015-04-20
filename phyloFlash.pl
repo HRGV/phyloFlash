@@ -305,7 +305,14 @@ sub parse_cmdline {
     }
 
     # check dbhome
-    ## FIXME
+    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
+             $vsearch_db.".fasta") {
+        pod2usage("
+Broken dbhome directory: missing file \"$DBHOME/$_\"
+=> Please rerun phyloFlash_makedb.pl
+    ")
+            unless -r "${DBHOME}/$_";
+    }
 
     msg("Using dbhome '$DBHOME'");
 
@@ -426,8 +433,8 @@ sub write_csv {
     my @report = csv_escape((
         "version",$version,
         "library, name",$libraryNAME,
-        "forward\" read file",$readsf,
-        "reverse \"read\" file",$readsr,
+        "forward read file",$readsf,
+        "reverse read file",$readsr,
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
