@@ -93,6 +93,8 @@ option to display a man-file.
 Use the ```-skip_spades``` and/or ```-skip_emirge``` options to turn off
 SSU sequence reconstruction with SPAdes assembler or EMIRGE respectively.
 
+Use the -sc switch for MDA datasets (single cell) or other hard to assemble read sets.
+
 Expected Performance
 --------------------
 
