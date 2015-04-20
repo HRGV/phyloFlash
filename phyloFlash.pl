@@ -81,10 +81,6 @@ Maximum insert size allowed for paired end read mapping. Must be within
 
 Also generate output in HTML format.
 
-=item -csv
-
-Also generate output in CVS format.
-
 =item -crlf
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
@@ -166,7 +162,6 @@ my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
-my $csv_flag    = 0;            # generate CSV output?
 my $crlf        = 0;            # csv line terminator
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
@@ -259,7 +254,6 @@ sub parse_cmdline {
                'clusterid=i' => \$clusterid,
                'CPUs=i' => \$cpus,
                'html' => \$html_flag,
-               'csv' => \$csv_flag,
                'crlf' => \$crlf,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
@@ -311,7 +305,14 @@ sub parse_cmdline {
     }
 
     # check dbhome
-    ## FIXME
+    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
+             $vsearch_db.".fasta") {
+        pod2usage("
+Broken dbhome directory: missing file \"$DBHOME/$_\"
+=> Please rerun phyloFlash_makedb.pl
+    ")
+            unless -r "${DBHOME}/$_";
+    }
 
     msg("Using dbhome '$DBHOME'");
 
@@ -432,8 +433,8 @@ sub write_csv {
     my @report = csv_escape((
         "version",$version,
         "library, name",$libraryNAME,
-        "forward\" read file",$readsf,
-        "reverse \"read\" file",$readsr,
+        "forward read file",$readsf,
+        "reverse read file",$readsr,
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
@@ -1402,7 +1403,7 @@ if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Em
 $runtime = $timer->minutes;
 
 print_report();
-write_csv()         if ($csv_flag);
+write_csv();
 run_plotscript()    if ($html_flag);
 write_report_html() if ($html_flag);
 clean_up();
