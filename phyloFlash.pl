@@ -808,6 +808,16 @@ sub spades_parse {
           msg("done...");
     
     }
+    
+     #spades scaffolds file is empty, settting skip_spades variable to avoid 
+    #further processing
+    
+    else
+    {
+         msg("no phylotypes assembled with SPAdes");
+	 $skip_spades = 1;
+	 system ("rm ./$libraryNAME.spades -r");
+    }
 }
 
 
