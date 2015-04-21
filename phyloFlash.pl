@@ -607,6 +607,16 @@ sub bbmap_fast_filter_parse() {
     $SSU_ratio_pc = $SSU_ratio * 100;
 
     msg("mapping rate: $SSU_ratio_pc%");
+    
+    if ($SSU_total_pairs * 2 * $readlength < 1800) {
+      msg("WARNING: mapping coverage lower than 1x,\n
+      reconstruction with SPADES and Emirge disabled.");
+      $skip_emirge = 1;
+      $skip_spades = 1;
+    }
+    
+    
+    
 }
 
 sub bbmap_hitstats_parse {
@@ -710,88 +720,94 @@ sub spades_parse {
     # getting spades output and reformatting it...
     msg("getting 16S phylotypes and their coverages...");
 
-    # run barrnap once for each domain
-    # if single cell data - accept partial rRNAs down to 0.1
-    # and use lower e-value setting 
-    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
-    if ($sc == 1) {
-      $b_args = " --evalue 1e-20 --reject 0.1 ";
-    }
+    # only run if spades assembly is not empty!
+    if (-s "$libraryNAME.spades/scaffolds.fasta") {
     
+          # run barrnap once for each domain
+ 
+          # if single cell data - accept partial rRNAs down to 0.1
+          # and use lower e-value setting 
+          my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+          if ($sc == 1) {
+            $b_args = " --evalue 1e-20 --reject 0.1 ";
+          }
     
-    foreach ('bac', 'arch', 'euk') {
-        run_prog("barrnap",
+          foreach ('bac', 'arch', 'euk') {
+          run_prog("barrnap",
                  $b_args.
-		 "--kingdom $_ --gene ssu --threads $cpus " .
-		 "$libraryNAME.spades/scaffolds.fasta",
+                 "--kingdom $_ --gene ssu --threads $cpus " .
+                 "$libraryNAME.spades/scaffolds.fasta",
                  "$libraryNAME.scaffolds.$_.gff",
                  "$libraryNAME.barrnap.out");
-    }
+	  }
+	
 
-    # now merge multi-hits on the same scaffold-and-strand by picking
-    # the lowest start and highest stop position.
+          # now merge multi-hits on the same scaffold-and-strand by picking
+          # the lowest start and highest stop position.
 
-    my %ssus;
-    # pre-filter with grep for speed
-    my $fh;
-    open_or_die(\$fh, "-|",
-                "grep -hE '16S_rRNA\|18S_rRNA' ".
-                "$libraryNAME.scaffolds.bac.gff ".
-                "$libraryNAME.scaffolds.arch.gff ".
-                "$libraryNAME.scaffolds.euk.gff");
-    while (my $row = <$fh>) {
-        my @cols    = split("\t", $row);
-        # gff format:
-        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
-        # 5 score, 6 strand, 7 frame, 8 attribute
+          my %ssus;
+          # pre-filter with grep for speed
+          my $fh;
+          open_or_die(\$fh, "-|",
+                      "grep -hE '16S_rRNA\|18S_rRNA' ".
+                      "$libraryNAME.scaffolds.bac.gff ".
+                      "$libraryNAME.scaffolds.arch.gff ".
+                      "$libraryNAME.scaffolds.euk.gff");
+          while (my $row = <$fh>) {
+              my @cols    = split("\t", $row);
+              # gff format:
+              # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+              # 5 score, 6 strand, 7 frame, 8 attribute
 
-        my $seqname = $cols[0];
-        my $start   = $cols[3];
-        my $stop    = $cols[4];
-        my $strand  = $cols[6];
+              my $seqname = $cols[0];
+              my $start   = $cols[3];
+              my $stop    = $cols[4];
+              my $strand  = $cols[6];
 
-        # put our desired output fasta name into "feature" col 3
-        # the may be "bug" using / mixing bed and gff formats
-        # but it saves us messing with the fasta afterwards
-        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
-        $cols[2] = "$libraryNAME.PFspades_$1_$2";
+              # put our desired output fasta name into "feature" col 3
+              # the may be "bug" using / mixing bed and gff formats
+              # but it saves us messing with the fasta afterwards
+              $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
+              $cols[2] = "$libraryNAME.PFspades_$1_$2";
 
-        # do the actual merging, left most start and right most stop wins
-        if (exists $ssus{$seqname.$strand}) {
-            my $old_start = $ssus{$seqname.$strand}[3];
-            my $old_stop  = $ssus{$seqname.$strand}[4];
-            $cols[3] = ($start < $old_start) ? $start : $old_start;
-            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
-        }
-        $ssus{$seqname.$strand} = [@cols];
-    }
-    close($fh);
+              # do the actual merging, left most start and right most stop wins
+              if (exists $ssus{$seqname.$strand}) {
+                  my $old_start = $ssus{$seqname.$strand}[3];
+                  my $old_stop  = $ssus{$seqname.$strand}[4];
+                  $cols[3] = ($start < $old_start) ? $start : $old_start;
+                  $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+              }
+              $ssus{$seqname.$strand} = [@cols];
+          }
+          close($fh);
 
-    open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
-    for my $key (sort keys %ssus) {
-        print $fh join("\t",@{$ssus{$key}});
-    }
-    close($fh);
+          open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
+          for my $key (sort keys %ssus) {
+              print $fh join("\t",@{$ssus{$key}});
+          }
+          close($fh);
 
-    # fastaFromBed will build a .fai index from the source .fasta
-    # However, it does not notice if the .fasta changed. So we
-    # delete the .fai if it is older than the .fasta.
-    if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-         file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+          # fastaFromBed will build a .fai index from the source .fasta
+          # However, it does not notice if the .fasta changed. So we
+          # delete the .fai if it is older than the .fasta.
+          if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+               file_is_newer("$libraryNAME.spades/scaffolds.fasta",
                        "$libraryNAME.spades/scaffolds.fasta.fai")) {
-        unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+             unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+         }
+
+          # extract rrna fragments from spades scaffolds accoding to gff
+          run_prog("fastaFromBed",
+                   "  -fi $libraryNAME.spades/scaffolds.fasta "
+                   . "-bed tmp.$libraryNAME.scaffolds.final.gff "
+                   . "-fo $libraryNAME.spades_rRNAs.final.fasta "
+                   . "-s -name",
+                  "tmp.$libraryNAME.fastaFromBed.out",
+                   "&1");
+
+          msg("done...");
+    
     }
-
-    # extract rrna fragments from spades scaffolds accoding to gff
-    run_prog("fastaFromBed",
-             "  -fi $libraryNAME.spades/scaffolds.fasta "
-             . "-bed tmp.$libraryNAME.scaffolds.final.gff "
-             . "-fo $libraryNAME.spades_rRNAs.final.fasta "
-             . "-s -name",
-             "tmp.$libraryNAME.fastaFromBed.out",
-             "&1");
-
-    msg("done...");
 }
 
 
@@ -908,7 +924,8 @@ sub vsearch_best_match {
              "$libraryNAME.all.final.fasta");
     }
     
-    run_prog("vsearch",
+    if (-s "$libraryNAME.all.final.fasta") {
+       run_prog("vsearch",
              "-usearch_global $libraryNAME.all.final.fasta "
              . "-db ${DBHOME}/${vsearch_db}.fasta "
              . "-id 0.7 "
@@ -920,15 +937,16 @@ sub vsearch_best_match {
              "tmp.$libraryNAME.all.vsearch.out",
              "&1");
 
-    # query, target: labels
-    # id: "100* matching colums / (alignment length - terminal gaps)"
-    # alnlen: "number of alignment columns"
-    # id3: "MBL definition of %id - counting each extended gap as single difference"
-    # qs: query segment length
-    # pairs: # letter pair cols
-    # gaps: # gap cols
-    # mism: # mismatches
-    # ids: # matches
+       # query, target: labels
+       # id: "100* matching colums / (alignment length - terminal gaps)"
+       # alnlen: "number of alignment columns"
+       # id3: "MBL definition of %id - counting each extended gap as single difference"
+       # qs: query segment length
+       # pairs: # letter pair cols
+       # gaps: # gap cols
+       # mism: # mismatches
+       # ids: # matches
+    }
 }
 
 sub vsearch_parse {
