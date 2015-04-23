@@ -56,6 +56,17 @@ Python installed. (OSX is for the brave, we have not tested this!)
 Preparing the Reference Database
 --------------------------------
 
+phyloFlash uses modified versions of the SILVA SSU database that is maintained
+by the SILVA team - for more information visit their webpage www.arb-silva.de.
+
+The SILVA license prohibits usage of the SILVA databases or parts of them within
+a non-academic/commercial environment beyond a 48h test period. If you want to use
+the SILVA databases with phyloFlash in a non-academic/commercial environment please
+contact them at contact(at)arb-silva.de.
+
+The detailed SILVA license can be found at 
+http://www.arb-silva.de/fileadmin/silva_databases/current/LICENSE.txt.
+
 To create a suitable database, just run
 
 ```bash
