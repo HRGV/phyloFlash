@@ -53,8 +53,8 @@ Python installed. (OSX is for the brave, we have not tested this!)
  ./phyloFlash.pl -check_env
  ```
 
-Preparing the Reference Database
---------------------------------
+The Reference Database
+----------------------
 
 phyloFlash uses modified versions of the SILVA SSU database that is maintained
 by the SILVA team - for more information visit their webpage www.arb-silva.de.
