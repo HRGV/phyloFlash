@@ -53,8 +53,19 @@ Python installed. (OSX is for the brave, we have not tested this!)
  ./phyloFlash.pl -check_env
  ```
 
-Preparing the Reference Database
---------------------------------
+The Reference Database
+----------------------
+
+phyloFlash uses modified versions of the SILVA SSU database that is maintained
+by the SILVA team - for more information visit their webpage www.arb-silva.de.
+
+The SILVA license prohibits usage of the SILVA databases or parts of them within
+a non-academic/commercial environment beyond a 48h test period. If you want to use
+the SILVA databases with phyloFlash in a non-academic/commercial environment please
+contact them at contact(at)arb-silva.de.
+
+The detailed SILVA license can be found at 
+http://www.arb-silva.de/fileadmin/silva_databases/current/LICENSE.txt.
 
 To create a suitable database, just run
 
@@ -76,8 +87,8 @@ and the NCBI Univec database, you can supply the paths:
 
 By default, ```phyloFlash.pl``` will look for a directory named "119" 
 (the most recent SILVA release as of March 2015). You can change this
-by passing the "-dbhome <dir>" switch to phyloFlash.pl or 
-by modifying the "DBHOME" variable in phyloFlash.pl 
+by passing the ```-dbhome <dir>``` switch to phyloFlash.pl or 
+by modifying the ```DBHOME``` variable in phyloFlash.pl 
 
 Synopsis
 --------
@@ -92,6 +103,8 @@ option to display a man-file.
 
 Use the ```-skip_spades``` and/or ```-skip_emirge``` options to turn off
 SSU sequence reconstruction with SPAdes assembler or EMIRGE respectively.
+
+Use the -sc switch for MDA datasets (single cell) or other hard to assemble read sets.
 
 Expected Performance
 --------------------

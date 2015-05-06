@@ -79,7 +79,6 @@ use Digest::MD5;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
 use Cwd;
 
-
 # URLS
 my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
 my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
@@ -272,7 +271,7 @@ sub bbmap_db {
     my ($ref, $path) = @_;
     msg("creating bbmap reference");
     run_prog("bbmap",
-             "  -Xmx4g "
+             "  -Xmx10g "   # Original 4 Gb limit was not enough
              . "ref=$ref "
              . "path=$path ");
 }
