@@ -122,26 +122,40 @@ check_environment();
 ### MAIN ###
 
 if ($use_remote==1 && $univec_file eq "") {
-    #run_stage(msg => "downloading lastest UniVec DB from NCBI",
     msg("downloading latest univec from ncbi");
     $univec_file = file_download($univec_url);
-    #my $univec_file = "UniVec";
 }
 elsif ($use_remote==0 && $univec_file ne "") {
     msg("using local copy of univec: $univec_file");
+}
+else {
+    msg("No univec file found and downloading disabled.\n"
+        ."Aborting.");
+    exit();
 }
 
 if ($use_remote==1 && $silva_file eq "") {
     msg("downloading latest SSU RefNR from www.arb-silva.de");
     $silva_file  = file_download($silva_url);
-    #my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
 }
 elsif ($use_remote==0 && $silva_file ne "") {
     msg("using local copy of Silva SSU RefNR: $silva_file");
 }
+else {
+    msg("No SILVA database found and downloading disabled.\n"
+        ."Aborting.");
+    exit();
+}
 
 # extract SILVA version
-my ($silva_release) = ($silva_file =~ m/SILVA_(\d+)_/);
+my ($silva_release) = ($silva_file =~ m/SILVA_([^_]+)_/);
+
+if (!$&) {
+    msg("ERROR: Unable to extract version from SILVA database filename:");
+    msg("       Expected 'SILVA_<version>_...' in '$silva_file'.");
+    msg("       Aborting.");
+    exit();
+}
 
 # create database directory
 my $dbdir = "./".$silva_release."/";
