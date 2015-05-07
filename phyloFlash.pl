@@ -260,9 +260,9 @@ sub parse_cmdline {
     # check correct $libraryNAME
     if ($check_env == 1) {
       process_required_tools();
-      check_environment();
-      exit;
+      check_environment(); # will die on failure
     }
+
     pod2usage("Please specify output file basename with -lib")
         if !defined($libraryNAME);
     pod2usage("\nArgument to -lib may not be empty")
@@ -326,13 +326,8 @@ sub parse_cmdline {
     }
 
     # check surplus arguments
-    if ($ARGV[0]) {
-        print "Commandline contains extra words:";
-        foreach (@ARGV) {
-            print "$_\n";
-        }
-        die("aborting");
-    }
+    err("Command line contains extra words:", @ARGV)
+        if ($ARGV[0]);
 }
 
 sub print_report {

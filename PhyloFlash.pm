@@ -4,6 +4,9 @@ use strict;
 package PhyloFlash;
 use Exporter qw(import);
 use Time::Piece;
+use Text::Wrap;
+
+$Text::Wrap::huge = "overflow";
 
 =head1 NAME
 
@@ -28,6 +31,7 @@ our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   get_cpus
   msg
+  err
   file_is_newer
   open_or_die
   csv_escape
@@ -60,9 +64,22 @@ Logs a message to STDERR with time stamp prefix.
 
 =cut
 sub msg {
-  my $t = localtime;
-  my $line = "[".$t->hms."] @_\n";
-  print STDERR $line;
+    my $t = localtime;
+    my $line = wrap ("[".$t->hms."] ", "           ",
+                     join "\n", @_);
+    print STDERR $line."\n";
+}
+
+=item err($msg)
+
+Logs an error message to STDERR and dies
+
+=cut
+sub err {
+    my @msg = (@_,"Aborting.");
+    $msg[0] = "FATAL: ".$msg[0];
+    msg(@msg);
+    exit(3);
 }
 
 =item file_is_newer ($file1, $file2)
@@ -99,7 +116,7 @@ sub open_or_die {
     }
 
     open($$fh, $mode, $fname)
-        or die "Failed to $msg '$fname': $!";
+        or err("Failed to $msg '$fname': $!");
 }
 
 =item csv_escape ($var)
@@ -166,7 +183,7 @@ sub check_environment {
         foreach my $prog (@missing) {
             msg($prog);
         }
-        die "Please make sure these are installed and in your PATH.\n\n";
+        err("Please make sure these are installed and in your PATH.\n\n");
     } else {
         msg("All required tools found.");
     }
@@ -203,15 +220,16 @@ sub run_prog {
 
     if (not exists $progs{$prog}) {
         msg("trying to launch unknown tool \"$prog\". pls add to %progs");
-        $progs{$prog} = can_run($prog) or die "Failed to find $prog";
+        $progs{$prog} = can_run($prog) or err("Failed to find $prog");
     }
     my $cmd = $progs{$prog}." ".$args;
     $cmd .= " >".$redir_stdout if ($redir_stdout);
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
-    msg("executing [$cmd]");
+    msg("running subcommand:","$cmd");
     system($cmd) == 0
-        or die "Couldn't launch [$cmd]: $!/$?";
+        or err("Tool execution failed!.",
+               "Error was '$!' and return code '$?'");
 
     # FIXME: print tail of stderr if redirected
 }
@@ -225,7 +243,7 @@ sub file_md5 {
     my $file = shift;
     my $fh;
     open($fh, "<", $file)
-        or die "Unable to open $file.";
+        or err("Unable to open $file.");
     my $ctx = Digest::MD5->new;
     $ctx->addfile($fh);
     close($fh);
@@ -236,7 +254,7 @@ sub file_md5 {
 
 Fetches the contents of a file from FTP. $ftp must be a connected
 Net::FTP object and $pattern a file pattern relative to the
-current path of $ftp. If the file exists, the contents are returned. 
+current path of $ftp. If the file exists, the contents are returned.
 Otherwise returns an empty string
 
 =cut
@@ -252,7 +270,8 @@ sub ftp_read_var {
     open($fh, '>', \$out);
     my $file = shift(@$files);
     $ftp->get($file, $fh)
-        or die "Could not download $file", $ftp->message;
+        or err("Could not download file '$file'.",
+               "FTP error: ".$ftp->message);
     close($fh);
 
     return $out;
@@ -298,25 +317,25 @@ sub file_download {
                                Debug => 0,
                                Timeout => 600
                            ))
-        or die "Could not connect to $server";
+        or err("Could not connect to $server");
     $ftp->login("anonymous", "-phyloFlash")
-        or die "Could not login to $server:", $ftp->message;
+        or err("Could not login to $server:", $ftp->message);
     $ftp->binary();
     $ftp->pasv();
 
     msg("  Finding $path$pat");
     $ftp->cwd($path)
-        or die "Could not enter path '\$path\': ", $ftp->message;
+        or err("Could not enter path '\$path\': ", $ftp->message);
     my $files = $ftp->ls($pat)
-        or die "Could not list files matching \'$pat'\ in \'$path\': ",
-               $ftp->message;
-    die "No files found?!"
+        or err("Could not list files matching \'$pat'\ in \'$path\': ",
+               $ftp->message);
+    err("No files found?!")
         if (@$files == 0);
     msg("  Multiple files found?! Using first of ".join(@$files))
         if (@$files > 1);
     my $file = shift(@$files);
     my $file_size = $ftp->size($file)
-        or die "Could not get file size:", $ftp->message;
+        or err("Could not get file size:", $ftp->message);
     msg("  Found $file ($file_size bytes)");
 
     # try downloading md5
@@ -377,10 +396,10 @@ sub file_download {
     print STDERR "|" . "-" x 75 . "|\n";
     $ftp->hash(\*STDERR, $ftp->size($file)/76);
     $ftp->get($file)
-        or die "Failed to download $file:", $ftp->message;
+        or err("Failed to download $file:", $ftp->message);
     print STDERR "\n";
 
-    die "File size mismatch?!"
+    err("File size mismatch?!")
         if (-s $file != $file_size);
 
     if ($file_md5 eq "") { # had no md5
@@ -394,8 +413,7 @@ sub file_download {
         return $file;
     }
 
-    msg("  MD5 sum mismatch: '$file_md5' != '$local_md5'");
-    die;
+    err("  MD5 sum mismatch: '$file_md5' != '$local_md5'");
 }
 
 =item fasta_copy_except ($source, $dest, @accs)
