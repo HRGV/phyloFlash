@@ -150,20 +150,21 @@ will abort, asking the user to fix the prerequisites.
 
 =cut
 sub check_environment {
-    my $error = 0;
+    my @missing;
+
     msg("Checking for required tools.");
     foreach my $prog (keys %progs) {
         my $progname = $progs{$prog};
         if ($progs{$prog} = can_run($progname)) {
             msg("Using $prog found at \"".$progs{$prog}."\".");
         } else {
-            $error = 1;
+            push @missing, "  $prog ($progname)";
         }
     }
-    if ($error == 1) {
+    if (@missing) {
         msg("Unable to find all required tools. These are missing:");
-        foreach my $prog (keys %progs) {
-            msg("  ".$prog) if (!defined($progs{$prog}));
+        foreach my $prog (@missing) {
+            msg($prog);
         }
         die "Please make sure these are installed and in your PATH.\n\n";
     } else {
