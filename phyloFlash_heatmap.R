@@ -23,6 +23,7 @@
 #  along with this program.
 #  If not, see <http://www.gnu.org/licenses/>.
 
+## more useful errors on cmdline (traceback)
 debugCode = quote({
     dump.frames();
     cat(paste("  ", 1L:length(last.dump), ": ",
@@ -42,16 +43,7 @@ load_libraries <- function() {
     library(gtable);
 }
 
-
-
-defaultColorScheme <- c("#313695", "#4575B4", "#74ADD1", "#ABD9E9",
-                        "#E0F3F8", "#FFFFBF", "#FEE090", "#FDAE61",
-                        "#F46D43", "#D73027", "#A50026");
-
-####  helper functions
-
 ### logging
-
 pf_logLevel <- 2;
 pf_setLogLevel <- function(x) { assign("pf_logLevel", x, .GlobalEnv); }
 msg <- function(...,lvl=2) {
@@ -95,7 +87,6 @@ rbind_max <- function(...,size=grid::unit.pmax){
 }
 
 cbind_max <- function(...,size=grid::unit.pmax){
-    ##http://stackoverflow.com/questions/24234791
     bind2 <- function (x, y) {
         stopifnot(nrow(x) == nrow(y))
         if (ncol(x) == 0) return(y)
@@ -180,6 +171,45 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
     return (p);
 }
 
+# makes a ggplot heatmap from a matrix
+g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
+    highcol = c("steelblue","indianred")[n]
+    ## factorize dims
+    matNames <- attr(mat, "dimnames");
+    df <- as.data.frame(mat);
+    colnames(df) <- matNames[[2]];
+    df$y.variable <- matNames[[1]];
+    df$y.variable <- with(df, factor(y.variable,levels=y.variable,ordered=TRUE));
+
+    mat <- melt(df, id.vars="y.variable");
+
+    heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
+       geom_tile(aes(fill=value)) +
+       scale_fill_gradient(low="white", high=highcol, trans="log", 
+                           na.value="white") +
+       labs(x = NULL, y = NULL) +
+       scale_x_discrete(expand=c(0,0)) +
+       scale_y_discrete(expand=c(0,0)) +
+       theme(axis.text.x = element_text(angle=angle, hjust=hjust,vjust=vjust),
+             axis.ticks.length = unit(0,"null"));
+
+    return(heatMapPlot);
+}
+
+# makes a grob containing a row of strings from a string vector
+gtable_text_row <- function(strvec) {
+    grobs <- lapply(strvec, function(str) {
+        textGrob(str,gp=gpar(fontsize=8))
+    })
+    gt <- gtable(heights=unit(1,"lines"), widths=unit(0,"null"));
+
+    if (length(strvec) == 0) return(gt);
+
+    g <- gtable_row("textrow", grobs);
+    gt <- gtable_add_grob(gt, g, t=1, l=1);
+
+    gt
+}
 
 # loads phyloFlash output files into R
 read.phyloFlash <- function(files) {
@@ -197,7 +227,7 @@ read.phyloFlash <- function(files) {
     msg(unlist(libs), fill=77);
     
     msg("Loading CSV files...");
-    for (lib in libs) {
+    for (lib in libs) tryCatch({
         fileName <- paste(lib, ".phyloFlash.NTUabundance.csv", sep="");
         info("Reading: ",fileName);
         fileData <- read.csv(fileName);
@@ -221,7 +251,9 @@ read.phyloFlash <- function(files) {
         } else {
             MetaData <- merge(x=MetaData, y=fileData, by="key");
         }
-    }
+    }, warning = function(e) {
+        err("Error in read.phyloFlash:\n",e$message);
+    });
 
     pfData <- list(); # result is a list
 
@@ -327,46 +359,7 @@ cluster <- function(pf, method="ward") {
     return(pf);
 }
 
-g_make_heatmap <- function(mat, n, colorScheme=defaultColorScheme, angle=90, hjust=0,vjust=0.6) {
-    highcol = c("steelblue","indianred")[n]
-    ## factorize dims
-    matNames <- attr(mat, "dimnames");
-    df <- as.data.frame(mat);
-    colnames(df) <- matNames[[2]];
-    df$y.variable <- matNames[[1]];
-    df$y.variable <- with(df, factor(y.variable,levels=y.variable,ordered=TRUE));
-
-    mat <- melt(df, id.vars="y.variable");
-
-    breaks = c(0,25,50,75,100);
-    
-    heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
-       geom_tile(aes(fill=value)) +
-       #scale_fill_gradientn(colours = colorScheme) +
-       #scale_fill_gradientn(colours = rainbow(3)) +
-       #scale_fill_gradient2(low="blue", mid="green", high="red", midpoint = 30)+
-       scale_fill_gradient(low="white", high=highcol,
-                           trans="log", #breaks=breaks, labels=breaks,
-                           na.value="white") +
-       labs(x = NULL, y = NULL) +
-       scale_x_discrete(expand=c(0,0)) +
-       scale_y_discrete(expand=c(0,0)) +
-       theme(axis.text.x = element_text(angle=angle, hjust=hjust,vjust=vjust),
-             axis.ticks.length = unit(0,"null"));
-    
-    return(heatMapPlot);
-}
-
-gtable_text_row <- function(strvec) {
-    grobs <- lapply(strvec, function(str) {
-        textGrob(str,gp=gpar(fontsize=8))
-    })
-    
-    g <- gtable_row("textrow", grobs);
-    gt <- gtable(heights=unit(1,"lines"), widths=unit(0,"null"));
-    gt <- gtable_add_grob(gt, g, t=1, l=1);
-}
-
+# creates a plot from a phyloFlash "object"
 plot.phyloFlash <- function(pf) {
     nmaps <- length(pf$data);
     rows <- sapply(pf$data,nrow);
@@ -393,7 +386,6 @@ plot.phyloFlash <- function(pf) {
 
     g <- gtable_add_row_space(g, unit(.2,"lines"));
 
-
     ## add row at top
     gr_legends <- lapply(gg_heatmaps, function(x) {
         g_get("guides", g_get("guide-box", x)$grobs[[1]]) })
@@ -402,8 +394,6 @@ plot.phyloFlash <- function(pf) {
     gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
     gr_legend$heights = max(gr_legends$heights)
     gr_legend$widths = sum(gr_legends$widths)
-    ##gr_legend <- g_get("guide-box", gg_heatmaps[[1]]);
-    ##gr_legend <- g_get("guides", gr_legend$grobs[[1]]);
     gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, FALSE, TRUE));
     gr_sampleTree$heights=unit(0.1,"null")
 
@@ -462,7 +452,7 @@ pF_main <- function() {
             "--split-regex",
             default="Eukaryota",
             type="character",
-            help="Split heatmap using this regex on taxa",
+            help="Split heatmap using this regex on taxa. Default '%default'",
             ),
         make_option(
             "--no-shorten-names",
@@ -528,6 +518,7 @@ Files:
 
     ## split by domain
     if (!conf$options$"no-split") {
+        msg("Splitting data according to regex ", conf$options$"split-regex");
         pat <- strsplit(conf$options$"split-regex",",")[[1]];
         pf$data <- split_by_name(pf$data, pat);
     }
@@ -537,14 +528,24 @@ Files:
 
     pf$data <- merge_low_counts(pf$data,
                                 thres=conf$options$"min-ntu-count");
+    
     if (!conf$options$"no-scaling") {
+        msg("Rescaling counts to percentages");
         pf$data <- scale_to_percent(pf$data);
     }
 
+    msg("Clustering...");
     pf      <- cluster(pf, method=conf$options$"hclust-method");
 
+    msg("Brief summary of counts:");
+    if (pf_logLevel >= 2) {
+        print(summary(pf$data));
+    }
+
+    msg("Creating plot...");
     g       <- plot.phyloFlash(pf);
 
+    msg("Printing plot...");
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
     switch(strsplit(conf$options$out, "[.]")[[1]][-1],
            png = png(file = conf$options$out,
@@ -554,15 +555,10 @@ Files:
            pdf = pdf(file = conf$options$out,
                width=outdim[1], height = outdim[2])
            );
-    
+
     grid.newpage();
     grid.draw(g);
     dev.off();
-
-    msg("Brief summary of counts:");
-    if (pf_logLevel >= 2) { ### "cat(summary(...))" does
-        print(summary(pf$data));
-    }
 }
     
 # if we are run as a script from the cmdline
