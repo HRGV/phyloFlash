@@ -183,9 +183,12 @@ g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
 
     mat <- melt(df, id.vars="y.variable");
 
+    breaks <- function(x) axisTicks(log10(range(x, na.rm = TRUE)), log = TRUE);
+    
     heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
        geom_tile(aes(fill=value)) +
-       scale_fill_gradient(low="white", high=highcol, trans="log", 
+       scale_fill_gradient(low="white", high=highcol, trans="log",
+                           breaks=breaks,
                            na.value="white") +
        labs(x = NULL, y = NULL) +
        scale_x_discrete(expand=c(0,0)) +
