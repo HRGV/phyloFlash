@@ -191,7 +191,8 @@ g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
        scale_x_discrete(expand=c(0,0)) +
        scale_y_discrete(expand=c(0,0)) +
        theme(axis.text.x = element_text(angle=angle, hjust=hjust,vjust=vjust),
-             axis.ticks.length = unit(0,"null"));
+             axis.ticks.length = unit(0,"null"),
+             legend.title=element_blank()));
 
     return(heatMapPlot);
 }
