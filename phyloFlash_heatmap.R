@@ -113,9 +113,9 @@ g_get <- function(pat, obj) {
 }
 
 # prepare a pure dendrogram plot from a dendro_data object
-# @param bool vertical   If true, plot has leaves as rows.
+# @param bool axis       1:4=below,left,above,right
 # @param bool labels     If true, plot includes labels
-g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
+g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
     ddata <- dendro_data(dendro, type="rectangle");
     
     # Unexpanded, the dendrogram will span maximum width. That is,
@@ -135,20 +135,19 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
                       aes(x=x, y=y, xend=xend, yend=yend)) +
          theme_dendro() +
          labs(x = NULL, y = NULL) +
-         scale_y_continuous(expand=c(0,0)) +
+         scale_y_continuous(expand=c(0,0),
+                            trans=c("reverse","identity")[(axis+1)%/%2]) +
          theme(axis.ticks.length = unit(0,"null"),
                axis.ticks.margin = unit(0,"null")
                );
 
     # flip if vertical and add 1 mm space on the outer
     # edge to make sure the outmost connection is visible
-    if (vertical) {
-        p <- p + coord_flip() +
-             theme(plot.margin   = unit(c(0,1,0,0),"mm"))
-    } else {
-        p <- p +
-             theme(plot.margin   = unit(c(1,0,0,0),"mm"))
+    
+    if (axis %% 2 == 0) {
+        p <- p + coord_flip()
     }
+    
 
     # add the appropriate scale configuration
     # if labels are to be shown, pull them from the
@@ -159,7 +158,7 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
             expand = c(expandFactor,0),
             breaks = 1:length(ddata$labels$label),
             labels = ddata$labels$label);
-        if (vertical) {
+        if (axis %% 2 == 0) {
             p <- p + theme(axis.text.y = element_text(angle = 0, hjust = 1));
         } else {
             p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1));
@@ -365,31 +364,36 @@ cluster <- function(pf, method="ward") {
 }
 
 # creates a plot from a phyloFlash "object"
-plot.phyloFlash <- function(pf) {
+plot.phyloFlash <- function(pf,
+                            row.order=c("tree","map","chao","labels"),
+                            col.order=c("labels","map","tree")) {
+    if (is.character(row.order)) {
+        row.order = strsplit(row.order,",")[[1]];
+    }
+    if (is.character(col.order)) {
+        col.order = strsplit(col.order,",")[[1]];
+    }
+    
     nmaps <- length(pf$data);
-    rows <- sapply(pf$data,nrow);
 
     # empty table
     zero <- gtable(widths=unit(0,"null"),heights=unit(0,"null"));
     zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
     
     ## get heatmaps and labels
-    gg_heatmaps       <- mapply(g_make_heatmap, pf$data, c(1:length(pf$data)), SIMPLIFY=FALSE);
-    gr_heatmaps       <- mapply(g_get, rep("panel|axis-l", nmaps), gg_heatmaps);
+    gg_heatmaps <- mapply(g_make_heatmap, pf$data, c(1:length(pf$data)), SIMPLIFY=FALSE);
+    gr_heatmaps <- mapply(g_get, rep("panel|axis-l", nmaps), gg_heatmaps);
     ## merge below each other
-    g <- do.call(rbind_max, gr_heatmaps);
+    gr_heatmaps <- do.call(rbind_max, gr_heatmaps);
     ## scale heights by number of rows
-    g$heights = g$heights * (rows/sum(rows));
+    nrows <- sapply(pf$data,nrow);
+    gr_heatmaps$heights = gr_heatmaps$heights * (nrows/sum(nrows));
 
     ## get trees over samples
-    gr_trees <- lapply(pf$row_dendro, g_make_dendro_plot);
+    gr_trees <- lapply(pf$row_dendro, function(x) g_make_dendro_plot(x,axis=4));
     gr_trees <- lapply(gr_trees, function(x) g_get("panel",x))
     ## merge into one column
     gr_trees <- do.call(rbind_max, gr_trees);
-    ## add to right of heatmaps
-    g<-cbind_max(g, gr_trees,size=1);
-
-    g <- gtable_add_row_space(g, unit(.2,"lines"));
 
     ## add row at top
     gr_legends <- lapply(gg_heatmaps, function(x) {
@@ -399,26 +403,29 @@ plot.phyloFlash <- function(pf) {
     gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
     gr_legend$heights = max(gr_legends$heights)
     gr_legend$widths = sum(gr_legends$widths)
-    gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, FALSE, TRUE));
+    axis = ifelse(match("tree",row.order) < match("map",row.order),3,1);
+    gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, axis=axis));
     gr_sampleTree$heights=unit(0.1,"null")
-
-    top_row <- cbind_max(zero, gr_sampleTree, gr_legend);#gr_legend);
-
-    g<-rbind_max(top_row, g);
 
     chao <- pf$meta$NTU.Chao1.richness.estimate;
     chao <- round(as.numeric(as.character(chao)))
 
     gr_chao_grob <- textGrob("Chao1",x=unit(.99,"npc"),just="right",gp=gpar(fontsize=8))
     gr_chao_lab <- gtable_add_grob(zero1,gr_chao_grob,t=1,l=1,r=1,b=1);
-
-    chao_row <- cbind_max(gr_chao_lab, gtable_text_row(chao), zero);
-    g<-rbind_max(g,chao_row);
-    
+   
     # add row at bottom
     gr_sample_labels  <- g_get("axis-b", gg_heatmaps[[1]]);
+
+    tree_row <- cbind_max(zero, gr_sampleTree, gr_legend);
+    chao_row <- cbind_max(gr_chao_lab, gtable_text_row(chao), zero);
     bottom_row <- cbind_max(zero,gr_sample_labels,zero);
-    g<-rbind_max(g, bottom_row);
+
+    g <- cbind_max(gr_heatmaps, gr_trees,size=1);
+    g <- gtable_add_row_space(g, unit(.2,"lines"));
+
+    gr_rows <- list(tree_row, g, chao_row, bottom_row);
+    gr_rows <- gr_rows[match(row.order, c("tree","map","chao","labels"))];
+    g <- do.call(rbind_max,gr_rows);
 
     g <- gtable_add_row_space(g, unit(.1,"lines"));
     g <- gtable_add_col_space(g, unit(.1,"lines"));
@@ -476,6 +483,20 @@ pF_main <- function() {
             default="ward",
             help="Use this method for hclust clustering. Can be:
                 ward, single, complete, average, mcquitty, median or centroid.
+                Default is %default."
+            ),
+        make_option(
+            "--row-order",
+            default="tree,map,chao,labels",
+            help="Order of rows, separated by commas. Valid terms are:
+                tree, map, chao and labels.
+                Default is %default."
+            ),
+        make_option(
+            "--col-order",
+            default="labels,map,tree",
+            help="Order of columns, separated by commas. Valid terms are:
+                labels, map and tree.
                 Default is %default."
             ),
         make_option(
@@ -548,7 +569,9 @@ Files:
     }
 
     msg("Creating plot...");
-    g       <- plot.phyloFlash(pf);
+    g       <- plot.phyloFlash(pf,
+                               row.order=conf$options$"row-order",
+                               col.order=conf$options$"col-order");
 
     msg("Printing plot...");
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
