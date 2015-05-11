@@ -587,6 +587,8 @@ Files:
     grid.newpage();
     grid.draw(g);
     dev.off();
+
+    invisible(1);
 }
     
 # if we are run as a script from the cmdline
