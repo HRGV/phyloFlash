@@ -152,7 +152,8 @@ use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = "$FindBin::RealBin/119";#HGV: edited to point to locally created db dir release version 119
+my $DBHOME = "$FindBin::RealBin/119";
+#HGV: edited to point to locally created db dir release version 119
 
 # constants
 my $version       = 'phyloFlash v2.0';
@@ -175,7 +176,7 @@ my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
-my $sc = 0;			# Flag - single cell data? (default = 0, no)
+my $sc = 0;                     # Flag - single cell data? (default = 0, no)
 my $check_env = 0;              # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
@@ -210,45 +211,26 @@ sub welcome {
 # Specify list of required tools. Run this subroutine AFTER parse_cmdline()
 sub process_required_tools {
   # binaries needed by phyloFlash
-  @tools_list = (
-    bbmap => "bbmap.sh",
-    barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
-    vsearch => "vsearch",
-    mafft => "mafft",
-    fastaFromBed => "fastaFromBed",
-    sed => "sed",
-    grep => "grep",
-    awk => "awk",
-    cat => "cat",
-    plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
+    require_tools(
+        bbmap => "bbmap.sh",
+        barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
+        vsearch => "vsearch",
+        mafft => "mafft",
+        fastaFromBed => "fastaFromBed",
+        sed => "sed",
+        grep => "grep",
+        awk => "awk",
+        cat => "cat",
+        plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
     );
-  if ($skip_spades == 0) {
-    @tools_list = (@tools_list,
-                    spades => "spades.py");
-  }
-  if ($skip_emirge == 0) {
-    @tools_list = (@tools_list,
-                    emirge => "emirge.py",
-                    emirge_amp => "emirge_amplicon.py",
-                    emirge_rename_fasta => "emirge_rename_fasta.py");
-  }
-  require_tools(@tools_list);
-  #require_tools((
-  #  bbmap => "bbmap.sh",
-  #  spades => "spades.py",
-  #  barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
-  #  emirge => "emirge.py",
-  #  emirge_amp => "emirge_amplicon.py",
-  #  emirge_rename_fasta => "emirge_rename_fasta.py",
-  #  vsearch => "vsearch",
-  #  mafft => "mafft",
-  #  fastaFromBed => "fastaFromBed",
-  #  sed => "sed",
-  #  grep => "grep",
-  #  awk => "awk",
-  #  cat => "cat",
-  #  plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
-  #  ));  
+    if ($skip_spades == 0) {
+        require_tools(spades => "spades.py");
+    }
+    if ($skip_emirge == 0) {
+        require_tools(emirge => "emirge.py",
+                      emirge_amp => "emirge_amplicon.py",
+                      emirge_rename_fasta => "emirge_rename_fasta.py");
+    }
 }
 
 # parse arguments passed on commandline and do some
@@ -268,7 +250,7 @@ sub parse_cmdline {
                'crlf' => \$crlf,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
-	       'sc' => \$sc,
+               'sc' => \$sc,
                'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -278,9 +260,9 @@ sub parse_cmdline {
     # check correct $libraryNAME
     if ($check_env == 1) {
       process_required_tools();
-      check_environment();
-      exit;
+      check_environment(); # will die on failure
     }
+
     pod2usage("Please specify output file basename with -lib")
         if !defined($libraryNAME);
     pod2usage("\nArgument to -lib may not be empty")
@@ -344,13 +326,8 @@ sub parse_cmdline {
     }
 
     # check surplus arguments
-    if ($ARGV[0]) {
-        print "Commandline contains extra words:";
-        foreach (@ARGV) {
-            print "$_\n";
-        }
-        die("aborting");
-    }
+    err("Command line contains extra words:", @ARGV)
+        if ($ARGV[0]);
 }
 
 sub print_report {
@@ -413,26 +390,26 @@ NTU\treads
     }
 
     if ($skip_spades == 0) {
-      ## Print the table of SSU assembly-based taxa to report file
-      print {$fh} "---\n";
-      print {$fh} "SSU assembly based taxa:\n";
-      print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-  
-      foreach my $arr (@ssuassem_results_sorted) {
-          print {$fh} join("\t",  @$arr)."\n";
-      }
+        ## Print the table of SSU assembly-based taxa to report file
+        print {$fh} "---\n";
+        print {$fh} "SSU assembly based taxa:\n";
+        print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+
+        foreach my $arr (@ssuassem_results_sorted) {
+            print {$fh} join("\t",  @$arr)."\n";
+        }
     }
-    
+
     if ($skip_emirge == 0) {
-      ## Print the table of SSU reconstruction-based taxa to report file
-      print {$fh} "---\n";
-      print {$fh} "SSU reconstruction based taxa:\n";
-      print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-      foreach my $arr (@ssurecon_results_sorted) {
-          print {$fh} join("\t", @$arr)."\n";
-      }
+        ## Print the table of SSU reconstruction-based taxa to report file
+        print {$fh} "---\n";
+        print {$fh} "SSU reconstruction based taxa:\n";
+        print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+        foreach my $arr (@ssurecon_results_sorted) {
+            print {$fh} join("\t", @$arr)."\n";
+        }
     }
-    
+
     close($fh);
 }
 
@@ -461,6 +438,7 @@ sub write_csv {
         "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",$chao1
     ));
+
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.report.csv");
     while ($#report > 0) {
         print {$fh} shift(@report).",".shift(@report).$crlf;
@@ -607,16 +585,13 @@ sub bbmap_fast_filter_parse() {
     $SSU_ratio_pc = $SSU_ratio * 100;
 
     msg("mapping rate: $SSU_ratio_pc%");
-    
+
     if ($SSU_total_pairs * 2 * $readlength < 1800) {
       msg("WARNING: mapping coverage lower than 1x,\n
       reconstruction with SPADES and Emirge disabled.");
       $skip_emirge = 1;
       $skip_spades = 1;
     }
-    
-    
-    
 }
 
 sub bbmap_hitstats_parse {
@@ -671,14 +646,14 @@ sub bbmap_hitstats_parse {
         map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
 
-    $xtons[2] = $#taxa_from_hitmaps_sorted +1;	
-	
+    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
+
     if ($xtons[1] > 0) {
-	$chao1 =
-	  $xtons[2] +
-	  ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+        $chao1 =
+          $xtons[2] +
+          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
     } else {
-      $chao1 = 'n.d.';
+        $chao1 = 'n.d.';
     }
     msg("done...");
 }
@@ -696,7 +671,6 @@ sub spades_run {
     }
     msg ("kmers for SPAdes are ".$kmer);
 
-  
     my $args;
     if ($sc == 1) {
       $args = '--sc ';
@@ -720,104 +694,95 @@ sub spades_parse {
     # getting spades output and reformatting it...
     msg("getting 16S phylotypes and their coverages...");
 
-    # only run if spades assembly is not empty!
-    if (-s "$libraryNAME.spades/scaffolds.fasta") {
-    
-          # run barrnap once for each domain
- 
-          # if single cell data - accept partial rRNAs down to 0.1
-          # and use lower e-value setting 
-          my $b_args = " --evalue 1e-100 --reject 0.6 " ;
-          if ($sc == 1) {
-            $b_args = " --evalue 1e-20 --reject 0.1 ";
-          }
-    
-          foreach ('bac', 'arch', 'euk') {
-          run_prog("barrnap",
+    #spades scaffolds file is empty, settting skip_spades variable to avoid
+    #further processing
+    if (! -s "$libraryNAME.spades/scaffolds.fasta") {
+        msg("no phylotypes assembled with SPAdes");
+        $skip_spades = 1;
+        system ("rm ./$libraryNAME.spades -r");
+    }
+
+    # run barrnap once for each domain
+    # if single cell data - accept partial rRNAs down to 0.1
+    # and use lower e-value setting
+    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+    if ($sc == 1) {
+        $b_args = " --evalue 1e-20 --reject 0.1 ";
+    }
+
+    foreach ('bac', 'arch', 'euk') {
+        run_prog("barrnap",
                  $b_args.
                  "--kingdom $_ --gene ssu --threads $cpus " .
                  "$libraryNAME.spades/scaffolds.fasta",
                  "$libraryNAME.scaffolds.$_.gff",
                  "$libraryNAME.barrnap.out");
-	  }
-	
+    }
 
-          # now merge multi-hits on the same scaffold-and-strand by picking
-          # the lowest start and highest stop position.
+    # now merge multi-hits on the same scaffold-and-strand by picking
+    # the lowest start and highest stop position.
 
-          my %ssus;
-          # pre-filter with grep for speed
-          my $fh;
-          open_or_die(\$fh, "-|",
-                      "grep -hE '16S_rRNA\|18S_rRNA' ".
-                      "$libraryNAME.scaffolds.bac.gff ".
-                      "$libraryNAME.scaffolds.arch.gff ".
-                      "$libraryNAME.scaffolds.euk.gff");
-          while (my $row = <$fh>) {
-              my @cols    = split("\t", $row);
-              # gff format:
-              # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
-              # 5 score, 6 strand, 7 frame, 8 attribute
+    my %ssus;
+    # pre-filter with grep for speed
+    my $fh;
+    open_or_die(\$fh, "-|",
+                "grep -hE '16S_rRNA\|18S_rRNA' ".
+                "$libraryNAME.scaffolds.bac.gff ".
+                "$libraryNAME.scaffolds.arch.gff ".
+                "$libraryNAME.scaffolds.euk.gff");
+    while (my $row = <$fh>) {
+        my @cols    = split("\t", $row);
+        # gff format:
+        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+        # 5 score, 6 strand, 7 frame, 8 attribute
 
-              my $seqname = $cols[0];
-              my $start   = $cols[3];
-              my $stop    = $cols[4];
-              my $strand  = $cols[6];
+        my $seqname = $cols[0];
+        my $start   = $cols[3];
+        my $stop    = $cols[4];
+        my $strand  = $cols[6];
 
-              # put our desired output fasta name into "feature" col 3
-              # the may be "bug" using / mixing bed and gff formats
-              # but it saves us messing with the fasta afterwards
-              $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
-              $cols[2] = "$libraryNAME.PFspades_$1_$2";
+        # put our desired output fasta name into "feature" col 3
+        # the may be "bug" using / mixing bed and gff formats
+        # but it saves us messing with the fasta afterwards
+        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
+        $cols[2] = "$libraryNAME.PFspades_$1_$2";
 
-              # do the actual merging, left most start and right most stop wins
-              if (exists $ssus{$seqname.$strand}) {
-                  my $old_start = $ssus{$seqname.$strand}[3];
-                  my $old_stop  = $ssus{$seqname.$strand}[4];
-                  $cols[3] = ($start < $old_start) ? $start : $old_start;
-                  $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
-              }
-              $ssus{$seqname.$strand} = [@cols];
-          }
-          close($fh);
+        # do the actual merging, left most start and right most stop wins
+        if (exists $ssus{$seqname.$strand}) {
+            my $old_start = $ssus{$seqname.$strand}[3];
+            my $old_stop  = $ssus{$seqname.$strand}[4];
+            $cols[3] = ($start < $old_start) ? $start : $old_start;
+            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+        }
+        $ssus{$seqname.$strand} = [@cols];
+    }
+    close($fh);
 
-          open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
-          for my $key (sort keys %ssus) {
-              print $fh join("\t",@{$ssus{$key}});
-          }
-          close($fh);
+    open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
+    for my $key (sort keys %ssus) {
+        print $fh join("\t",@{$ssus{$key}});
+    }
+    close($fh);
 
-          # fastaFromBed will build a .fai index from the source .fasta
-          # However, it does not notice if the .fasta changed. So we
-          # delete the .fai if it is older than the .fasta.
-          if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-               file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+    # fastaFromBed will build a .fai index from the source .fasta
+    # However, it does not notice if the .fasta changed. So we
+    # delete the .fai if it is older than the .fasta.
+    if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+         file_is_newer("$libraryNAME.spades/scaffolds.fasta",
                        "$libraryNAME.spades/scaffolds.fasta.fai")) {
-             unlink("$libraryNAME.spades/scaffolds.fasta.fai");
-         }
-
-          # extract rrna fragments from spades scaffolds accoding to gff
-          run_prog("fastaFromBed",
-                   "  -fi $libraryNAME.spades/scaffolds.fasta "
-                   . "-bed tmp.$libraryNAME.scaffolds.final.gff "
-                   . "-fo $libraryNAME.spades_rRNAs.final.fasta "
-                   . "-s -name",
-                  "tmp.$libraryNAME.fastaFromBed.out",
-                   "&1");
-
-          msg("done...");
-    
+        unlink("$libraryNAME.spades/scaffolds.fasta.fai");
     }
-    
-     #spades scaffolds file is empty, settting skip_spades variable to avoid 
-    #further processing
-    
-    else
-    {
-         msg("no phylotypes assembled with SPAdes");
-	 $skip_spades = 1;
-	 system ("rm ./$libraryNAME.spades -r");
-    }
+
+    # extract rrna fragments from spades scaffolds accoding to gff
+    run_prog("fastaFromBed",
+             "  -fi $libraryNAME.spades/scaffolds.fasta "
+             . "-bed tmp.$libraryNAME.scaffolds.final.gff "
+             . "-fo $libraryNAME.spades_rRNAs.final.fasta "
+             . "-s -name",
+             "tmp.$libraryNAME.fastaFromBed.out",
+             "&1");
+
+    msg("done...");
 }
 
 
@@ -933,7 +898,7 @@ sub vsearch_best_match {
              . " $libraryNAME.spades_rRNAs.final.fasta",
              "$libraryNAME.all.final.fasta");
     }
-    
+
     if (-s "$libraryNAME.all.final.fasta") {
        run_prog("vsearch",
              "-usearch_global $libraryNAME.all.final.fasta "
@@ -1009,30 +974,23 @@ sub mafft_run {
     msg("creating alignment and tree...");
 
     if ($skip_spades == 0 && $skip_emirge == 1) {
-          run_prog("cat",
-             "$libraryNAME.all.dbhits.NR97.fa "
-             . "$libraryNAME.spades_rRNAs.final.fasta ",
-#             . "$libraryNAME.emirge.final.fasta ",
-             "$libraryNAME.SSU.collection.fasta");
+        run_prog("cat",
+                 "$libraryNAME.all.dbhits.NR97.fa "
+                 . "$libraryNAME.spades_rRNAs.final.fasta ",
+                 "$libraryNAME.SSU.collection.fasta");
 
-    }
-    
-    elsif ($skip_spades == 1 && $skip_emirge == 0) {
-          run_prog("cat",
-             "$libraryNAME.all.dbhits.NR97.fa "
-             #. "$libraryNAME.spades_rRNAs.final.fasta "
-             . "$libraryNAME.emirge.final.fasta ",
-             "$libraryNAME.SSU.collection.fasta");
+    } elsif ($skip_spades == 1 && $skip_emirge == 0) {
+        run_prog("cat",
+                 "$libraryNAME.all.dbhits.NR97.fa "
+                 . "$libraryNAME.emirge.final.fasta ",
+                 "$libraryNAME.SSU.collection.fasta");
 
-    }
-    
-    elsif ($skip_spades == 0 && $skip_emirge == 0) {
-      run_prog("cat",
-               "$libraryNAME.all.dbhits.NR97.fa "
-               . "$libraryNAME.spades_rRNAs.final.fasta "
-               . "$libraryNAME.emirge.final.fasta ",
-               "$libraryNAME.SSU.collection.fasta");
-      
+    } elsif ($skip_spades == 0 && $skip_emirge == 0) {
+        run_prog("cat",
+                 "$libraryNAME.all.dbhits.NR97.fa "
+                 . "$libraryNAME.spades_rRNAs.final.fasta "
+                 . "$libraryNAME.emirge.final.fasta ",
+                 "$libraryNAME.SSU.collection.fasta");
     }
 
     run_prog("mafft",
@@ -1052,12 +1010,12 @@ sub mafft_run {
 sub clean_up {
     # cleanup of intermediate files and folders
     msg("cleaning temp files...");
-    if ($skip_spades == 0)
-      { system ("rm ./$libraryNAME.spades -r");
-      }
-    if ($skip_emirge == 0)
-      { system ("rm ./$libraryNAME -r");
-      }
+    if ($skip_spades == 0) {
+        system ("rm ./$libraryNAME.spades -r");
+    }
+    if ($skip_emirge == 0) {
+        system ("rm ./$libraryNAME -r");
+    }
     system ("rm tmp.* -r");
     msg("done...");
 }
@@ -1067,18 +1025,18 @@ sub run_plotscript {
 
     #FIXME: crashes if .inserthistorgram contains no lines
     if ($skip_spades + $skip_emirge == 2) {
-          run_prog("plotscript",
-             "--args NULL "
-             . "$libraryNAME.inserthistogram ",
-             "tmp.$libraryNAME.plotscript.out",
-             "&1");
+        run_prog("plotscript",
+                 "--args NULL "
+                 . "$libraryNAME.inserthistogram ",
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
     }
     else {
-      run_prog("plotscript",
-               "--args $libraryNAME.SSU.collection.fasta.tree "
-               . "$libraryNAME.inserthistogram ",
-               "tmp.$libraryNAME.plotscript.out",
-               "&1");
+        run_prog("plotscript",
+                 "--args $libraryNAME.SSU.collection.fasta.tree "
+                 . "$libraryNAME.inserthistogram ",
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
     }
 }
 
@@ -1445,18 +1403,18 @@ bbmap_fast_filter_run();
 bbmap_fast_filter_parse();
 bbmap_hitstats_parse();
 if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
-  spades_run();
-  spades_parse();
+    spades_run();
+    spades_parse();
 }
 if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
-  emirge_run();
-  emirge_parse();
+    emirge_run();
+    emirge_parse();
 }
 if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
-  vsearch_best_match();
-  vsearch_parse();
-  vsearch_cluster();
-  mafft_run();
+    vsearch_best_match();
+    vsearch_parse();
+    vsearch_cluster();
+    mafft_run();
 }
 
 $runtime = $timer->minutes;

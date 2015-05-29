@@ -23,6 +23,15 @@
 #  along with this program.
 #  If not, see <http://www.gnu.org/licenses/>.
 
+## more useful errors on cmdline (traceback)
+debugCode = quote({
+    dump.frames();
+    cat(paste("  ", 1L:length(last.dump), ": ",
+              names(last.dump), sep = ""),"",
+        sep = "\n", file=stderr())
+});
+options(warn=2, keep.source=TRUE, error = debugCode);
+
 library(optparse);
 
 load_libraries <- function() {
@@ -34,16 +43,7 @@ load_libraries <- function() {
     library(gtable);
 }
 
-
-
-defaultColorScheme <- c("#313695", "#4575B4", "#74ADD1", "#ABD9E9",
-                        "#E0F3F8", "#FFFFBF", "#FEE090", "#FDAE61",
-                        "#F46D43", "#D73027", "#A50026");
-
-####  helper functions
-
 ### logging
-
 pf_logLevel <- 2;
 pf_setLogLevel <- function(x) { assign("pf_logLevel", x, .GlobalEnv); }
 msg <- function(...,lvl=2) {
@@ -54,7 +54,7 @@ msg <- function(...,lvl=2) {
     # 3 info    
     # 4 debug
 
-    if (lvl=="error") {
+    if (lvl=="0") {
         stop(...);
     } else if (pf_logLevel >= lvl) {
         cat(...,'\n');
@@ -65,39 +65,57 @@ warn  <- function(...) msg(lvl=1,...);
 info  <- function(...) msg(lvl=3,...);
 debug <- function(...) msg(lvl=4,...);
 
-### ggplot helpers
-
-# extract just the legend from a ggplot object
-g_get_legend <- function(a.gplot) {
-    # from http://stackoverflow.com/questions/11883844/
-    # "inserting-a-table-under-the-legend-in-a-ggplot2-histogram"
-    tmp <- ggplot_gtable(ggplot_build(a.gplot));
-    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box");
-    legend <- tmp$grobs[[leg]];
-    return(legend);
+## workaround for not working rbind(gtable...)
+## adapted from http://stackoverflow.com/questions/24234791
+rbind_max <- function(...,size=grid::unit.pmax){
+    bind2 <- function (x, y) {
+        stopifnot(ncol(x) == ncol(y))
+        if (nrow(x) == 0) return(y)
+        if (nrow(y) == 0) return(x)
+        y$layout$t <- y$layout$t + nrow(x)
+        y$layout$b <- y$layout$b + nrow(x)
+        x$layout <- rbind(x$layout, y$layout)
+        x$heights <- gtable:::insert.unit(x$heights, y$heights)
+        x$rownames <- c(x$rownames, y$rownames)
+        if (is.function(size)) {
+            x$widths <- do.call(size, list(x$widths, y$widths))
+        }
+        x$grobs <- append(x$grobs, y$grobs)
+        x
+    }
+    Reduce(bind2, list(...))
 }
 
-g_get_map <- function(a.gplot) {
-    gb <- ggplotGrob(a.gplot);
-    return(gtable_filter(gb,pattern="axis-l|panel"));
+cbind_max <- function(...,size=grid::unit.pmax){
+    bind2 <- function (x, y) {
+        stopifnot(nrow(x) == nrow(y))
+        if (ncol(x) == 0) return(y)
+        if (ncol(y) == 0) return(x)
+        y$layout$l <- y$layout$l + ncol(x)
+        y$layout$r <- y$layout$r + ncol(x)
+        x$layout <- rbind(x$layout, y$layout)
+        x$widths <- gtable:::insert.unit(x$widths, y$widths)
+        x$colnames <- c(x$colnames, y$colnames)
+        if (is.function(size)) {
+            x$heights <- do.call(size, list(x$heights, y$heights))
+        }
+        x$grobs <- append(x$grobs, y$grobs)
+        x
+    }
+    Reduce(bind2, list(...))
 }
 
-# hide the legend in a ggplot object
-g_hide_legend <- function(a.gplot) {
-    return (a.gplot + theme(legend.position = "none"));
+# extract a grob from a ggplot/gtable
+g_get <- function(pat, obj) {
+    if (is.ggplot(obj)) obj <- ggplotGrob(obj);
+    if (!is.grob(obj)) err("not a grob?!");
+    return (gtable_filter(obj,pattern=pat));
 }
 
-g_hide_x_axis <- function(a.gplot) {
-    return (a.gplot + theme(axis.text.x=element_blank())
-#            + theme(plot.margin =unit(c(0,0,0,0),"null"))
-            );
-    return 
-}
-            
 # prepare a pure dendrogram plot from a dendro_data object
-# @param bool vertical   If true, plot has leaves as rows.
+# @param bool axis       1:4=below,left,above,right
 # @param bool labels     If true, plot includes labels
-g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
+g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
     ddata <- dendro_data(dendro, type="rectangle");
     
     # Unexpanded, the dendrogram will span maximum width. That is,
@@ -117,20 +135,19 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
                       aes(x=x, y=y, xend=xend, yend=yend)) +
          theme_dendro() +
          labs(x = NULL, y = NULL) +
-         scale_y_continuous(expand=c(0,0)) +
+         scale_y_continuous(expand=c(0,0),
+                            trans=c("reverse","identity")[(axis+1)%/%2]) +
          theme(axis.ticks.length = unit(0,"null"),
                axis.ticks.margin = unit(0,"null")
                );
 
     # flip if vertical and add 1 mm space on the outer
     # edge to make sure the outmost connection is visible
-    if (vertical) {
-        p <- p + coord_flip() +
-             theme(plot.margin   = unit(c(0,1,0,0),"mm"))
-    } else {
-        p <- p +
-             theme(plot.margin   = unit(c(1,0,0,0),"mm"))
+    
+    if (axis %% 2 == 0) {
+        p <- p + coord_flip()
     }
+    
 
     # add the appropriate scale configuration
     # if labels are to be shown, pull them from the
@@ -141,7 +158,7 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
             expand = c(expandFactor,0),
             breaks = 1:length(ddata$labels$label),
             labels = ddata$labels$label);
-        if (vertical) {
+        if (axis %% 2 == 0) {
             p <- p + theme(axis.text.y = element_text(angle = 0, hjust = 1));
         } else {
             p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1));
@@ -150,11 +167,55 @@ g_make_dendro_plot <- function(dendro, vertical=TRUE, labels=TRUE) {
         p <- p + scale_x_continuous(expand=c(expandFactor,0));
     }
     
-    return (p);             
+    return (p);
 }
 
+# makes a ggplot heatmap from a matrix
+g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
+    highcol = c("steelblue","indianred")[n]
+    ## factorize dims
+    matNames <- attr(mat, "dimnames");
+    df <- as.data.frame(mat);
+    colnames(df) <- matNames[[2]];
+    df$y.variable <- matNames[[1]];
+    df$y.variable <- with(df, factor(y.variable,levels=y.variable,ordered=TRUE));
 
-# load phyloFlash data
+    mat <- melt(df, id.vars="y.variable");
+
+    breaks <- function(x) axisTicks(log10(range(x, na.rm = TRUE)), log = TRUE);
+    
+    heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
+       geom_tile(aes(fill=value)) +
+       scale_fill_gradient(low="white", high=highcol, trans="log",
+                           breaks=breaks,
+                           limits=c(1,max(mat$value)),
+                           na.value="white") +
+       labs(x = NULL, y = NULL) +
+       scale_x_discrete(expand=c(0,0)) +
+       scale_y_discrete(expand=c(0,0)) +
+       theme(axis.text.x = element_text(angle=angle, hjust=hjust,vjust=vjust),
+             axis.ticks.length = unit(0,"null"),
+             legend.title=element_blank());
+
+    return(heatMapPlot);
+}
+
+# makes a grob containing a row of strings from a string vector
+gtable_text_row <- function(strvec) {
+    grobs <- lapply(strvec, function(str) {
+        textGrob(str,gp=gpar(fontsize=8))
+    })
+    gt <- gtable(heights=unit(1,"lines"), widths=unit(0,"null"));
+
+    if (length(strvec) == 0) return(gt);
+
+    g <- gtable_row("textrow", grobs);
+    gt <- gtable_add_grob(gt, g, t=1, l=1);
+
+    gt
+}
+
+# loads phyloFlash output files into R
 read.phyloFlash <- function(files) {
     ### Extract library names from command line
     # remove .phyloFlash...csv 
@@ -170,9 +231,8 @@ read.phyloFlash <- function(files) {
     msg(unlist(libs), fill=77);
     
     msg("Loading CSV files...");
-    for (lib in libs) {
+    for (lib in libs) tryCatch({
         fileName <- paste(lib, ".phyloFlash.NTUabundance.csv", sep="");
-        
         info("Reading: ",fileName);
         fileData <- read.csv(fileName);
        
@@ -185,21 +245,41 @@ read.phyloFlash <- function(files) {
         } else {
             NTUcounts <- merge(x=NTUcounts, y=fileData, by="NTU", all=TRUE);
         }
-    }
-    
+
+        # read meta-data
+        fileName <- paste(lib, ".phyloFlash.report.csv", sep="");
+        info("Reading: ", fileName);
+        fileData <- read.csv(fileName, col.names=c("key",lib));
+        if (!exists("MetaData")) {
+            MetaData <- fileData;
+        } else {
+            MetaData <- merge(x=MetaData, y=fileData, by="key");
+        }
+    }, warning = function(e) {
+        err("Error in read.phyloFlash:\n",e$message);
+    });
+
+    pfData <- list(); # result is a list
+
+    # turn data.frame into matrix, get dimnames right
     ntu_names      <- NTUcounts$NTU;
     sample_names   <- colnames(NTUcounts[,-1]);
-    
     NTUcounts  <- as.matrix(NTUcounts[,-1]);
     rownames(NTUcounts) <- ntu_names;
-    
-    # turn NA into 0
-    NTUcounts[is.na(NTUcounts)] <- 0;
+    NTUcounts[is.na(NTUcounts)] <- 0;     # turn NA into 0
+    pfData$data <- list(NTUcounts);
 
-    return (NTUcounts);
+    # turn key column into row names, transpose
+    pfData$meta <- MetaData[,-1];
+    rownames(pfData$meta) <- MetaData[,1];
+    pfData$meta <- data.frame(t(pfData$meta));
+
+    return (pfData);
 }
 
+# shortens taxnames to last to group names
 shorten_taxnames <- function(data) {
+    if (is.list(data)) return (lapply(data, shorten_taxnames));
     # convert NTU name column into rownames
     shortnames <- lapply(rownames(data),
                          function(x) gsub(".*;(.*;.*)","\\1", x));
@@ -208,13 +288,35 @@ shorten_taxnames <- function(data) {
     return(data);
 }
 
+# splits matrix using regex (returns list)
+split_by_name <- function(data, re_list) {
+    names  <- rownames(data[[1]]);
+    groups <- rep(0, length(names));
+    i <- 1;
+    for (pat in re_list) {
+        groups[grepl(pat, names) & groups==0] = i;
+        i <- i+1;
+    }
+    sd <- split(data.frame(data), groups);
+    return (lapply(sd, as.matrix));
+}
+
 ### remove taxa observed rarely
 merge_low_counts <- function(data, thres=50, other="Other") {
+    if (is.list(data)) {
+        return(lapply(data, merge_low_counts, thres, other));
+    }
+
     msg("A total of",nrow(data),"taxa were observed.",
         "Merging taxa with <", thres, "observations into \"",
         other, "\".");
 
     ndata <- data[rowSums(data) >= thres,];
+
+    if (length(ndata) == length(data)) {
+        msg("No taxa to merge");
+        return(data);
+    }
     
     odata <- colSums(data[rowSums(data) < thres,]);
     odata <- matrix(odata, ncol=length(odata),
@@ -225,100 +327,112 @@ merge_low_counts <- function(data, thres=50, other="Other") {
     msg("Removed taxa with <",thres,"observations.",
         nrow(data),"taxa left.");
 
-    return(data);
+    return (data);
 }
 
+# scales matrix columns to percent
 scale_to_percent <- function(mat) {
-    return(scale(mat, center=FALSE, scale=colSums(mat)) * 100);
+    if (is.list(mat))
+        return (lapply(mat, scale_to_percent));
+    return (scale(mat, center=FALSE, scale=colSums(mat)) * 100);
 }
 
-cluster <- function(mat,method="ward") {
-    return(as.dendrogram(hclust(dist(mat), method)));
+# cluster, create dendrograms and reorder data
+cluster <- function(pf, method="ward") {
+    mkdendro <- function(mat) {
+        return(as.dendrogram(hclust(dist(mat), method)));
+    }
+
+    ## re-join data if list
+    joined = do.call(rbind, pf$data);
+    ## create horizontal clusters
+    pf$col_dendro <- mkdendro(t(joined));
+    ## re-order meta-data
+    pf$meta <- pf$meta[order.dendrogram(pf$col_dendro),];
+
+    ## create vertical clusters
+    pf$row_dendro <- lapply(pf$data, mkdendro);
+    ## re-order data matrices
+    rorder <- function(mat, dendr) {
+        return (mat[order.dendrogram(dendr),
+                    order.dendrogram(pf$col_dendro)]);
+    }
+
+    pf$data <- mapply(rorder, pf$data, pf$row_dendro, SIMPLIFY=FALSE);
+
+    return(pf);
 }
 
-g_make_heatmap <- function(mat, colorScheme=defaultColorScheme) {
-    ## factorize dims
-    matNames <- attr(mat, "dimnames");
-    df <- as.data.frame(mat);
-    colnames(df) <- matNames[[2]];
-    df$y.variable <- matNames[[1]];
-    df$y.variable <- with(df, factor(y.variable,levels=y.variable,ordered=TRUE));
-
-    x=mean(mat);
+# creates a plot from a phyloFlash "object"
+plot.phyloFlash <- function(pf,
+                            row.order=c("tree","map","chao","labels"),
+                            col.order=c("labels","map","tree")) {
+    if (is.character(row.order)) {
+        row.order = strsplit(row.order,",")[[1]];
+    }
+    if (is.character(col.order)) {
+        col.order = strsplit(col.order,",")[[1]];
+    }
     
-    mat <- melt(df, id.vars="y.variable");
+    nmaps <- length(pf$data);
+
+    # empty table
+    zero <- gtable(widths=unit(0,"null"),heights=unit(0,"null"));
+    zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
     
-    heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
-       geom_tile(aes(fill=value)) +
-       #scale_fill_gradientn(colours = colorScheme) +
-       #scale_fill_gradientn(colours = rainbow(3)) +
-       #scale_fill_gradient2(low="blue", mid="green", high="red", midpoint = 30)+
-       scale_fill_gradient(low="white", high="steelblue")+
-       labs(x = NULL, y = NULL) +
-       scale_x_discrete(expand=c(0,0)) +
-       scale_y_discrete(expand=c(0,0)) +
-       theme(axis.text.x = element_text(angle=90));
-#                  theme(plot.margin = unit(c(0,0,1,1), "cm"));
+    ## get heatmaps and labels
+    gg_heatmaps <- mapply(g_make_heatmap, pf$data, c(1:length(pf$data)), SIMPLIFY=FALSE);
+    gr_heatmaps <- mapply(g_get, rep("panel|axis-l", nmaps), gg_heatmaps);
+    ## merge below each other
+    gr_heatmaps <- do.call(rbind_max, gr_heatmaps);
+    ## scale heights by number of rows
+    nrows <- sapply(pf$data,nrow);
+    gr_heatmaps$heights = gr_heatmaps$heights * (nrows/sum(nrows));
+
+    ## get trees over samples
+    gr_trees <- lapply(pf$row_dendro, function(x) g_make_dendro_plot(x,axis=4));
+    gr_trees <- lapply(gr_trees, function(x) g_get("panel",x))
+    ## merge into one column
+    gr_trees <- do.call(rbind_max, gr_trees);
+
+    ## add row at top
+    gr_legends <- lapply(gg_heatmaps, function(x) {
+        g_get("guides", g_get("guide-box", x)$grobs[[1]]) })
+    gr_legends <-  do.call(cbind_max, gr_legends)
     
+    gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
+    gr_legend$heights = max(gr_legends$heights)
+    gr_legend$widths = sum(gr_legends$widths)
+    axis = ifelse(match("tree",row.order) < match("map",row.order),3,1);
+    gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, axis=axis));
+    gr_sampleTree$heights=unit(0.1,"null")
+
+    chao <- pf$meta$NTU.Chao1.richness.estimate;
+    chao <- round(as.numeric(as.character(chao)))
+
+    gr_chao_grob <- textGrob("Chao1",x=unit(.99,"npc"),just="right",gp=gpar(fontsize=8))
+    gr_chao_lab <- gtable_add_grob(zero1,gr_chao_grob,t=1,l=1,r=1,b=1);
+   
+    # add row at bottom
+    gr_sample_labels  <- g_get("axis-b", gg_heatmaps[[1]]);
+
+    tree_row <- cbind_max(zero, gr_sampleTree, gr_legend);
+    chao_row <- cbind_max(gr_chao_lab, gtable_text_row(chao), zero);
+    bottom_row <- cbind_max(zero,gr_sample_labels,zero);
+
+    g <- cbind_max(gr_heatmaps, gr_trees,size=1);
+    g <- gtable_add_row_space(g, unit(.2,"lines"));
+
+    gr_rows <- list(tree_row, g, chao_row, bottom_row);
+    gr_rows <- gr_rows[match(row.order, c("tree","map","chao","labels"))];
+    g <- do.call(rbind_max,gr_rows);
+
+    g <- gtable_add_row_space(g, unit(.1,"lines"));
+    g <- gtable_add_col_space(g, unit(.1,"lines"));
+    g <- gtable_add_padding(g, unit(.3,"lines"));
     
-    return(heatMapPlot);
-}
-
-
-plot.phyloFlash <- function(pdata) {
-    row_dendro <- cluster(pdata);
-    col_dendro <- cluster(t(pdata));
-
-    ## reorder to match clustering
-    pdata <- pdata [order.dendrogram(row_dendro),
-                    order.dendrogram(col_dendro)];
-
-    heatmap    <- g_make_heatmap(pdata);
-    ntuTree    <- g_make_dendro_plot(row_dendro, TRUE, FALSE);
-    sampleTree <- g_make_dendro_plot(col_dendro, FALSE, FALSE);
-
-    g <- g_make_grid(heatmap, ntuTree, sampleTree);
-    g <- g_add_to_grid(g, heatmap, ntuTree);
-    g <- g_add_to_grid(g, heatmap, ntuTree);
-    return(g);
-}
-
-g_make_grid <- function(heatMap, ntuTree, sampleTree) {
-    ## start with the raw heatmap (no legend)
-    g <- ggplotGrob(g_hide_legend(heatMap));
-
-    ## add a column to the right
-    g <- gtable_add_cols(g, unit(5, "cm"));
-    ## put in the dendrogram for the NTUs
-    g <- gtable_add_grob(g, ggplotGrob(ntuTree),
-                         t=3, b=3, l=6, r=6);
-    
-    ## add a row above 
-    g <- gtable_add_rows(g, unit(5, "cm"),0);
-    ## put the dendrogram with the sample clustering in
-    g <- gtable_add_grob(g, ggplotGrob(sampleTree),
-                         t=1, b=1, l=4, r=4);
-    ## put the legend in the upper right corner
-    g <- gtable_add_grob(g, g_get_legend(heatMap),
-                         t=1, b=1, l=6, r=6);
-
     return (g);
 }
-
-g_add_to_grid <- function(g, heatMap, ntuTree) {
-    ## add some space
-    g <- gtable_add_rows(g, unit(.2,"lines"),nrow(g)-3);
-
-    ## add another heatmap
-    g <- gtable_add_rows(g, unit(1, "null"),nrow(g)-3);
-    ro <- nrow(g)-3;
-    g <- gtable_add_grob(g, g_get_map(heatMap),
-                         t=ro, b=ro, l=3, r=4);
-    g <- gtable_add_grob(g, ggplotGrob(ntuTree),
-                         t=ro, b=ro, l=6, r=6);
-  
-    return (g);
-}    
 
 pF_main <- function() {
     options <- list(
@@ -341,14 +455,54 @@ pF_main <- function() {
             help="Sum NTUs with less counts in pseudo NTU \"Other\". Default %default."
             ),
         make_option(
-            "--no-split-euks",
-            action="store_false",
-            help="Do not show Eukaryotes in separate plot section"
+            "--no-split",
+            action="store_true",
+            default=FALSE,
+            help="Do not split heatmap"
+            ),
+        make_option(
+            "--split-regex",
+            default="Eukaryota",
+            type="character",
+            help="Split heatmap using this regex on taxa. Default '%default'",
+            ),
+        make_option(
+            "--no-shorten-names",
+            action="store_true",
+            default=FALSE,
+            help="Do not shorten taxa names to last two groups",
+            ),
+        make_option(
+            "--no-scaling",
+            action="store_true",
+            default=FALSE,
+            help="Do not scale columns to percentages"
+            ),
+        make_option(
+            "--hclust-method",
+            default="ward",
+            help="Use this method for hclust clustering. Can be:
+                ward, single, complete, average, mcquitty, median or centroid.
+                Default is %default."
+            ),
+        make_option(
+            "--row-order",
+            default="tree,map,chao,labels",
+            help="Order of rows, separated by commas. Valid terms are:
+                tree, map, chao and labels.
+                Default is %default."
+            ),
+        make_option(
+            "--col-order",
+            default="labels,map,tree",
+            help="Order of columns, separated by commas. Valid terms are:
+                labels, map and tree.
+                Default is %default."
             ),
         make_option(
             "--out",
             default="out.png",
-            help="Name of output file. Must end in .png or .pdf. Default %default."
+            help="Name of output file. Must end in .png or .pdf. Default is %default."
             ),
         make_option(
             "--out-size",
@@ -361,7 +515,8 @@ pF_main <- function() {
         option_list=options,
         usage="usage: %prog [options] [files]",
         description="
-Generates a heatmap plot from multiple phyloFlash result sets.
+Generates a heatmap plot from multiple phyloFlash result sets. For more control,
+source this file from R.
 
 Files:
         A list of files and/or directories that will be searched
@@ -370,14 +525,10 @@ Files:
 
     conf <- parse_args(parser, positional_arguments = TRUE);
 
-    # fixme: unparsed "-*" type options
-
     if (length(conf$args)==0) {
         print_help(parser);
         quit(status=2);
     }
-
-    #str(conf$options);
     
     # set loglevel
     if (conf$options$quiet) {
@@ -386,39 +537,58 @@ Files:
         pf_setLogLevel(3);
     }
 
+    info("Loading libraries");
     load_libraries();
 
-    pdata <- read.phyloFlash(conf$args);
-    pdata <- shorten_taxnames(pdata);
-    pdata <- merge_low_counts(pdata, thres=conf$options$"min-ntu-count");
-    pdata <- scale_to_percent(pdata);
+    pf      <- read.phyloFlash(conf$args);
 
-    g <- plot.phyloFlash(pdata);
+    ## split by domain
+    if (!conf$options$"no-split") {
+        msg("Splitting data according to regex ", conf$options$"split-regex");
+        pat <- strsplit(conf$options$"split-regex",",")[[1]];
+        pf$data <- split_by_name(pf$data, pat);
+    }
+    if (!conf$options$"no-shorten-names") {
+        pf$data <- shorten_taxnames(pf$data);
+    }
+
+    pf$data <- merge_low_counts(pf$data,
+                                thres=conf$options$"min-ntu-count");
     
-    png(file="out.png", width=1280,height=1024);
-    #svg(file="out.svg");
-    #png(file="out.png",width=1280,height=1280);
-    #pdf(file="out.pdf");
+    if (!conf$options$"no-scaling") {
+        msg("Rescaling counts to percentages");
+        pf$data <- scale_to_percent(pf$data);
+    }
+
+    msg("Clustering...");
+    pf      <- cluster(pf, method=conf$options$"hclust-method");
+
+    msg("Brief summary of counts:");
+    if (pf_logLevel >= 2) {
+        print(summary(pf$data));
+    }
+
+    msg("Creating plot...");
+    g       <- plot.phyloFlash(pf,
+                               row.order=conf$options$"row-order",
+                               col.order=conf$options$"col-order");
+
+    msg("Printing plot...");
+    outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
+    switch(strsplit(conf$options$out, "[.]")[[1]][-1],
+           png = png(file = conf$options$out,
+               width=outdim[1], height = outdim[2]),
+           svg = svg(file = conf$options$out,
+               width=outdim[1], height = outdim[2]),
+           pdf = pdf(file = conf$options$out,
+               width=outdim[1], height = outdim[2])
+           );
+
     grid.newpage();
     grid.draw(g);
     dev.off();
 
-    png(file="out2.png", width=1280,height=1024);
-    grid.newpage();
-    gtable_show_layout(g);
-    dev.off();
-
-    
-
-
-    
-    msg("Brief summary of counts:");
-    if (pf_logLevel >= 2) { ### "cat(summary(...))" does
-        print(summary(pdata));
-    }
-
-    print(colSums(pdata));
-    
+    invisible(1);
 }
     
 # if we are run as a script from the cmdline

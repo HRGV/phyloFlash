@@ -122,37 +122,45 @@ check_environment();
 ### MAIN ###
 
 if ($use_remote==1 && $univec_file eq "") {
-    #run_stage(msg => "downloading lastest UniVec DB from NCBI",
     msg("downloading latest univec from ncbi");
     $univec_file = file_download($univec_url);
-    #my $univec_file = "UniVec";
 }
 elsif ($use_remote==0 && $univec_file ne "") {
     msg("using local copy of univec: $univec_file");
+}
+else {
+    err("No univec file found and downloading disabled.");
 }
 
 if ($use_remote==1 && $silva_file eq "") {
     msg("downloading latest SSU RefNR from www.arb-silva.de");
     $silva_file  = file_download($silva_url);
-    #my $silva_file = "SILVA_119_SSURef_Nr99_tax_silva_trunc.fasta.gz";
 }
 elsif ($use_remote==0 && $silva_file ne "") {
     msg("using local copy of Silva SSU RefNR: $silva_file");
 }
+else {
+    err("No SILVA database found and downloading disabled.");
+}
 
 # extract SILVA version
-my ($silva_release) = ($silva_file =~ m/SILVA_(\d+)_/);
+my ($silva_release) = ($silva_file =~ m/SILVA_([^_]+)_/);
+
+if (!$&) {
+    err("Unable to extract version from SILVA database filename:",
+        "Expected 'SILVA_<version>_...' in '$silva_file'.");
+}
 
 # create database directory
 my $dbdir = "./".$silva_release."/";
 if (! -e $dbdir) {
     mkdir $dbdir
-        or die "Failed to create dir $silva_release", $!;
+        or err("Failed to create dir $silva_release", $!);
 }
 
 msg("unpacking SILVA database");
 anyuncompress $silva_file => "$dbdir/SILVA_SSU.fasta"
-    or die "unpacking failed:  $AnyUncompressError\n";
+    or err("unpacking failed:  $AnyUncompressError");
 
 my @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.fasta");
 
