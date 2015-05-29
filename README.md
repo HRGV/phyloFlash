@@ -32,8 +32,8 @@ Python installed. (OSX is for the brave, we have not tested this!)
    here https://github.com/HRGV/phyloFlash/releases
 
    ```bash
-   wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta2.tar.gz  
-   tar -xzf v2.0-beta2.tar.gz
+   wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta3.tar.gz  
+   tar -xzf v2.0-beta3.tar.gz
    ```
 
 2. Install the tools phyloFlash uses:
