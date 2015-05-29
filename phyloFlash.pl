@@ -285,12 +285,12 @@ sub parse_cmdline {
     } else { $readsf = $readsf_full; }
     
         
-    if (defined($readsr)) {
-        pod2usage("\nUnable to open reverse read file '$readsr'.".
+    if (defined($readsr_full)) {
+        pod2usage("\nUnable to open reverse read file '$readsr_full'.".
                   "Make sure the file exists and is readable by you.")
-            if ! -e $readsr;
+            if ! -e $readsr_full;
         pod2usage("\nForward and reverse input read file need to be different")
-            if ($readsr eq $readsf);
+            if ($readsr_full eq $readsf_full);
         if ($readsr_full =~ m/.*\/(.+)/) {    # strip directory paths from reverse read filename
           $readsr = $1;
         } else { $readsr = $readsr_full; }
