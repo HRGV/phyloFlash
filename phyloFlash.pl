@@ -4,7 +4,6 @@
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
              an illumina (meta)genomic dataset.
 
-
 =head1 SYNOPSIS
 
 B<phyloFlash.pl> -dbhome F<dir> -lib B<name> -read1 F<<file>> -read2 F<<file>>
@@ -45,7 +44,6 @@ will run in B<experimental> single-end mode.
 
 Invokes checking of working environment and dependencies without data input.
 Use to test setup.
-
 
 =item -dbhome F<dir>
 
@@ -117,8 +115,7 @@ Show manual.
 
 Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
                     and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
-                    with help from Brandon Seah mail:
-
+                    with help from Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENCE
 
@@ -161,8 +158,10 @@ my $progname      = $FindBin::Script;
 my $cwd = getcwd;
 
 # configuration variables / defaults
-my $readsf      = undef;        # forward read file
-my $readsr      = undef;        # reverse read file
+my $readsf_full = undef;        # path to forward read file
+my $readsr_full = undef;        # path to reverse read file
+my $readsf      = undef;        # forward read filename, stripped of directory names
+my $readsr      = undef;        # reverse read filename, stripped of directory names
 my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
 my $id          = 70;           # minimum %id for mapping
@@ -236,8 +235,8 @@ sub process_required_tools {
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
-    GetOptions('read1=s' => \$readsf,
-               'read2=s' => \$readsr,
+    GetOptions('read1=s' => \$readsf_full,
+               'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
                'dbhome=s' => \$DBHOME,
                'readlength=i' => \$readlength,
@@ -275,25 +274,36 @@ sub parse_cmdline {
 
     # check correct read file(s)
     pod2usage("\nPlease specify input forward read file with -read1")
-        if !defined($readsf);
-    pod2usage("\nUnable to open forward read file '$readsf'. ".
+        if !defined($readsf_full);
+    pod2usage("\nUnable to open forward read file '$readsf_full'. ".
               "Make sure the file exists and is readable by you.")
-        if ! -e $readsf;
+        if ! -e $readsf_full;
 
+    # strip directory paths from forward read filename
+    if ($readsf_full =~ m/.*\/(.+)/) {
+      $readsf = $1;
+    } else { $readsf = $readsf_full; }
+    
+        
     if (defined($readsr)) {
         pod2usage("\nUnable to open reverse read file '$readsr'.".
                   "Make sure the file exists and is readable by you.")
             if ! -e $readsr;
         pod2usage("\nForward and reverse input read file need to be different")
             if ($readsr eq $readsf);
+        if ($readsr_full =~ m/.*\/(.+)/) {    # strip directory paths from reverse read filename
+          $readsr = $1;
+        } else { $readsr = $readsr_full; }
+        
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
         $readsr = "<NONE>";
+        $readsr_full = "<NONE>";
     }
 
-    msg("Forward reads $readsf");
+    msg("Forward reads $readsf_full");
     if ($SEmode == 0)  {
-        msg("Reverse reads $readsr");
+        msg("Reverse reads $readsr_full");
     } else {
         msg("Running in single ended mode");
     }
@@ -341,8 +351,8 @@ sub print_report {
 $version - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)
 Library name:\t$libraryNAME
 ---
-Forward read file\t$readsf
-Reverse read file\t$readsr
+Forward read file\t$readsf_full
+Reverse read file\t$readsr_full
 Current working directory\t$cwd
 ---
 Minimum mapping identity:\t$id%
@@ -420,8 +430,8 @@ sub write_csv {
     my @report = csv_escape((
         "version",$version,
         "library, name",$libraryNAME,
-        "forward read file",$readsf,
-        "reverse read file",$readsr,
+        "forward read file",$readsf_full,
+        "reverse read file",$readsr_full,
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
@@ -503,7 +513,7 @@ sub bbmap_fast_filter_run {
              . "path=$DBHOME "
              . "outm=$libraryNAME.$readsf.SSU.1.fq "
              . "build=1 "
-             . "in=$readsf "
+             . "in=$readsf_full "
              . "bhist=tmp.$libraryNAME.basecompositionhistogram "
              . "ihist=$libraryNAME.inserthistogram "
              . "scafstats=$libraryNAME.hitstats "
@@ -1125,7 +1135,7 @@ print {$fh} <<ENDHTML;
     <th>Forward read file</th>
 ENDHTML
 
-print {$fh} "    <td>".$readsf."</td>\n";
+print {$fh} "    <td>".$readsf_full."</td>\n";
 
 print {$fh} <<ENDHTML;
   </tr>
@@ -1133,7 +1143,7 @@ print {$fh} <<ENDHTML;
     <th>Reverse read file</th>
 ENDHTML
 
-print {$fh} "    <td>".$readsr."</td>\n";
+print {$fh} "    <td>".$readsr_full."</td>\n";
 
 print {$fh} <<ENDHTML;
   </tr>
