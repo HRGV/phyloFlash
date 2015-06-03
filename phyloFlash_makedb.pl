@@ -121,6 +121,8 @@ check_environment();
 
 ### MAIN ###
 
+# check whether user has local copy of Univec and Silva files, or if
+# they should be downloaded
 if ($use_remote==1 && $univec_file eq "") {
     msg("downloading latest univec from ncbi");
     $univec_file = file_download($univec_url);
@@ -176,25 +178,24 @@ univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
 
-
 #the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
 # 2) at 96id for emirge
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-           "0.99");
+           "0.99",
+           $cpus);
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
-           "0.96");
-
+           "0.96",
+           $cpus);
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
-
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
               "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
@@ -244,6 +245,7 @@ sub mask_repeats {
     run_prog("bbmask",
              "  overwrite=t "
              . "-Xmx4g "
+             . "threads=$cpus "
              . "in=$src "
              . "out=$dst "
              . "minkr=4 maxkr=8 mr=t minlen=20 minke=4 maxke=8 "
@@ -258,13 +260,13 @@ sub univec_trim {
              "ref=$univec "
              . "  overwrite=t "
              . "-Xmx4g "
+             . "threads=$cpus "
              . "fastawrap=0 "
              . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
              . "in=$src "
              . "out=$dst "
              . "stats=$dst.UniVec_contamination_stats.txt");
 }
-
 
 sub iuppac_replace {
     my ($src, $dst) = @_;
@@ -280,6 +282,7 @@ sub bbmap_db {
     msg("creating bbmap reference");
     run_prog("bbmap",
              "  -Xmx10g "   # Original 4 Gb limit was not enough
+             . "threads=$cpus "
              . "ref=$ref "
              . "path=$path ");
 }

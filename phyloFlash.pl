@@ -973,7 +973,8 @@ sub vsearch_cluster {
              "  --cluster_fast $libraryNAME.all.final.phyloFlash.dbhits.fa "
              . "-id ".($clusterid/100)." "
              . "-centroids $libraryNAME.all.dbhits.NR97.fa "
-             . "-notrunclabels ",
+             . "-notrunclabels "
+             . "--threads $cpus ",
              "tmp.$libraryNAME.clusterdbhits.out",
              "&1");
 
