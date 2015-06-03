@@ -429,13 +429,14 @@ from $source into $dest at a cluster size of $id.
 
 =cut
 sub cluster {
-    my ($src, $dst, $id) = @_;
+    my ($src, $dst, $id, $cpus) = @_;
     msg("clustering database");
     run_prog("vsearch",
              "  --cluster_fast $src "
              . "--id $id "
              . "--centroids $dst "
-             . "--notrunclabels ");
+             . "--notrunclabels "
+             . "--threads $cpus ");
 }
 
 # hash of IUPAC characters coding for multiple possible bases
