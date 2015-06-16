@@ -500,7 +500,7 @@ sub bbmap_fast_filter_run {
     if ($SEmode == 0) {
         $args =
         "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert in2=$readsr";
+        . "pairlen=$maxinsert in2=$readsr_full";
     }
 
     run_prog("bbmap",
