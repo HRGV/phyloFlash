@@ -845,9 +845,9 @@ sub emirge_run {
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
                  . " tmp.$libraryNAME.SSU_all.fq",
-                 "tmp.renamed.$libraryNAME.SSU_all.fq");
+                 "tmp.$libraryNAME.renamed.SSU_all.fq");
 
-        $args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
+        $args = " -1 tmp.$libraryNAME.renamed.SSU_all.fq ";
     }
 
     run_prog($cmd,
@@ -1027,7 +1027,7 @@ sub clean_up {
     if ($skip_emirge == 0) {
         system ("rm ./$libraryNAME -r");
     }
-    system ("rm tmp.* -r");
+    system ("rm tmp.$libraryNAME.* -r");
     msg("done...");
 }
 
