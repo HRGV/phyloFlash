@@ -2,7 +2,7 @@
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
-             an illumina (meta)genomic dataset.
+             an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
 
 =head1 SYNOPSIS
 
@@ -64,6 +64,13 @@ Set the number of threads to use. Defaults to all available CPU cores.
 Limits processing to the first I<N> reads in each input file. Use this
 for transcriptomes with a lot of rRNA reads (use values <1000000).
 Default: unlimited
+
+=item -amplimit I<N>
+
+Sets the limit of SSU read pairs to switch from emirge.py to
+emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py
+has been problematic to run (use values >100000).
+Default: 500000
 
 =item -id I<N>
 
@@ -149,8 +156,8 @@ use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = "$FindBin::RealBin/119";
-#HGV: edited to point to locally created db dir release version 119
+my $DBHOME = "$FindBin::RealBin/123";
+#HGV: edited to point to locally created db dir release version 123
 
 # constants
 my $version       = 'phyloFlash v2.0';
@@ -167,6 +174,7 @@ my $libraryNAME = undef;        # output basename
 my $id          = 70;           # minimum %id for mapping
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
+my $amplimit   = 500000;        # number of SSU pairs at which to switch to emirge_amplicon
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
@@ -241,6 +249,7 @@ sub parse_cmdline {
                'dbhome=s' => \$DBHOME,
                'readlength=i' => \$readlength,
                'readlimit=i' => \$readlimit,
+	       'amplimit=i' => \$amplimit,
                'maxinsert=i' => \$maxinsert,
                'id=i' => \$id,
                'clusterid=i' => \$clusterid,
@@ -500,7 +509,7 @@ sub bbmap_fast_filter_run {
     if ($SEmode == 0) {
         $args =
         "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert in2=$readsr";
+        . "pairlen=$maxinsert in2=$readsr_full";
     }
 
     run_prog("bbmap",
@@ -824,11 +833,11 @@ sub emirge_run {
 
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
-        if ($SSU_total_pairs < 150000) {
-            msg("Less than 300k SSU reads - using Emirge");
+        if ($SSU_total_pairs <= $amplimit) {
+            msg("Less than $amplimit SSU read pairs - using Emirge");
         } else {
             $cmd = "emirge_amp";
-            msg("Warning: More than 25k SSU reads - using Emirge Amplicon");
+            msg("Warning: More than $amplimit SSU reads - using Emirge Amplicon");
         }
 
         $args = "  -1 $libraryNAME.$readsf.SSU.1.fq "
@@ -845,9 +854,9 @@ sub emirge_run {
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
                  . " tmp.$libraryNAME.SSU_all.fq",
-                 "tmp.renamed.$libraryNAME.SSU_all.fq");
+                 "tmp.$libraryNAME.renamed.SSU_all.fq");
 
-        $args = " -1 tmp.renamed.$libraryNAME.SSU_all.fq ";
+        $args = " -1 tmp.$libraryNAME.renamed.SSU_all.fq ";
     }
 
     run_prog($cmd,
@@ -1027,7 +1036,7 @@ sub clean_up {
     if ($skip_emirge == 0) {
         system ("rm ./$libraryNAME -r");
     }
-    system ("rm tmp.* -r");
+    system ("rm tmp.$libraryNAME.* -r");
     msg("done...");
 }
 
