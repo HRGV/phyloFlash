@@ -42,6 +42,8 @@ Python installed. (OSX is for the brave, we have not tested this!)
  - bbmap (http://sourceforge.net/projects/bbmap/)
  - vsearch (https://github.com/torognes/vsearch)
  - spades (http://bioinf.spbau.ru/spades)
+ - bedtools (https://github.com/arq5x/bedtools2)
+ - mafft (http://mafft.cbrc.jp/alignment/software/)
  - barrnap (currently provided with phyloFlash)
 
  These tools need to be "in your $PATH" so that *phyloFlash* can find
