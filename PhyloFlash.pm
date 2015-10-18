@@ -61,7 +61,9 @@ sub get_cpus {
     }
     elsif ($Config{"osname"} eq "darwin") {
 	can_run("sysctl") or return 1;
-	return `sysctl -n hw.ncpu`;
+	my $ncpu = `sysctl -n hw.ncpu`;
+	chomp($ncpu);
+	return $ncpu;
     }
     else {
 	return 1;
