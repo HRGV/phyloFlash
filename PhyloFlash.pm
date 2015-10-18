@@ -286,18 +286,11 @@ Otherwise returns an empty string
 =cut
 sub ftp_read_var {
     my $ftp = shift;
-    my $pat = shift;
+    my $file = shift;
     my $out = "";
 
-    my $files = $ftp->ls($pat) or return "";
-    return "" if (@$files == 0);
-
-    my $fh;
-    open($fh, '>', \$out);
-    my $file = shift(@$files);
-    $ftp->get($file, $fh)
-        or err("Could not download file '$file'.",
-               "FTP error: ".$ftp->message);
+    open(my $fh, '>', \$out);
+    $ftp->get($file, $fh);
     close($fh);
 
     return $out;
