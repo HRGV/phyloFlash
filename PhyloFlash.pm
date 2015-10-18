@@ -33,6 +33,7 @@ our @EXPORT      = qw(
   msg
   err
   file_is_newer
+  get_subdirs
   open_or_die
   csv_escape
   require_tools
@@ -94,6 +95,21 @@ sub file_is_newer {
 
     return (stat($file1))[9] > (stat($file2))[9];
 }
+
+
+=item get_subdirs ($parent)
+
+Returns array of paths to subdirs of $parent (hidden excluded).
+
+=cut
+sub get_subdirs {
+    my $parent = shift;
+    opendir(my $dh, $parent) or return ();
+    my @dirs = map { "$parent/" . $_} grep { !/^\./ && -d "$parent/$_" } readdir($dh);
+    closedir($dh);
+    return @dirs;
+}
+
 
 =item open_or_die (\$fh, $mode, $filename)
 
