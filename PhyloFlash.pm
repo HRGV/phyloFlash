@@ -5,6 +5,7 @@ package PhyloFlash;
 use Exporter qw(import);
 use Time::Piece;
 use Text::Wrap;
+use Config;
 
 $Text::Wrap::huge = "overflow";
 
@@ -49,13 +50,22 @@ use IPC::Cmd qw(can_run);
 
 =item get_cpus ()
 
-Returns the number of CPUs as listed in F</proc/cpuinfo>
+Returns the number of CPUs as listed in F</proc/cpuinfo> (Linux)
+or reported by F<sysctl> (Darwin/OSX)
 
 =cut
 sub get_cpus {
-    my $cpus = `grep -c -P '^processor\\s+:' /proc/cpuinfo`;
-    chomp($cpus);
-    return $cpus;
+    if ($Config{"osname"} eq "linux") {
+	open(my $fh, "<", "/proc/cpuinfo") or return 1;
+	return scalar (map /^processor/, <$fh>)
+    }
+    elsif ($Config{"osname"} eq "darwin") {
+	can_run("sysctl") or return 1;
+	return `sysctl -n hw.ncpu`;
+    }
+    else {
+	return 1;
+    }
 }
 
 
