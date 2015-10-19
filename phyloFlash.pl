@@ -245,10 +245,10 @@ sub find_dbhome {
     }
     foreach (@dirs) {
 	if (check_dbhome($_) eq "") {
-	    push(@dbdirs, $_)
+	    push(@dbdirs, $_);
 	}
     }
-    if ($#dbdirs > 0) {
+    if (scalar @dbdirs > 0) {
 	@dbdirs = version_sort(@dbdirs);
 	return $dbdirs[0];
     }
