@@ -223,7 +223,7 @@ sub find_LSU {
                  "  --kingdom $_ "
                  . "--threads $cpus "
                  . "--evalue 1e-10 "
-                 . " --gene lsu "
+                 . "--gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
                  $res, $log);
