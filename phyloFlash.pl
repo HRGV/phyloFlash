@@ -917,7 +917,7 @@ sub emirge_run {
     }
 
     run_prog($cmd,
-             " $libraryNAME "
+             " $libraryNAME.emirge "
              . $args
              . " -f ${DBHOME}/${emirge_db}.fasta"
              . " -b ${DBHOME}/${emirge_db}.bt "
@@ -931,7 +931,7 @@ sub emirge_parse {
     # getting emirge output and reformatting it...
     msg("getting Emirge phylotypes and their abundances...");
     run_prog("emirge_rename_fasta",
-             "./$libraryNAME/iter.40/",
+             "./$libraryNAME.emirge/iter.40/",
              "tmp.$libraryNAME.emirge.result.fasta");
 
     my $fh_in;
