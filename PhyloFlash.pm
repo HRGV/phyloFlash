@@ -111,7 +111,13 @@ sub version_sort {
     return  map { $_->[0] }  
             sort { - ($a->[1] cmp $b->[1]) }
             map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] } 
-            @_; 
+            @_;
+    # works like this:
+    # last map creates a key->value map with the path the key and the value
+    # 1. having leading directories and filename up to first digit removed
+    # 2. all numbers converted to 4-byte strings (most significant first)
+    # sort does descending sort by string comparison
+    # first map picks just the key to return sorted array
 }
 
 
