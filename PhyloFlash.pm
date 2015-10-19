@@ -33,6 +33,7 @@ our @EXPORT      = qw(
   get_cpus
   msg
   err
+  version_sort
   file_is_newer
   get_subdirs
   open_or_die
@@ -93,6 +94,13 @@ sub err {
     $msg[0] = "FATAL: ".$msg[0];
     msg(@msg);
     exit(3);
+}
+
+sub version_sort {
+    return  map { $_->[0] }  
+            sort { - ($a->[1] cmp $b->[1]) }
+            map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] } 
+            @_; 
 }
 
 =item file_is_newer ($file1, $file2)
