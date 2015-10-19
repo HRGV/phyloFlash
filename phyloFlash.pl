@@ -490,7 +490,7 @@ sub write_csv {
 
     my @report = csv_escape((
         "version",$version,
-        "library, name",$libraryNAME,
+        "library name",$libraryNAME,
         "forward read file",$readsf_full,
         "reverse read file",$readsr_full,
         "cwd",$cwd,
