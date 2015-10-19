@@ -321,7 +321,6 @@ sub parse_cmdline {
 	}
     } else {
 	$DBHOME = find_dbhome();
-	print $DBHOME;
 	pod2usage("Failed to find suitable DBHOME. (Searched \""
 		  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
 		  ."You can build a reference database using phyloflash_makedb.pl\n")
