@@ -96,12 +96,24 @@ sub err {
     exit(3);
 }
 
+=item version_sort(@paths)
+
+sorts paths by descending alphanumeric order ignoring directories and
+the part of the filename preceding the first digit. E.g.:
+
+/home/xx/silva_125
+/var/lib/dbs/silva_ssu_123.1
+/software/phyloFlash_2.0/ssu_123
+./121
+
+=cut
 sub version_sort {
     return  map { $_->[0] }  
             sort { - ($a->[1] cmp $b->[1]) }
             map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] } 
             @_; 
 }
+
 
 =item file_is_newer ($file1, $file2)
 
