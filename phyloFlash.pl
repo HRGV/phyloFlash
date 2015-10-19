@@ -829,6 +829,11 @@ sub spades_parse {
     }
     close($fh);
 
+    if (scalar keys %ssus == 0) {
+	msg("no contig in spades assembly found to contain rRNA");
+	return;
+    }
+
     open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
     for my $key (sort keys %ssus) {
         print $fh join("\t",@{$ssus{$key}});
