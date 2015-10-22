@@ -5,6 +5,7 @@ package PhyloFlash;
 use Exporter qw(import);
 use Time::Piece;
 use Text::Wrap;
+use Config;
 
 $Text::Wrap::huge = "overflow";
 
@@ -32,7 +33,9 @@ our @EXPORT      = qw(
   get_cpus
   msg
   err
+  version_sort
   file_is_newer
+  get_subdirs
   open_or_die
   csv_escape
   require_tools
@@ -48,13 +51,24 @@ use IPC::Cmd qw(can_run);
 
 =item get_cpus ()
 
-Returns the number of CPUs as listed in F</proc/cpuinfo>
+Returns the number of CPUs as listed in F</proc/cpuinfo> (Linux)
+or reported by F<sysctl> (Darwin/OSX)
 
 =cut
 sub get_cpus {
-    my $cpus = `grep -c -P '^processor\\s+:' /proc/cpuinfo`;
-    chomp($cpus);
-    return $cpus;
+    if ($Config{"osname"} eq "linux") {
+	open(my $fh, "<", "/proc/cpuinfo") or return 1;
+	return scalar (map /^processor/, <$fh>)
+    }
+    elsif ($Config{"osname"} eq "darwin") {
+	can_run("sysctl") or return 1;
+	my $ncpu = `sysctl -n hw.ncpu`;
+	chomp($ncpu);
+	return $ncpu;
+    }
+    else {
+	return 1;
+    }
 }
 
 
@@ -82,6 +96,31 @@ sub err {
     exit(3);
 }
 
+=item version_sort(@paths)
+
+sorts paths by descending alphanumeric order ignoring directories and
+the part of the filename preceding the first digit. E.g.:
+
+/home/xx/silva_125
+/var/lib/dbs/silva_ssu_123.1
+/software/phyloFlash_2.0/ssu_123
+./121
+
+=cut
+sub version_sort {
+    return  map { $_->[0] }  
+            sort { - ($a->[1] cmp $b->[1]) }
+            map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] } 
+            @_;
+    # works like this:
+    # last map creates a key->value map with the path the key and the value
+    # 1. having leading directories and filename up to first digit removed
+    # 2. all numbers converted to 4-byte strings (most significant first)
+    # sort does descending sort by string comparison
+    # first map picks just the key to return sorted array
+}
+
+
 =item file_is_newer ($file1, $file2)
 
 Compares the time stamps of two files. Returns true if file1
@@ -94,6 +133,21 @@ sub file_is_newer {
 
     return (stat($file1))[9] > (stat($file2))[9];
 }
+
+
+=item get_subdirs ($parent)
+
+Returns array of paths to subdirs of $parent (hidden excluded).
+
+=cut
+sub get_subdirs {
+    my $parent = shift;
+    opendir(my $dh, $parent) or return ();
+    my @dirs = map { "$parent/" . $_} grep { !/^\./ && -d "$parent/$_" } readdir($dh);
+    closedir($dh);
+    return @dirs;
+}
+
 
 =item open_or_die (\$fh, $mode, $filename)
 
@@ -260,18 +314,11 @@ Otherwise returns an empty string
 =cut
 sub ftp_read_var {
     my $ftp = shift;
-    my $pat = shift;
+    my $file = shift;
     my $out = "";
 
-    my $files = $ftp->ls($pat) or return "";
-    return "" if (@$files == 0);
-
-    my $fh;
-    open($fh, '>', \$out);
-    my $file = shift(@$files);
-    $ftp->get($file, $fh)
-        or err("Could not download file '$file'.",
-               "FTP error: ".$ftp->message);
+    open(my $fh, '>', \$out);
+    $ftp->get($file, $fh);
     close($fh);
 
     return $out;
