@@ -23,14 +23,6 @@
 #  along with this program.
 #  If not, see <http://www.gnu.org/licenses/>.
 
-## more useful errors on cmdline (traceback)
-debugCode = quote({
-    dump.frames();
-    cat(paste("  ", 1L:length(last.dump), ": ",
-              names(last.dump), sep = ""),"",
-        sep = "\n", file=stderr())
-});
-options(warn=2, keep.source=TRUE, error = debugCode);
 
 library(optparse);
 
@@ -44,6 +36,25 @@ load_libraries <- function() {
 }
 
 ### logging
+
+## more useful errors on cmdline (traceback)
+pf_debug <- FALSE;
+pf_setDebug <- function(x) {
+    debugCode = quote({
+        dump.frames();
+        cat(paste("  ", 1L:length(last.dump), ": ",
+                  names(last.dump), sep = ""),"",
+            sep = "\n", file=stderr())
+    });
+    if (x) {
+        options(warn=2, keep.source=TRUE, error = debugCode);
+    } else {
+        options(warn=0, keep.source=TRUE, error=NULL);
+    }
+    assign("pf_debug", x, .GlobalEnv);
+}
+
+
 pf_logLevel <- 2;
 pf_setLogLevel <- function(x) { assign("pf_logLevel", x, .GlobalEnv); }
 msg <- function(...,lvl=2) {
@@ -55,7 +66,12 @@ msg <- function(...,lvl=2) {
     # 4 debug
 
     if (lvl=="0") {
-        stop(...);
+        if (pf_debug) {
+            stop(...);
+        } else {
+            cat("ERROR: ", ...,'\n');
+            quit();
+        }
     } else if (pf_logLevel >= lvl) {
         cat(...,'\n');
     }
@@ -449,6 +465,12 @@ pF_main <- function() {
             help="Be less talkative"
             ),
         make_option(
+            c("-d", "--debug"),
+            action="store_true",
+            default=FALSE,
+            help="Show debug messages"
+            ),
+        make_option(
             "--min-ntu-count",
             default=50,
             type="integer",
@@ -530,12 +552,15 @@ Files:
         quit(status=2);
     }
     
-    # set loglevel
+    ## set loglevel
     if (conf$options$quiet) {
         pf_setLogLevel(1);
     } else if (conf$options$verbose) {
         pf_setLogLevel(3);
     }
+
+    ## set debug mode
+    pf_setDebug(conf$options$debug);
 
     info("Loading libraries");
     load_libraries();
