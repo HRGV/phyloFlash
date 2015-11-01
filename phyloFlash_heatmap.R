@@ -551,7 +551,7 @@ pF_main <- function() {
         make_option(
             c("-s", "--out-size"),
             default="1024x768",
-            help="Size of output graphic. Default %default"
+            help="Size of output graphic in pixels. Assumes 72 DPI for PDF. Default %default"
             )
         );
     
