@@ -397,12 +397,9 @@ cluster <- function(pf, method="ward") {
 plot.phyloFlash <- function(pf,
                             row.order=c("tree","map","chao","labels"),
                             col.order=c("labels","map","tree")) {
-    if (is.character(row.order)) {
-        row.order = strsplit(row.order,",")[[1]];
-    }
-    if (is.character(col.order)) {
-        col.order = strsplit(col.order,",")[[1]];
-    }
+    ## turn orders into list (workaround)
+    row.order = strsplit(paste(collapse=",",row.order),",")[[1]];
+    col.order = strsplit(paste(collapse=",",col.order),",")[[1]];
     
     nmaps <- length(pf$data);
 
