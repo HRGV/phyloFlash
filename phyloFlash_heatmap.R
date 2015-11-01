@@ -24,7 +24,20 @@
 #  If not, see <http://www.gnu.org/licenses/>.
 
 
-library(optparse);
+### prerequisite packages
+
+required.packages = c("optparse", "methods", "grid", "ggplot2", "reshape2",
+                       "ggdendro", "gtable");
+check_libraries <- function() {
+    missing.packages <- required.packages[!(required.packages %in% installed.packages())];
+    if (length(missing.packages)) {
+        msg("Additional packages required: ", missing.packages);
+        if (options("repos")[[1]] == "@CRAN@") {
+            options(repos = "https://cran.rstudio.com/")
+        }
+        install.packages(missing.packages);
+    }
+}
 
 load_libraries <- function() {
     library(methods);
@@ -451,6 +464,8 @@ plot.phyloFlash <- function(pf,
 }
 
 pF_main <- function() {
+    require(optparse);
+
     options <- list(
         make_option(
             c("-v", "--verbose"),
@@ -618,6 +633,8 @@ Files:
     
 # if we are run as a script from the cmdline
 if (!interactive()) {
+    check_libraries();
+
     pF_main();
 } else {
     load_libraries();
