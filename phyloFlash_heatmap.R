@@ -430,7 +430,7 @@ plot.phyloFlash <- function(pf,
     gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
     gr_legend$heights = max(gr_legends$heights)
     gr_legend$widths = sum(gr_legends$widths)
-    axis = ifelse(match("tree",row.order) < match("map",row.order),3,1);
+    axis = ifelse("tree" %in% row.order < "map" %in% row.order,3,1);
     gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, axis=axis));
     gr_sampleTree$heights=unit(0.1,"null")
 
