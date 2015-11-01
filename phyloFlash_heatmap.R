@@ -542,6 +542,12 @@ pF_main <- function() {
             help="Name of output file. Must end in .png or .pdf. Default is %default."
             ),
         make_option(
+            "--antialias",
+            default="gray",
+            help="Type of anti-aliasing to use for PNG output. Can be one of default,
+                  none, gray, or subpixel. Default is %default."
+            ),
+        make_option(
             "--out-size",
             default="1024x768",
             help="Size of output graphic. Default %default"
@@ -617,7 +623,7 @@ Files:
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
     switch(strsplit(conf$options$out, "[.]")[[1]][-1],
            png = png(file = conf$options$out,
-               width=outdim[1], height = outdim[2]),
+               width=outdim[1], height = outdim[2], antialias=conf$options$antialias),
            svg = svg(file = conf$options$out,
                width=outdim[1], height = outdim[2]),
            pdf = pdf(file = conf$options$out,
