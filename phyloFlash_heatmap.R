@@ -157,15 +157,18 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
     # extra space, so we need an expansion factor of  .5/(n-1):
     expandFactor <- 0.5/(length(ddata$labels$label)-1);
 
+    # determine whether tree needs to be reversed
+    trans <- c("reverse","identity")[(axis+1)%/%2]
+
     # plot the dendrogram without any labels or ticks or spaces
     # for ticks.
+
     p <- ggplot() +
          geom_segment(data = segment(ddata),
                       aes(x=x, y=y, xend=xend, yend=yend)) +
          theme_dendro() +
          labs(x = NULL, y = NULL) +
-         scale_y_continuous(expand=c(0,0),
-                            trans=c("reverse","identity")[(axis+1)%/%2]) +
+         scale_y_continuous(expand=c(0,0), trans=trans) +
          theme(axis.ticks.length = unit(0,"null"),
                axis.ticks.margin = unit(0,"null")
                );
