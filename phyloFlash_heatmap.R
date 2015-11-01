@@ -620,7 +620,7 @@ Files:
                                row.order=conf$options$"row-order",
                                col.order=conf$options$"col-order");
 
-    msg("Printing plot...");
+    msg(paste(sep="","Printing plot to \"", conf$options$out, "\"..."));
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
     switch(strsplit(conf$options$out, "[.]")[[1]][-1],
            png = png(file = conf$options$out,
@@ -628,7 +628,7 @@ Files:
            svg = svg(file = conf$options$out,
                width=outdim[1], height = outdim[2]),
            pdf = pdf(file = conf$options$out,
-               width=outdim[1], height = outdim[2])
+               width=outdim[1]/72, height = outdim[2]/72)
            );
 
     grid.newpage();
