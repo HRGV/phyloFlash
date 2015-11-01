@@ -645,4 +645,12 @@ if (!interactive()) {
     pF_main();
 } else {
     load_libraries();
+    msg("Loaded phyloFlash R functions. Example usage:
+ pf      <- read.phyloFlash()
+ pf$data <- split_by_name(pf$data, \"Euk\")
+ pf$data <- shorten_taxnames(pf$data)
+ pf$data <- scale_to_percent(pf$data)
+ pf      <- cluster(pf, method=\"ward\")
+ g       <- plot.phyloFlash(pf)
+");
 }
