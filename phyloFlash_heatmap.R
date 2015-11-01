@@ -487,7 +487,7 @@ pF_main <- function() {
             help="Show debug messages"
             ),
         make_option(
-            "--min-ntu-count",
+            c("-n", "--min-ntu-count"),
             default=50,
             type="integer",
             help="Sum NTUs with less counts in pseudo NTU \"Other\". Default %default."
@@ -499,41 +499,41 @@ pF_main <- function() {
             help="Do not split heatmap"
             ),
         make_option(
-            "--split-regex",
+            c("-t", "--split-regex"),
             default="Eukaryota",
             type="character",
             help="Split heatmap using this regex on taxa. Default '%default'",
             ),
         make_option(
-            "--no-shorten-names",
+            c("-l", "--long-taxnames"),
             action="store_true",
             default=FALSE,
             help="Do not shorten taxa names to last two groups",
             ),
         make_option(
-            "--no-scaling",
+            c("-a", "--absolute"),
             action="store_true",
             default=FALSE,
             help="Do not scale columns to percentages"
             ),
         make_option(
-            "--hclust-method",
+            c("-m","--hclust-method"),
             default="ward",
             help="Use this method for hclust clustering. Can be:
                 ward, single, complete, average, mcquitty, median or centroid.
                 Default is %default."
             ),
         make_option(
-            "--row-order",
+            c("-r","--rows"),
             default="tree,map,chao,labels",
-            help="Order of rows, separated by commas. Valid terms are:
+            help="Component rows, in order, to render (separated by commas). Valid terms are:
                 tree, map, chao and labels.
                 Default is %default."
             ),
         make_option(
-            "--col-order",
+            c("-c", "--col-order"),
             default="labels,map,tree",
-            help="Order of columns, separated by commas. Valid terms are:
+            help="Component columns, in order, to render (separated by commas). Valid terms are:
                 labels, map and tree.
                 Default is %default."
             ),
@@ -543,13 +543,13 @@ pF_main <- function() {
             help="Name of output file. Must end in .png or .pdf. Default is %default."
             ),
         make_option(
-            "--antialias",
+            c("--aa"),
             default="gray",
             help="Type of anti-aliasing to use for PNG output. Can be one of default,
                   none, gray, or subpixel. Default is %default."
             ),
         make_option(
-            "--out-size",
+            c("-s", "--out-size"),
             default="1024x768",
             help="Size of output graphic. Default %default"
             )
@@ -595,14 +595,14 @@ Files:
         pat <- strsplit(conf$options$"split-regex",",")[[1]];
         pf$data <- split_by_name(pf$data, pat);
     }
-    if (!conf$options$"no-shorten-names") {
+    if (!conf$options$"long-taxnames") {
         pf$data <- shorten_taxnames(pf$data);
     }
 
     pf$data <- merge_low_counts(pf$data,
                                 thres=conf$options$"min-ntu-count");
     
-    if (!conf$options$"no-scaling") {
+    if (!conf$options$absolute) {
         msg("Rescaling counts to percentages");
         pf$data <- scale_to_percent(pf$data);
     }
@@ -617,14 +617,14 @@ Files:
 
     msg("Creating plot...");
     g       <- plot.phyloFlash(pf,
-                               row.order=conf$options$"row-order",
-                               col.order=conf$options$"col-order");
+                               row.order=conf$options$"rows",
+                               col.order=conf$options$"cols");
 
     msg(paste(sep="","Printing plot to \"", conf$options$out, "\"..."));
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
     switch(strsplit(conf$options$out, "[.]")[[1]][-1],
            png = png(file = conf$options$out,
-               width=outdim[1], height = outdim[2], antialias=conf$options$antialias),
+               width=outdim[1], height = outdim[2], antialias=conf$options$aa),
            svg = svg(file = conf$options$out,
                width=outdim[1], height = outdim[2]),
            pdf = pdf(file = conf$options$out,
