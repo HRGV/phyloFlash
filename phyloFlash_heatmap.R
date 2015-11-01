@@ -538,7 +538,7 @@ pF_main <- function() {
                 Default is %default."
             ),
         make_option(
-            "--out",
+            c("-o","--out"),
             default="out.png",
             help="Name of output file. Must end in .png or .pdf. Default is %default."
             ),
