@@ -266,7 +266,7 @@ gtable_text_row <- function(strvec) {
 }
 
 # loads phyloFlash output files into R
-read.phyloFlash <- function(files=".") {
+read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     if (length(files) == 1) {
         files <- list.files(pattern=files);
     }
@@ -314,18 +314,23 @@ read.phyloFlash <- function(files=".") {
 
     pfData <- list(); # result is a list
 
-    # turn data.frame into matrix, get dimnames right
+    ## turn key column into row names, transpose
+    pfData$meta <- MetaData[,-1];
+    rownames(pfData$meta) <- MetaData[,1];
+    pfData$meta <- data.frame(t(pfData$meta));
+
+    ## turn data.frame into matrix, get dimnames right
     ntu_names      <- NTUcounts$NTU;
     sample_names   <- colnames(NTUcounts[,-1]);
     NTUcounts  <- as.matrix(NTUcounts[,-1]);
     rownames(NTUcounts) <- ntu_names;
+    if (sampleNameFromMeta) {
+        colnames(NTUcounts) <- pfData$meta$library.name
+    } else {
+        colnames(NTUcounts) <- sample_names;
+    }
     NTUcounts[is.na(NTUcounts)] <- 0;     # turn NA into 0
     pfData$data <- list(NTUcounts);
-
-    # turn key column into row names, transpose
-    pfData$meta <- MetaData[,-1];
-    rownames(pfData$meta) <- MetaData[,1];
-    pfData$meta <- data.frame(t(pfData$meta));
 
     return (pfData);
 }
@@ -595,6 +600,12 @@ pF_main <- function() {
             help="Size of output graphic in pixels (e.g. 100x100). Assumes 72 DPI for
                 PDF. Using \"auto\" for a dimension will attempt to guess at suitable
                 size. Default %default"
+            ),
+        make_option(
+            c("--library-name-from-file"),
+            action="store_true",
+            default=FALSE,
+            help="Use thee filename to derive library name instead of parsing ...report.csv"
             )
         );
     
@@ -630,7 +641,8 @@ Files:
     info("Loading libraries");
     load_libraries();
 
-    pf      <- read.phyloFlash(conf$args);
+    pf      <- read.phyloFlash(conf$args,
+                               sampleNameFromMeta = !conf$options$"library-name-from-file");
 
     ## split by domain
     if (!conf$options$"no-split") {
