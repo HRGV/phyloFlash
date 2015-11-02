@@ -651,10 +651,9 @@ Files:
     msg("Clustering...");
     pf      <- cluster(pf, method=conf$options$"hclust-method");
 
-    msg("Brief summary of counts:");
-    if (pf_logLevel >= 2) {
-        print(summary(pf$data));
-    }
+    ntaxa   <- sum(sapply(pf$data, nrow))
+    nsample <- ncol(pf$data[[1]])
+    msg("Found", ntaxa, "taxa and", nsample, "samples.")
 
     msg("Creating plot...");
     g       <- plot.phyloFlash(pf,
@@ -663,14 +662,29 @@ Files:
                                map.colors=conf$options$colors);
 
     msg(paste(sep="","Printing plot to \"", conf$options$out, "\"..."));
-    outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
+
+    outdim = strsplit(conf$options$"out-size","x")[[1]];
+    if (outdim[1] == "auto") {
+        labelwidth <- max(nchar(unlist(sapply(pf$data, rownames)))) * 5;
+        width <- 80 + labelwidth + nsample * 25;
+    } else {
+        width=as.integer(outdim[1])
+    }
+    if (outdim[2] == "auto") {
+        labelwidth <- max(nchar(unlist(sapply(pf$data, colnames)))) * 5;
+        height <- 120 + labelwidth + ntaxa * 10;
+    } else {
+        height=as.integer(outdim[2])
+    }
+
     switch(strsplit(conf$options$out, "[.]")[[1]][-1],
            png = png(file = conf$options$out,
-               width=outdim[1], height = outdim[2], antialias=conf$options$aa),
+               width=width, height=height,
+               antialias=conf$options$aa),
            svg = svg(file = conf$options$out,
-               width=outdim[1], height = outdim[2]),
+               width=width, height=height),
            pdf = pdf(file = conf$options$out,
-               width=outdim[1]/72, height = outdim[2]/72)
+               width=width/72, height=height/72)
            );
 
     grid.newpage();
