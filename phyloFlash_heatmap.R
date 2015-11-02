@@ -267,7 +267,9 @@ gtable_text_row <- function(strvec) {
 
 # loads phyloFlash output files into R
 read.phyloFlash <- function(files=".") {
-    files <- list.files(pattern=files);
+    if (length(files) == 1) {
+        files <- list.files(pattern=files);
+    }
     ### Extract library names from command line
     # remove .phyloFlash...csv 
     libs <- lapply(files[grepl("phyloFlash.*csv$",files)],
