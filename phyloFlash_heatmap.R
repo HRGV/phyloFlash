@@ -562,15 +562,15 @@ pF_main <- function() {
         make_option(
             c("-r","--rows"),
             default="tree,map,chao,labels",
-            help="Component rows, in order, to render (separated by commas). Valid terms are:
-                tree, map, chao and labels.
+            help="Component rows, in order, to render (separated by commas).
+                Valid terms are: tree, map, chao and labels.
                 Default is %default."
             ),
         make_option(
             c("-c", "--cols"),
             default="labels,map,tree",
-            help="Component columns, in order, to render (separated by commas). Valid terms are:
-                labels, map and tree.
+            help="Component columns, in order, to render (separated by commas).
+                Valid terms are: labels, map and tree.
                 Default is %default."
             ),
         make_option(
