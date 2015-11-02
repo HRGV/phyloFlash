@@ -587,12 +587,14 @@ pF_main <- function() {
             c("--aa"),
             default="gray",
             help="Type of anti-aliasing to use for PNG output. Can be one of default,
-                  none, gray, or subpixel. Default is %default."
+                none, gray, or subpixel. Default is %default."
             ),
         make_option(
             c("-s", "--out-size"),
-            default="1024x768",
-            help="Size of output graphic in pixels. Assumes 72 DPI for PDF. Default %default"
+            default="autoXauto",
+            help="Size of output graphic in pixels (e.g. 100x100). Assumes 72 DPI for
+                PDF. Using \"auto\" for a dimension will attempt to guess at suitable
+                size. Default %default"
             )
         );
     
@@ -663,7 +665,7 @@ Files:
 
     msg(paste(sep="","Printing plot to \"", conf$options$out, "\"..."));
 
-    outdim = strsplit(conf$options$"out-size","x")[[1]];
+    outdim = strsplit(conf$options$"out-size","[Xx]")[[1]];
     if (outdim[1] == "auto") {
         labelwidth <- max(nchar(unlist(sapply(pf$data, rownames)))) * 5;
         width <- 80 + labelwidth + nsample * 25;
