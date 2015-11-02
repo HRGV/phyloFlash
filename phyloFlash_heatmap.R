@@ -134,8 +134,26 @@ cbind_max <- function(...,size=grid::unit.pmax){
     Reduce(bind2, list(...))
 }
 
+arg_select <- function(select, ...) {
+    data <- list(...);
+    if (is.numeric(select)) {
+        data[select];
+    } else {
+        from <- d<-sapply(substitute(list(...)), deparse)[-1]
+        data <- data[match(select,from)];
+    }
+}
+
+cbind_select <- function(select, ..., size=grid::unit.pmax) {
+    do.call(cbind_max, c(arg_select(select, ...), list(size=size)));
+}
+
+rbind_select <- function(select, ..., size=grid::unit.pmax) {
+    do.call(rbind_max, c(arg_select(select, ...), list(size=size)));
+}
+
 # extract a grob from a ggplot/gtable
-g_get <- function(pat, obj) {
+g_get <- function(obj, pat) {
     if (is.ggplot(obj)) obj <- ggplotGrob(obj);
     if (!is.grob(obj)) err("not a grob?!");
     return (gtable_filter(obj,pattern=pat));
@@ -157,8 +175,9 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
     # extra space, so we need an expansion factor of  .5/(n-1):
     expandFactor <- 0.5/(length(ddata$labels$label)-1);
 
-    # determine whether tree needs to be reversed
-    trans <- c("reverse","identity")[(axis+1)%/%2]
+    # The axis is placed as follows: 1=below, 2=left,
+    # 3=above and 4=right.
+    trans <- ifelse(axis < 3, "reverse", "identity");
 
     # plot the dendrogram without any labels or ticks or spaces
     # for ticks.
@@ -199,12 +218,11 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
         p <- p + scale_x_continuous(expand=c(expandFactor,0));
     }
     
-    return (p);
+    return (invisible(p));
 }
 
 # makes a ggplot heatmap from a matrix
-g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
-    highcol = c("steelblue","indianred")[n]
+g_make_heatmap <- function(mat, highcol, angle=90, hjust=0,vjust=0.6) {
     ## factorize dims
     matNames <- attr(mat, "dimnames");
     df <- as.data.frame(mat);
@@ -229,7 +247,7 @@ g_make_heatmap <- function(mat, n, angle=90, hjust=0,vjust=0.6) {
              axis.ticks.length = unit(0,"null"),
              legend.title=element_blank());
 
-    return(heatMapPlot);
+    return(invisible(heatMapPlot));
 }
 
 # makes a grob containing a row of strings from a string vector
@@ -244,7 +262,7 @@ gtable_text_row <- function(strvec) {
     g <- gtable_row("textrow", grobs);
     gt <- gtable_add_grob(gt, g, t=1, l=1);
 
-    gt
+    invisible(gt)
 }
 
 # loads phyloFlash output files into R
@@ -399,69 +417,85 @@ cluster <- function(pf, method="ward") {
 # creates a plot from a phyloFlash "object"
 plot.phyloFlash <- function(pf,
                             row.order=c("tree","map","chao","labels"),
-                            col.order=c("labels","map","tree")) {
-    ## turn orders into list (workaround)
+                            col.order=c("labels","map","tree"),
+                            map.colors=c("steelblue", "indianred")
+) {
+    ## turn arguments into vectors (workaround)
     row.order = strsplit(paste(collapse=",",row.order),",")[[1]];
     col.order = strsplit(paste(collapse=",",col.order),",")[[1]];
+    map.colors = strsplit(paste(collapse=",",map.colors),",")[[1]];
     
+    ## get number of maps and number of rows per map
     nmaps <- length(pf$data);
+    nrows <- sapply(pf$data,nrow);
 
-    # empty table
+    ## some empty tables
     zero <- gtable(widths=unit(0,"null"),heights=unit(0,"null"));
     zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
     
-    ## get heatmaps and labels
-    gg_heatmaps <- mapply(g_make_heatmap, pf$data, c(1:length(pf$data)), SIMPLIFY=FALSE);
-    gr_heatmaps <- mapply(g_get, rep("panel|axis-l", nmaps), gg_heatmaps);
-    ## merge below each other
+    ## render the heapmaps
+    gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors, SIMPLIFY=FALSE);
+
+    ## extract maps column
+    gr_heatmaps <- lapply(gg_heatmaps, g_get, "panel");
     gr_heatmaps <- do.call(rbind_max, gr_heatmaps);
-    ## scale heights by number of rows
-    nrows <- sapply(pf$data,nrow);
-    gr_heatmaps$heights = gr_heatmaps$heights * (nrows/sum(nrows));
 
-    ## get trees over samples
-    gr_trees <- lapply(pf$row_dendro, function(x) g_make_dendro_plot(x,axis=4));
-    gr_trees <- lapply(gr_trees, function(x) g_get("panel",x))
-    ## merge into one column
-    gr_trees <- do.call(rbind_max, gr_trees);
+    ## extract labels column
+    gr_labels   <- lapply(gg_heatmaps, g_get, "axis-l");
+    gr_labels   <- do.call(rbind_max, gr_labels);
 
-    ## add row at top
+    ## extract legends
     gr_legends <- lapply(gg_heatmaps, function(x) {
-        g_get("guides", g_get("guide-box", x)$grobs[[1]]) })
+        g_get(g_get(x, "guide-box")$grobs[[1]], "guides") })
     gr_legends <-  do.call(cbind_max, gr_legends)
     
     gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
     gr_legend$heights = max(gr_legends$heights)
     gr_legend$widths = sum(gr_legends$widths)
-    axis = ifelse("tree" %in% row.order < "map" %in% row.order,3,1);
-    gr_sampleTree     <- g_get("panel", g_make_dendro_plot(pf$col_dendro, axis=axis));
-    gr_sampleTree$heights=unit(0.1,"null")
 
+    # extract sample labels
+    gr_sample_labels  <- g_get(gg_heatmaps[[1]], "axis-b");
+
+    ## render trees over taxa
+    axis     <- ifelse(match("tree", col.order) < match("map", col.order), 2, 4);
+    gr_trees <- lapply(pf$row_dendro, g_make_dendro_plot, axis=axis);
+    gr_trees <- lapply(gr_trees, g_get, "panel");
+    gr_trees <- do.call(rbind_max, gr_trees);
+
+    ## scale heights by number of rows
+    gr_heatmaps$heights <- gr_heatmaps$heights * (nrows/sum(nrows));
+    gr_labels$heights   <- gr_labels$heights   * (nrows/sum(nrows));
+    gr_trees$heights    <- gr_trees$heights    * (nrows/sum(nrows));
+
+    # render tree over samples
+    axis     <- ifelse(match("tree",row.order) < match("map", row.order), 3, 1);
+    gr_sampleTree     <- g_get(g_make_dendro_plot(pf$col_dendro, axis=axis), "panel");
+    gr_sampleTree$heights <- unit(0.1,"null")
+
+    # make chao line
     chao <- pf$meta$NTU.Chao1.richness.estimate;
     chao <- round(as.numeric(as.character(chao)))
-
     gr_chao_grob <- textGrob("Chao1",x=unit(.99,"npc"),just="right",gp=gpar(fontsize=8))
     gr_chao_lab <- gtable_add_grob(zero1,gr_chao_grob,t=1,l=1,r=1,b=1);
    
-    # add row at bottom
-    gr_sample_labels  <- g_get("axis-b", gg_heatmaps[[1]]);
+    ## handle ordering / component selection
+    ## columns:
+    corder <- match(col.order, c("labels","map","tree"));
+    tree   <- cbind_select(corder, zero,        gr_sampleTree,         gr_legend);
+    chao   <- cbind_select(corder, gr_chao_lab, gtable_text_row(chao), zero);
+    labels <- cbind_select(corder, zero,        gr_sample_labels,      zero);
+    map    <- cbind_select(corder, gr_labels,   gr_heatmaps,           gr_trees, size=1);
+    map    <- gtable_add_row_space(map, unit(.2,"lines"));
 
-    tree_row <- cbind_max(zero, gr_sampleTree, gr_legend);
-    chao_row <- cbind_max(gr_chao_lab, gtable_text_row(chao), zero);
-    bottom_row <- cbind_max(zero,gr_sample_labels,zero);
+    ## rows
+    g <- rbind_select(row.order, tree, map, chao, labels);
 
-    g <- cbind_max(gr_heatmaps, gr_trees,size=1);
-    g <- gtable_add_row_space(g, unit(.2,"lines"));
-
-    gr_rows <- list(tree_row, g, chao_row, bottom_row);
-    gr_rows <- gr_rows[match(row.order, c("tree","map","chao","labels"))];
-    g <- do.call(rbind_max,gr_rows);
-
+    ## add some spacing
     g <- gtable_add_row_space(g, unit(.1,"lines"));
     g <- gtable_add_col_space(g, unit(.1,"lines"));
     g <- gtable_add_padding(g, unit(.3,"lines"));
     
-    return (g);
+    return (invisible(g));
 }
 
 pF_main <- function() {
@@ -531,12 +565,17 @@ pF_main <- function() {
                 Default is %default."
             ),
         make_option(
-            c("-c", "--col-order"),
+            c("-c", "--cols"),
             default="labels,map,tree",
             help="Component columns, in order, to render (separated by commas). Valid terms are:
                 labels, map and tree.
                 Default is %default."
             ),
+        make_option(
+            c("--colors"),
+            default="steelblue,indianred",
+            help="Colors for heatmaps. Default is %default."
+        ),
         make_option(
             c("-o","--out"),
             default="out.png",
@@ -617,8 +656,9 @@ Files:
 
     msg("Creating plot...");
     g       <- plot.phyloFlash(pf,
-                               row.order=conf$options$"rows",
-                               col.order=conf$options$"cols");
+                               row.order=conf$options$rows,
+                               col.order=conf$options$cols,
+                               map.colors=conf$options$colors);
 
     msg(paste(sep="","Printing plot to \"", conf$options$out, "\"..."));
     outdim = as.integer(strsplit(conf$options$"out-size","x")[[1]]);
