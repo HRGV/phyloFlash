@@ -200,7 +200,7 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
-unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta" unless ($keep==1);
+
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
 
@@ -209,6 +209,7 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
            "0.96",
            $cpus);
+unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta" unless ($keep==1);
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
               "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
