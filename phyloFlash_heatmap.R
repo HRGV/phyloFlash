@@ -335,12 +335,24 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     return (pfData);
 }
 
-# shortens taxnames to last to group names
-shorten_taxnames <- function(data) {
-    if (is.list(data)) return (lapply(data, shorten_taxnames));
-    # convert NTU name column into rownames
-    shortnames <- lapply(rownames(data),
-                         function(x) gsub(".*;(.*;.*)","\\1", x));
+## shortens taxnames to last n+ group names
+## more than n are kept if necessary to make names uniqe
+shorten_taxnames <- function(data, n=2) {
+    if (is.list(data) & !is.data.frame(data)) return (lapply(data, shorten_taxnames));
+
+    tailname <- function(x, n) {
+        sapply(lapply(strsplit(x,";"), tail, n),paste, collapse="; ")
+    }
+
+    shortnames <- rownames(data);
+    todo <- rep(TRUE, length(shortnames));
+
+    while (any(todo) & n < 22) {
+        shortnames[todo] <- tailname(rownames(data)[todo], n=n);
+         todo <- duplicated(shortnames) | duplicated(shortnames, fromLast=TRUE);
+        n <- n+1;
+    }
+
     rownames(data) <- shortnames;
 
     return(data);
