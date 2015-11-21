@@ -703,7 +703,7 @@ Files:
         height=as.integer(outdim[2])
     }
 
-    switch(strsplit(conf$options$out, "[.]")[[1]][-1],
+    switch(tail(n=1,strsplit(conf$options$out, "[.]")[[1]]),
            png = png(file = conf$options$out,
                width=width, height=height,
                antialias=conf$options$aa),
