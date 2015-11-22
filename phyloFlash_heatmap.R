@@ -54,10 +54,24 @@ load_libraries <- function() {
 pf_debug <- FALSE;
 pf_setDebug <- function(x) {
     debugCode = quote({
-        dump.frames();
-        cat(paste("  ", 1L:length(last.dump), ": ",
-                  names(last.dump), sep = ""),"",
-            sep = "\n", file=stderr())
+    dump.frames(); # copy frames to last.dump
+    cat(sep="\n", file=stderr(),
+        paste(collapse="", rep("=", 77)),
+        " ####  DEBUG Information -- please include with bug reports #### ",
+        paste(collapse="", rep("=", 77)),
+        " Encountered error: ",
+        paste(collapse="", rep("-", 20)),
+        geterrmessage(),
+        " Session Info: ",
+        paste(collapse="", rep("-", 15)),
+        capture.output(sessionInfo()),
+        paste(collapse="", rep("-", 77)),
+        " Call trace: ",
+        paste(collapse="", rep("-", 13)),
+        paste("  ", 1L:length(last.dump), ": ",
+              names(last.dump), sep = ""),
+        paste(collapse="", rep("=", 77))
+        );
     });
     if (x) {
         options(warn=2, keep.source=TRUE, error = debugCode);
