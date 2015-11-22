@@ -33,10 +33,17 @@ check_libraries <- function() {
     if (length(missing.packages)) {
         msg("Additional packages required: ", missing.packages);
         if (options("repos")[[1]] == "@CRAN@") {
-            options(repos = "https://cran.rstudio.com/")
+            options(repos = "http://cran.r-project.org")
         }
         install.packages(missing.packages);
     }
+
+    missing.packages <- required.packages[!(required.packages %in% installed.packages())];
+    if (length(missing.packages)) {
+        err("Unable to install these required packages: ", missing.packages, "\n",
+            "Please install these manually. They are required by phyloFlash_heatmap.R");
+    }
+        
 }
 
 load_libraries <- function() {
