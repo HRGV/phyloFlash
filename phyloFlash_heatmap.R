@@ -33,10 +33,17 @@ check_libraries <- function() {
     if (length(missing.packages)) {
         msg("Additional packages required: ", missing.packages);
         if (options("repos")[[1]] == "@CRAN@") {
-            options(repos = "https://cran.rstudio.com/")
+            options(repos = "http://cran.r-project.org")
         }
         install.packages(missing.packages);
     }
+
+    missing.packages <- required.packages[!(required.packages %in% installed.packages())];
+    if (length(missing.packages)) {
+        err("Unable to install these required packages: ", missing.packages, "\n",
+            "Please install these manually. They are required by phyloFlash_heatmap.R");
+    }
+        
 }
 
 load_libraries <- function() {
@@ -54,10 +61,24 @@ load_libraries <- function() {
 pf_debug <- FALSE;
 pf_setDebug <- function(x) {
     debugCode = quote({
-        dump.frames();
-        cat(paste("  ", 1L:length(last.dump), ": ",
-                  names(last.dump), sep = ""),"",
-            sep = "\n", file=stderr())
+    dump.frames(); # copy frames to last.dump
+    cat(sep="\n", file=stderr(),
+        paste(collapse="", rep("=", 77)),
+        " ####  DEBUG Information -- please include with bug reports #### ",
+        paste(collapse="", rep("=", 77)),
+        " Encountered error: ",
+        paste(collapse="", rep("-", 20)),
+        geterrmessage(),
+        " Session Info: ",
+        paste(collapse="", rep("-", 15)),
+        capture.output(sessionInfo()),
+        paste(collapse="", rep("-", 77)),
+        " Call trace: ",
+        paste(collapse="", rep("-", 13)),
+        paste("  ", 1L:length(last.dump), ": ",
+              names(last.dump), sep = ""),
+        paste(collapse="", rep("=", 77))
+        );
     });
     if (x) {
         options(warn=2, keep.source=TRUE, error = debugCode);
@@ -703,7 +724,7 @@ Files:
         height=as.integer(outdim[2])
     }
 
-    switch(strsplit(conf$options$out, "[.]")[[1]][-1],
+    switch(tail(n=1,strsplit(conf$options$out, "[.]")[[1]]),
            png = png(file = conf$options$out,
                width=width, height=height,
                antialias=conf$options$aa),
