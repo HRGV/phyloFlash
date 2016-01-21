@@ -1091,7 +1091,7 @@ sub clean_up {
         system ("rm ./$libraryNAME.spades -r");
     }
     if ($skip_emirge == 0) {
-        system ("rm ./$libraryNAME -r");
+        system ("rm ./$libraryNAME.emirge -r");
     }
     system ("rm tmp.$libraryNAME.* -r");
     msg("done...");
