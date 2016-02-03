@@ -156,8 +156,9 @@ use FindBin;
 
 # change these to match your installation
 
-my $DBHOME = "$FindBin::RealBin/123";
+my $DBHOME = "$FindBin::RealBin/119";
 #HGV: edited to point to locally created db dir release version 123
+# KBS: Stick to 119 for now... don't commit this!
 
 # constants
 my $version       = 'phyloFlash v2.0';
