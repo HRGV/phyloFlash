@@ -2,11 +2,17 @@
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
-             an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
+an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
 
 =head1 SYNOPSIS
 
-B<phyloFlash.pl> -dbhome F<dir> -lib B<name> -read1 F<<file>> -read2 F<<file>>
+B<phyloFlash.pl> [OPTIONS] -lib I<name> -read1 F<<file>> -read2 F<<file>>
+
+B<phyloFlash.pl> -help
+
+B<phyloFlash.pl> -man 
+
+B<phyloFlash.pl> -check_env 
 
 =head1 DESCRIPTION
 
@@ -34,16 +40,25 @@ The file may be compressed (.gz).
 File containing reverse reads. If this option is omitted, B<phyloFlash>
 will run in B<experimental> single-end mode.
 
+=item -check_env
+
+Invokes checking of working environment and dependencies without data input.
+Use to test setup.
+
+=item -help
+
+Print brief help.
+
+=item -man
+
+Show manual.
+
 =back
 
 =head1 OPTIONS
 
 =over 15
 
-=item -check_env
-
-Invokes checking of working environment and dependencies without data input.
-Use to test setup.
 
 =item -dbhome F<dir>
 
@@ -108,14 +123,6 @@ Turn off SPAdes assembly of SSU sequences
 
 Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
 
-=item -help
-
-Print brief help.
-
-=item -man
-
-Show manual.
-
 =back
 
 =head1 COPYRIGHT AND LICENSE
@@ -155,10 +162,7 @@ use Cwd;
 use FindBin;
 
 # change these to match your installation
-
-my $DBHOME = "$FindBin::RealBin/119";
-#HGV: edited to point to locally created db dir release version 123
-# KBS: Stick to 119 for now... don't commit this!
+my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin); 
 
 # constants
 my $version       = 'phyloFlash v2.0';
@@ -166,6 +170,7 @@ my $progname      = $FindBin::Script;
 my $cwd = getcwd;
 
 # configuration variables / defaults
+my $DBHOME      = undef;
 my $readsf_full = undef;        # path to forward read file
 my $readsr_full = undef;        # path to reverse read file
 my $readsf      = undef;        # forward read filename, stripped of directory names
@@ -192,6 +197,7 @@ my @tools_list;                 # Array to store list of tools required
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
+
 my $ins_used = "SE mode!";
 
 
@@ -213,7 +219,41 @@ my $runtime;
 
 # display welcome message incl. version
 sub welcome {
-  print STDERR "\nThis is $version\n\n";
+    print STDERR "\nThis is $version\n\n";
+}
+
+# checks whether a given directory is a valid dbhome
+# (contains the necessary files for bbmap, emirge and vsearch)
+sub check_dbhome {
+    my $dbhome = shift;
+    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
+	     $vsearch_db.".fasta") {
+	return "${dbhome}/$_"
+	    unless -r "${dbhome}/$_"
+    }
+    return "";
+}
+
+# searches @dbhome_dirs for the dbdir with the highest version
+# returns "" if none found
+sub find_dbhome {
+    my @dirs;
+    my @dbdirs;
+
+    foreach (@dbhome_dirs) {
+	push(@dirs, get_subdirs($_));
+    }
+    foreach (@dirs) {
+	if (check_dbhome($_) eq "") {
+	    push(@dbdirs, $_);
+	}
+    }
+    if (scalar @dbdirs > 0) {
+	@dbdirs = version_sort(@dbdirs);
+	return $dbdirs[0];
+    }
+
+    return "";
 }
 
 # Specify list of required tools. Run this subroutine AFTER parse_cmdline()
@@ -266,12 +306,30 @@ sub parse_cmdline {
            )
         or pod2usage(2);
 
-    # check correct $libraryNAME
+
+    # verify tools present
     if ($check_env == 1) {
       process_required_tools();
       check_environment(); # will die on failure
     }
 
+
+    # verify database present
+    if (defined($DBHOME)) {
+	if (my $file = check_dbhome($DBHOME)) {
+	    pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+	}
+    } else {
+	$DBHOME = find_dbhome();
+	pod2usage("Failed to find suitable DBHOME. (Searched \""
+		  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
+		  ."You can build a reference database using phyloflash_makedb.pl\n")
+	    if ($DBHOME eq "");
+    }
+    msg("Using dbhome '$DBHOME'");
+
+
+    # verify valid lib name
     pod2usage("Please specify output file basename with -lib")
         if !defined($libraryNAME);
     pod2usage("\nArgument to -lib may not be empty")
@@ -282,7 +340,8 @@ sub parse_cmdline {
 
     msg("working on library $libraryNAME");
 
-    # check correct read file(s)
+    
+    # verify read files
     pod2usage("\nPlease specify input forward read file with -read1")
         if !defined($readsf_full);
     pod2usage("\nUnable to open forward read file '$readsf_full'. ".
@@ -292,9 +351,10 @@ sub parse_cmdline {
     # strip directory paths from forward read filename
     if ($readsf_full =~ m/.*\/(.+)/) {
       $readsf = $1;
-    } else { $readsf = $readsf_full; }
+    } else { 
+	$readsf = $readsf_full; 
+    }
     
-        
     if (defined($readsr_full)) {
         pod2usage("\nUnable to open reverse read file '$readsr_full'.".
                   "Make sure the file exists and is readable by you.")
@@ -318,15 +378,6 @@ sub parse_cmdline {
         msg("Running in single ended mode");
     }
 
-    # check dbhome
-    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
-             $vsearch_db.".fasta") {
-        pod2usage("\nBroken dbhome directory: missing file \"$DBHOME/$_\"
-	=> Please rerun phyloFlash_makedb.pl")
-            unless -r "${DBHOME}/$_";
-    }
-
-    msg("Using dbhome '$DBHOME'");
 
     # check lengths
     pod2usage("\nReadlength must be within 50...500")
@@ -439,7 +490,7 @@ sub write_csv {
 
     my @report = csv_escape((
         "version",$version,
-        "library, name",$libraryNAME,
+        "library name",$libraryNAME,
         "forward read file",$readsf_full,
         "reverse read file",$readsr_full,
         "cwd",$cwd,
@@ -778,6 +829,11 @@ sub spades_parse {
     }
     close($fh);
 
+    if (scalar keys %ssus == 0) {
+	msg("no contig in spades assembly found to contain rRNA");
+	return;
+    }
+
     open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
     for my $key (sort keys %ssus) {
         print $fh join("\t",@{$ssus{$key}});
@@ -861,7 +917,7 @@ sub emirge_run {
     }
 
     run_prog($cmd,
-             " $libraryNAME "
+             " $libraryNAME.emirge "
              . $args
              . " -f ${DBHOME}/${emirge_db}.fasta"
              . " -b ${DBHOME}/${emirge_db}.bt "
@@ -875,7 +931,7 @@ sub emirge_parse {
     # getting emirge output and reformatting it...
     msg("getting Emirge phylotypes and their abundances...");
     run_prog("emirge_rename_fasta",
-             "./$libraryNAME/iter.40/",
+             "./$libraryNAME.emirge/iter.40/",
              "tmp.$libraryNAME.emirge.result.fasta");
 
     my $fh_in;
@@ -1035,7 +1091,7 @@ sub clean_up {
         system ("rm ./$libraryNAME.spades -r");
     }
     if ($skip_emirge == 0) {
-        system ("rm ./$libraryNAME -r");
+        system ("rm ./$libraryNAME.emirge -r");
     }
     system ("rm tmp.$libraryNAME.* -r");
     msg("done...");

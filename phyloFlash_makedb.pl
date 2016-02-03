@@ -49,6 +49,10 @@ Path to local copy of SILVA database file. Ignored if --remote flag is used.
 
 Path to local copy of Univec database file. Ignored if --remote flag is used.
 
+=item --keep
+
+Do not delete intermediary files
+
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
@@ -90,6 +94,7 @@ my $univec_file = "";
 my $cwd = getcwd;
 my $timer = new Timer;
 my $cpus = get_cpus      # num cpus to use
+my $keep = 0;
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
@@ -100,6 +105,7 @@ GetOptions("remote|r" => \$use_remote,
            "silva_file=s" => \$silva_file,
            "univec_file=s" => \$univec_file,
            "CPUs=i" => \$cpus,  # override default CPU usage if necessary
+           "keep|k" => \$keep,
            "help|h" => sub{pod2usage(0)})
 or pod2usage(2);
 
@@ -170,13 +176,16 @@ my @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.fasta");
 fasta_copy_except("$dbdir/SILVA_SSU.fasta",
                   "$dbdir/SILVA_SSU.noLSU.fasta",
                   @lsu_in_ssh);
+unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
 
 mask_repeats("$dbdir/SILVA_SSU.noLSU.fasta",
              "$dbdir/SILVA_SSU.noLSU.masked.fasta");
+unlink "$dbdir/SILVA_SSU.noLSU.fasta" unless ($keep==1);
 
 univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
+unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
 
 #the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
@@ -186,19 +195,25 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
            "0.99",
            $cpus);
+# no unlink -> trimmed.fasta needed for vsearch
+
+
+fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
+             "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
+
+
+bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
+
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
            "0.96",
            $cpus);
-
-fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-             "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
-
-bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
+unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta" unless ($keep==1);
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
               "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta" unless ($keep==1);
 
 bowtie_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
 
@@ -223,7 +238,7 @@ sub find_LSU {
                  "  --kingdom $_ "
                  . "--threads $cpus "
                  . "--evalue 1e-10 "
-                 . " --gene lsu "
+                 . "--gene lsu "
                  . "--reject 0.01 "
                  . "./$silva_release/SILVA_SSU.fasta ",
                  $res, $log);
