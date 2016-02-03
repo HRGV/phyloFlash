@@ -448,7 +448,7 @@ NTUs observed twice:\t$xtons[1]
 NTUs observed three or more times:\t$xtons[2]
 NTU Chao1 richness estimate:\t$chao1
 
-List of NTUs in order of abundance:
+List of NTUs in order of abundance (min. 3 reads mapped):
 NTU\treads
 ~;
 
@@ -1349,7 +1349,7 @@ print {$fh} <<ENDHTML;
 
 <h2>Results</h2>
 
-<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance</a></h3>
+<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance (min. 3 reads mapped)</a></h3>
 <div id="taxa" class="more">
 <table>
   <tr>
