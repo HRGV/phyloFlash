@@ -27,16 +27,20 @@ if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_e
 ## Plot insert size histogram
 histo <- read.table(file=histofile,header=F,sep="\t",skip=1)
 names(histo) <- c("InsertSize", "Count")
-
-xx <- c(histo$InsertSize, rev(histo$InsertSize))		# Define polygon for solid plot, using trick from 
-yy <- c(rep(0,nrow(histo)),rev(histo$Count))			# http://earlh.com/blog/2009/07/28/filled-line-plots-graphs-in-r-part-10-in-a-series/
-
+# "Untabulate" the tabulated insert size counts
+histvals <- as.vector( # Convert to vector
+                      unlist( # "Flatten" list to atomic elements
+                             apply(histo, # Table of counts of insert sizes
+                                   1, # Margin - by row
+                                   function(x) rep(x[1],x[2]) # Repeat each value by number of counts
+                                   )
+                             )
+                      ) 
+# Export PDF version
 pdf(file=paste(histofile,"pdf",sep="."),width=11,height=8)
-plot(histo, xlab="Insert size", ylab="Counts", col="grey", type="l")
-polygon(xx, yy, border=NA, col="grey")
+hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
 dev.off()
-
+# Export PNG version
 png(file=paste(histofile,"png",sep="."),width=1100,height=800)
-plot(histo, xlab="Insert size", ylab="Counts", col="grey", type="l")
-polygon(xx, yy, border=NA, col="grey")
+hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
 dev.off()
