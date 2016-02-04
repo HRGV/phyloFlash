@@ -202,6 +202,7 @@ my $ins_used = "SE mode!";
 
 
 # variables for report generation
+my %taxa_from_hitmaps; # Hash of read counts from mapping, keyed by taxon string
 my @taxa_from_hitmaps_sorted;
 my @ssuassem_results_sorted; #sorted list of SSU sequences for reporting
 my @ssurecon_results_sorted;
@@ -677,7 +678,6 @@ sub bbmap_hitstats_parse {
     #name %unambiguousReads unambiguousMB %ambiguousReads ambiguousMB unambiguousReads ambiguousReads
     #X03680.934.2693 Eukaryota;Opistho[...]abditis elegans\t4,72750\t0,57297\t52,23750\t6,33119\t5673\t62685
 
-    my %taxa_from_hitmaps;
     while (<$fh>) {
         chomp;
 
