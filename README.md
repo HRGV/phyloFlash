@@ -1,6 +1,8 @@
 phyloFlash 2.0
 ==============
 
+by Harald Gruber-Vodicka and Elmar A. Pruesse with Brandon Seah.
+
 *phyloFlash* is a pipeline to rapidly reconstruct the SSU rRNAs and
 explore phylogenetic composition of an illumina (meta)genomic dataset.
 
@@ -107,6 +109,26 @@ Use the ```-skip_spades``` and/or ```-skip_emirge``` options to turn off
 SSU sequence reconstruction with SPAdes assembler or EMIRGE respectively.
 
 Use the -sc switch for MDA datasets (single cell) or other hard to assemble read sets.
+
+Use the ```-html``` switch to generate HTML-formatted report, and ```-treemap``` to
+draw an interactive treemap of taxonomic classification in the HTML report.
+
+Comparison of Multiple Samples
+------------------------------
+```bash
+phyloFlash_heatmap.R -o OUTPUT.png [files]
+```
+
+The phyloFlash results from multiple samples can be compared with a heatmap.
+Specify the list of .csv output files from phyloFlash runs of the samples to
+be compared.
+
+Use ```-h``` option to show help message.
+
+```--library-name-from-file``` gets the heatmap labels from input filenames.
+
+Requires ```R``` and the following packages: ```optparse```, ```methods```, ```grid```, ```ggplot2```,
+```reshape2```, ```ggdendro```, ```gtable```. The script can also be run within R environment.
 
 Expected Performance
 --------------------

@@ -107,6 +107,14 @@ Maximum insert size allowed for paired end read mapping. Must be within
 
 Also generate output in HTML format.
 
+=item -treemap
+
+Draw interactive treemap of taxonomic classification in html-formatted
+report. This uses Google Visualization API, which requires an internet
+connection, requires that you agree to their terms of service (see
+https://developers.google.com/chart/terms), and is not open source,
+although it is free to use.
+
 =item -crlf
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
@@ -186,6 +194,7 @@ my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
+my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
@@ -202,6 +211,7 @@ my $ins_used = "SE mode!";
 
 
 # variables for report generation
+my %taxa_from_hitmaps; # Hash of read counts from mapping, keyed by taxon string
 my @taxa_from_hitmaps_sorted;
 my @ssuassem_results_sorted; #sorted list of SSU sequences for reporting
 my @ssurecon_results_sorted;
@@ -296,6 +306,7 @@ sub parse_cmdline {
                'clusterid=i' => \$clusterid,
                'CPUs=i' => \$cpus,
                'html' => \$html_flag,
+               'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
@@ -448,7 +459,7 @@ NTUs observed twice:\t$xtons[1]
 NTUs observed three or more times:\t$xtons[2]
 NTU Chao1 richness estimate:\t$chao1
 
-List of NTUs in order of abundance:
+List of NTUs in order of abundance (min. 3 reads mapped):
 NTU\treads
 ~;
 
@@ -677,7 +688,6 @@ sub bbmap_hitstats_parse {
     #name %unambiguousReads unambiguousMB %ambiguousReads ambiguousMB unambiguousReads ambiguousReads
     #X03680.934.2693 Eukaryota;Opistho[...]abditis elegans\t4,72750\t0,57297\t52,23750\t6,33119\t5673\t62685
 
-    my %taxa_from_hitmaps;
     while (<$fh>) {
         chomp;
 
@@ -1117,6 +1127,51 @@ sub run_plotscript {
     }
 }
 
+sub generate_treemap_data_rows {
+  # Generate data rows for drawing treemap chart
+  my %parents_HoH; # Hash of count vals by parent and child taxa
+  my @output; # Array to store output
+  # Parse taxstrings into hash of child-parent relationships
+
+  foreach my $taxstring (keys %taxa_from_hitmaps) {
+    my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
+    my $taxlen = scalar @taxsplit; # Get length of tax string
+    while (scalar @taxsplit > 1) {
+      my $countval = 0; # Initialize count value as dummy "zero" by default
+      if (scalar @taxsplit == $taxlen) { # If leaf node, set count value to real value
+          $countval = $taxa_from_hitmaps{$taxstring};
+      }
+      my $child_taxstring = join ";", @taxsplit;
+      my $dummy = pop @taxsplit; # Get parent node
+      my $parent_taxstring = join ";", @taxsplit;
+      # Remove non-word and non-semicolon chars to avoid problems with Javascript
+      $child_taxstring =~ s/[^\w;_]/_/g;
+      $parent_taxstring =~ s/[^\w;_]/_/g;
+      # Update the parent-child hash if this taxon not already represented
+      if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
+        $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
+      }
+    }  
+  }
+  
+  # Write output in dataRow format for treemap chart
+  # Root and top-level taxa
+  push @output, "[\'Cellular organisms\',\t,\t0],\n";
+  push @output, "[\'Bacteria\',\t\'Cellular organisms\',\t0],\n";
+  push @output, "[\'Archaea\',\t\'Cellular organisms\',\t0],\n";
+  push @output,"[\'Eukaryota\',\t\'Cellular organisms\',\t0],\n";
+  # Go through sorted hash and write parent-child data rows
+  foreach my $parent (sort {$a cmp $b} keys %parents_HoH) {
+    foreach my $child (sort {$a cmp $b} keys %{$parents_HoH{$parent}}) {
+      # Concatenate output as string
+      my $outstring = "[\'".$child."\',\t\'".$parent."\',\t".$parents_HoH{$parent}{$child}."],\n";
+      push @output, $outstring;
+      }
+  }
+  # Return array of output lines
+  return @output;
+}
+
 sub write_report_html {
     # Generate HTML-formatted report file -- lots of blocks of verbatim HTML
     # in this section
@@ -1147,7 +1202,52 @@ print {$fh} <<ENDHTML;
     }
   }
   </script>
+ENDHTML
 
+if ($treemap_flag == 1) { # Script for interactive treemap if flag is on
+print {$fh} <<ENDHTML;
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script type="text/javascript">
+  google.charts.load('current', {'packages':['treemap']});
+  google.charts.setOnLoadCallback(drawChart);
+  function drawChart() {
+    var data = new google.visualization.DataTable();
+    data.addColumn('string','ID');
+    data.addColumn('string','Parent');
+    data.addColumn('number','NumReads');
+    data.addRows([
+ENDHTML
+my @output_array = generate_treemap_data_rows();
+while (scalar @output_array > 0) {
+  print {$fh} shift @output_array;
+}
+print {$fh} <<ENDHTML;
+    ]);
+
+    tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
+
+    tree.draw(data, {
+      minColor: '#f00',
+      midColor: '#ddd',
+      maxColor: '#0d0',
+      headerHeight: 15,
+      fontColor: 'black',
+      showScale: true,
+      generateTooltip: showFullTooltip
+    });
+    
+    function showFullTooltip(row,size,value) {
+      return '<div style="background:white; padding:10px; border-style:none">' +
+      '<b>' + data.getValue(row, 0) + '</b><br>' +
+      'Total reads: ' + size + '</div>';
+    }
+
+  }
+</script>
+ENDHTML
+}
+
+print {$fh} <<ENDHTML;
   <style type="text/css">
     body {
       font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;}
@@ -1184,11 +1284,12 @@ print {$fh} <<ENDHTML;
 </head>
 <body>
 
-<h3>
+<h3><a href="https://github.com/HRGV/phyloFlash">
 ENDHTML
 print {$fh} $version; # Print phyloFlash name and version number
 print {$fh} <<ENDHTML;
- by <a href="mailto:hgruber\@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+ </a> by <a href="mailto:hgruber\@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+ <p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
 ENDHTML
 
 print {$fh} "<h1>Library name: ".$libraryNAME."</h1>\n";
@@ -1348,8 +1449,19 @@ print {$fh} <<ENDHTML;
 </table>
 
 <h2>Results</h2>
+ENDHTML
 
-<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance</a></h3>
+if ($treemap_flag == 1) { # Display interactive treemap if flag is on
+print {$fh}<<ENDHTML;
+<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
+    <div id="chart_div" style="width: 900px; height: 500px;"></div>
+    <p>Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
+    <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
+ENDHTML
+}
+
+print {$fh} <<ENDHTML;
+<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance (min. 3 reads mapped)</a></h3>
 <div id="taxa" class="more">
 <table>
   <tr>
