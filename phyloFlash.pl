@@ -1134,7 +1134,6 @@ sub generate_treemap_data_rows {
   # Parse taxstrings into hash of child-parent relationships
 
   foreach my $taxstring (keys %taxa_from_hitmaps) {
-    chomp;
     my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
     my $taxlen = scalar @taxsplit; # Get length of tax string
     while (scalar @taxsplit > 1) {
@@ -1145,6 +1144,10 @@ sub generate_treemap_data_rows {
       my $child_taxstring = join ";", @taxsplit;
       my $dummy = pop @taxsplit; # Get parent node
       my $parent_taxstring = join ";", @taxsplit;
+      # Remove non-word and non-semicolon chars to avoid problems with Javascript
+      $child_taxstring =~ s/[^\w;_]/_/g;
+      $parent_taxstring =~ s/[^\w;_]/_/g;
+      # Update the parent-child hash if this taxon not already represented
       if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
         $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
       }
