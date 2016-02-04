@@ -1227,12 +1227,17 @@ print {$fh} <<ENDHTML;
     tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
     tree.draw(data, {
-      minColor: '#f00',
-      midColor: '#ddd',
-      maxColor: '#0d0',
+      minColor: '#009688',
+      midColor: '#f7f7f7',
+      maxColor: '#ee8100',
+      highlightOnMouseOver: true,
+      minHighlightColor: '#ee8100',
+      midHighlightColor: '#f7f7f7',
+      maxHighlightColor: '#009688',
+      maxPostDepth: 2,
       headerHeight: 15,
       fontColor: 'black',
-      showScale: true,
+      showScale: false,
       generateTooltip: showFullTooltip
     });
     
