@@ -9,6 +9,7 @@
 args <- commandArgs(trailingOnly=TRUE)
 treefile <- args[2]
 histofile <- args[3]
+idhistofile <- args[4]
 
 if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_emirge and -skip_spades options activated), skip this step
     ## Plot tree from Newick .tree file (guide tree produced by MAFFT) and output PDF plot
@@ -24,23 +25,44 @@ if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_e
     dev.off()
 }
 
-## Plot insert size histogram
-histo <- read.table(file=histofile,header=F,sep="\t",skip=1)
-names(histo) <- c("InsertSize", "Count")
-# "Untabulate" the tabulated insert size counts
-histvals <- as.vector( # Convert to vector
-                      unlist( # "Flatten" list to atomic elements
-                             apply(histo, # Table of counts of insert sizes
-                                   1, # Margin - by row
-                                   function(x) rep(x[1],x[2]) # Repeat each value by number of counts
+## Plot insert size histogram if not running in SE mode
+if (histofile != "SEmode") {
+    histo <- read.table(file=histofile,header=F,sep="\t",comment.char="#")
+    names(histo) <- c("InsertSize", "Count")
+    # "Untabulate" the tabulated insert size counts
+    histvals <- as.vector( # Convert to vector
+                          unlist( # "Flatten" list to atomic elements
+                                 apply(histo, # Table of counts of insert sizes
+                                       1, # Margin - by row
+                                       function(x) rep(x[1],x[2]) # Repeat each value by number of counts
+                                       )
+                                 )
+                          ) 
+    # Export PDF version
+    pdf(file=paste(histofile,"pdf",sep="."),width=11,height=8)
+    hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+    dev.off()
+    # Export PNG version
+    png(file=paste(histofile,"png",sep="."),width=660,height=480)
+    hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+    dev.off()
+}
+
+## Plot percent-identity histogram
+idhisto <- read.table (file=idhistofile,header=F,sep="\t",comment.char="#")
+idhistvals <- as.vector(
+                      unlist(
+                             apply(idhisto,
+                                   1,
+                                   function(x) rep(x[1],x[2])
                                    )
                              )
-                      ) 
-# Export PDF version
-pdf(file=paste(histofile,"pdf",sep="."),width=11,height=8)
-hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+                     )
+# Export PDF
+pdf(file=paste(idhistofile,"pdf",sep="."),width=11,height=8)
+hist(idhistvals,col="grey",border="grey",xlab="Percentage identity",main="Histogram of read identity to reference")
 dev.off()
-# Export PNG version
-png(file=paste(histofile,"png",sep="."),width=1100,height=800)
-hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+# Export PNG
+png(file=paste(idhistofile,"png",sep="."),width=660,height=480)
+hist(idhistvals,col="grey",border="grey",xlab="Percentage identity",main="Histogram of read identity to reference")
 dev.off()

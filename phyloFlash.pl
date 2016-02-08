@@ -430,24 +430,26 @@ Current working directory\t$cwd
 Minimum mapping identity:\t$id%
 ~;
 
-    if ($SEmode == 1) {
+    if ($SEmode == 1) { # If in SE mode
         print {$fh} qq~
 ---
 Input PE-reads:\t$readnr_pairs
 Mapped SSU read pairs:\t$SSU_total_pairs
+Mapping ratio:\t$SSU_ratio_pc%
 ~;
-    } else {
+    } else { # Else if in PE mode
         print {$fh} qq~
 ---
 Input SE-reads:\t$readnr_pairs
 Mapped SSU reads:\t$SSU_total_pairs
-~;
-    }
-
-    print {$fh} qq~Mapping ratio:\t$SSU_ratio_pc%
+Mapping ratio:\t$SSU_ratio_pc%
 Detected median insert size:\t$ins_me
 Used insert size:\t$ins_used
 Insert size standard deviation:\t$ins_std
+~;
+    }
+
+    print {$fh} qq~
 ---
 Runtime:\t$runtime
 CPUs used:\t$cpus
@@ -588,6 +590,7 @@ sub bbmap_fast_filter_run {
              . "in=$readsf_full "
              . "bhist=tmp.$libraryNAME.basecompositionhistogram "
              . "ihist=$libraryNAME.inserthistogram "
+             . "idhist=$libraryNAME.idhistogram "
              . "scafstats=$libraryNAME.hitstats "
              . $args,
              undef,
@@ -1109,19 +1112,24 @@ sub clean_up {
 
 sub run_plotscript {
     msg("generating histogram and tree graphics");
-
+    my $inshist = "$libraryNAME.inserthistogram"; # Name of insert histogram file
+    if ($SEmode==1) { # If running in SE mode ...
+      $inshist="SEmode"; # ... replace name of ins histogram file with "SEmode"
+    }
     #FIXME: crashes if .inserthistorgram contains no lines
     if ($skip_spades + $skip_emirge == 2) {
         run_prog("plotscript",
                  "--args NULL "
-                 . "$libraryNAME.inserthistogram ",
+                 . "$inshist "
+                 . "$libraryNAME.idhistogram ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
     else {
         run_prog("plotscript",
                  "--args $libraryNAME.SSU.collection.fasta.tree "
-                 . "$libraryNAME.inserthistogram ",
+                 . "$inshist "
+                 . "$libraryNAME.idhistogram ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
@@ -1372,6 +1380,9 @@ ENDHTML
 print {$fh} "    <td>".$SSU_ratio_pc."\%</td>\n";
 print {$fh} <<ENDHTML;
   </tr>
+ENDHTML
+if ($SEmode==0) { # Only print insert size information if in paired-end mode
+print {$fh} <<ENDHTML;
   <tr>
     <th>Detected median insert size</th>
 ENDHTML
@@ -1401,14 +1412,35 @@ ENDHTML
 print {$fh} "    <td>".$ins_std."</td>\n";
 print {$fh} <<ENDHTML;
   </tr>
+ENDHTML
+}
+print {$fh} <<ENDHTML;
 </table>
-
-<h3><a href="#" id="histo-show" class="showLink" onclick="showHide('histo');return false;" title="Click to expand">Insert size histogram</a></h3>
-<div id="histo" class="more">
 ENDHTML
 
-print {$fh} "<img src=\"".$libraryNAME.".inserthistogram.png\" />\n";
+if ($SEmode==0) { # Only display insert size histogram if in paired-end mode
+print {$fh} <<ENDHTML;
+<h3><a href="#" id="histo-show" class="showLink" onclick="showHide('histo');return false;" title="Click to expand">Insert size histogram</a></h3>
+<div id="histo" class="more">
+<p>Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</p>
+ENDHTML
+
+print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".inserthistogram.png\" />\n";
 print {$fh} "<p><a href=\"".$libraryNAME.".inserthistogram.pdf\">PDF version</a></p>\n";
+print {$fh} <<ENDHTML;
+</div>
+ENDHTML
+}
+
+print {$fh} <<ENDHTML;
+
+<h3><a href="#" id="idhisto-show" class="showLink" onclick="showHide('idhisto');return false;" title="Click to expand">Mapping identity histogram</a></h3>
+<div id="idhisto" class="more">
+<p>Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</p>
+ENDHTML
+
+print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".idhistogram.png\" />\n";
+print {$fh} "<p><a href=\"".$libraryNAME.".idhistogram.pdf\">PDF version</a></p>\n";
 print {$fh} <<ENDHTML;
 </div>
 
@@ -1426,6 +1458,7 @@ print {$fh} "    <th>PhyloFlash report (HTML)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".phyloFlash.html</td>\n";
 print {$fh} "  </tr>\n";
 
+if ($SEmode==0) { # Only dislpay insert size information if in paired-end mode
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Insert size histogram (plaintext)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".inserthistogram</td>\n";
@@ -1434,6 +1467,17 @@ print {$fh} "  </tr>\n";
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Insert size histogram (graphics)</th>\n";
 print {$fh} "    <td>".$libraryNAME.".inserthistogram.png or .pdf</td>\n";
+print {$fh} "  </tr>\n";
+}
+
+print {$fh} "  <tr>\n";
+print {$fh} "    <th>Mapping identity histogram (plaintext)</th>\n";
+print {$fh} "    <td>".$libraryNAME.".idhistogram</td>\n";
+print {$fh} "  </tr>\n";
+
+print {$fh} "  <tr>\n";
+print {$fh} "    <th>Mapping identity histogram (graphics)</th>\n";
+print {$fh} "    <td>".$libraryNAME.".idhistogram.png or .pdf</td>\n";
 print {$fh} "  </tr>\n";
 
 if ($skip_spades + $skip_emirge < 2) {
@@ -1459,8 +1503,9 @@ ENDHTML
 if ($treemap_flag == 1) { # Display interactive treemap if flag is on
 print {$fh}<<ENDHTML;
 <h3>Interactive treemap of mapping-based taxonomic read classification</h3>
+    <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
+    <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
-    <p>Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
     <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
 ENDHTML
 }
@@ -1468,6 +1513,7 @@ ENDHTML
 print {$fh} <<ENDHTML;
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance (min. 3 reads mapped)</a></h3>
 <div id="taxa" class="more">
+<p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
 <table>
   <tr>
     <th><span class="withHoverText" title="Higher taxon found by SSU mapping to reference database">Taxon</span></th>
