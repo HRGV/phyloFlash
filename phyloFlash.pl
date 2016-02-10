@@ -90,7 +90,7 @@ Default: 500000
 =item -id I<N>
 
 Minimum allowed identity for read mapping process in %. Must be within
-63..95. Set this to a lower value for very divergent taxa
+63..98. Set this to a lower value for very divergent taxa
 Default: 70
 
 =item -clusterid I<N>
@@ -395,8 +395,8 @@ sub parse_cmdline {
         if ($readlength < 50 or $readlength > 500);
     pod2usage("\nMaxinsert must be within 0..1200")
         if ($maxinsert < 0 or $maxinsert > 1200);
-    pod2usage("\nReadmapping identity (-id) must be within 63..95")
-        if ($id < 63 or $id > 95);
+    pod2usage("\nReadmapping identity (-id) must be within 63..98")
+        if ($id < 63 or $id > 98);
     pod2usage("\nClustering identidy (-clusterid) must be within 50..100")
         if ($clusterid < 50 or $clusterid > 100);
 
