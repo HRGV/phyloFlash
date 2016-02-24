@@ -2,7 +2,7 @@
 ## plotscript.r by Brandon Seah (kbseah@mpi-bremen.de)
 
 ## Prerequisites: APE package in R
-## Usage: Rscript plotscript.r --args <treefile> <histofile>
+## Usage: Rscript plotscript.r --args <treefile> <histofile> <idhistofile>
 ## Output: <treefile>.pdf, <treefile>.png, <histofile>.pdf, <histofile>.png
 
 ## Get arguments from command line
@@ -27,7 +27,11 @@ if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_e
 
 ## Plot insert size histogram if not running in SE mode
 if (histofile != "SEmode") {
-    histo <- read.table(file=histofile,header=F,sep="\t",comment.char="#")
+    histo <- read.table(file=histofile,
+                        header=F,
+                        sep="\t", # Tab-separated table
+                        dec=getOption("OutDec"), # Detect decimal separator used for this locale
+                        comment.char="#")
     names(histo) <- c("InsertSize", "Count")
     # "Untabulate" the tabulated insert size counts
     histvals <- as.vector( # Convert to vector
@@ -49,7 +53,11 @@ if (histofile != "SEmode") {
 }
 
 ## Plot percent-identity histogram
-idhisto <- read.table (file=idhistofile,header=F,sep="\t",comment.char="#")
+idhisto <- read.table (file=idhistofile,
+                       header=F,
+                       sep="\t",
+                       dec=getOption("OutDec"), # Detect decimal separator for this locale
+                       comment.char="#")
 idhistvals <- as.vector(
                       unlist(
                              apply(idhisto,
