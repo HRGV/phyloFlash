@@ -119,6 +119,10 @@ although it is free to use.
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 
+=item -decimalcomma
+
+Use decimal comma instead of decimal point (default: off)
+
 =item -skip_emirge
 
 Turn off EMIRGE reconstruction of SSU sequences
@@ -188,7 +192,7 @@ my $libraryNAME = undef;        # output basename
 my $id          = 70;           # minimum %id for mapping
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
-my $amplimit   = 500000;        # number of SSU pairs at which to switch to emirge_amplicon
+my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
@@ -196,10 +200,11 @@ my $clusterid   = 97;           # threshold for vsearch clustering
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
+my $decimalcomma= 0;            # Decimal separator (default = .)
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
-my $sc = 0;                     # Flag - single cell data? (default = 0, no)
-my $check_env = 0;              # Check environment (runs check_environment subroutine only)
+my $sc          = 0;            # Flag - single cell data? (default = 0, no)
+my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 
@@ -308,6 +313,7 @@ sub parse_cmdline {
                'html' => \$html_flag,
                'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
+               'decsep' => \$decimalcomma,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
@@ -1121,7 +1127,8 @@ sub run_plotscript {
         run_prog("plotscript",
                  "--args NULL "
                  . "$inshist "
-                 . "$libraryNAME.idhistogram ",
+                 . "$libraryNAME.idhistogram "
+                 . "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
@@ -1129,7 +1136,8 @@ sub run_plotscript {
         run_prog("plotscript",
                  "--args $libraryNAME.SSU.collection.fasta.tree "
                  . "$inshist "
-                 . "$libraryNAME.idhistogram ",
+                 . "$libraryNAME.idhistogram "
+                 . "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }

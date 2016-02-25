@@ -2,18 +2,21 @@
 ## plotscript.r by Brandon Seah (kbseah@mpi-bremen.de)
 
 ## Prerequisites: APE package in R
-## Usage: Rscript plotscript.r --args <treefile> <histofile> <idhistofile>
+## Usage: Rscript plotscript.r --args <treefile> <histofile> <idhistofile> <decimalcomma>
 ## Output: <treefile>.pdf, <treefile>.png, <histofile>.pdf, <histofile>.png
 
 ## Get arguments from command line
-args <- commandArgs(trailingOnly=TRUE)
-treefile <- args[2]
-histofile <- args[3]
-idhistofile <- args[4]
+args         <- commandArgs(trailingOnly=TRUE)
+treefile     <- args[2] # Tree from MAFFT
+histofile    <- args[3] # Insert size histogram
+idhistofile  <- args[4] # Mapping %id histogram
+decimalcomma <- args[5] # Use decimal comma?
 
-if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_emirge and -skip_spades options activated), skip this step
+# Skip drawing tree if no Newick tree file was generated
+# i.e. -skip_emirge and -skip_spades options in phyloFlash.pl
+if (treefile != "NULL") {
     ## Plot tree from Newick .tree file (guide tree produced by MAFFT) and output PDF plot
-    library(ape)							# ape package for phylogenetics
+    library(ape) # ape package for phylogenetics
     thetree <- read.tree(file=treefile)
     
     pdf(file=paste(treefile,"pdf",sep="."),width=11,height=8)
@@ -25,12 +28,19 @@ if (treefile != "NULL") {   # If no Newick tree file was generated (when -skip_e
     dev.off()
 }
 
+# If -decimalcomma option used in phyloFlash.pl
+if (decimalcomma == 1) {
+    dec <- ","
+} else {
+    dec <- "."
+}
+
 ## Plot insert size histogram if not running in SE mode
 if (histofile != "SEmode") {
     histo <- read.table(file=histofile,
                         header=F,
                         sep="\t", # Tab-separated table
-                        dec=getOption("OutDec"), # Detect decimal separator used for this locale
+                        dec=dec, 
                         comment.char="#")
     names(histo) <- c("InsertSize", "Count")
     # "Untabulate" the tabulated insert size counts
@@ -43,12 +53,27 @@ if (histofile != "SEmode") {
                                  )
                           ) 
     # Export PDF version
-    pdf(file=paste(histofile,"pdf",sep="."),width=11,height=8)
-    hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+    pdf(file=paste(histofile,"pdf",sep="."),
+        width=11,
+        height=8)
+    hist(histvals,
+         col="grey",
+         border="grey",
+         xlab="Insert size (bp)",
+         main="Insert size histogram"
+         )
     dev.off()
     # Export PNG version
-    png(file=paste(histofile,"png",sep="."),width=660,height=480)
-    hist(histvals,col="grey",border="grey",xlab="Insert size (bp)",main="Insert size histogram")
+    png(file=paste(histofile,"png",sep="."),
+        width=660,
+        height=480
+        )
+    hist(histvals,
+         col="grey",
+         border="grey",
+         xlab="Insert size (bp)",
+         main="Insert size histogram"
+         )
     dev.off()
 }
 
@@ -56,7 +81,7 @@ if (histofile != "SEmode") {
 idhisto <- read.table (file=idhistofile,
                        header=F,
                        sep="\t",
-                       dec=getOption("OutDec"), # Detect decimal separator for this locale
+                       dec=dec, # Detect decimal separator for this locale
                        comment.char="#")
 idhistvals <- as.vector(
                       unlist(
@@ -67,10 +92,26 @@ idhistvals <- as.vector(
                              )
                      )
 # Export PDF
-pdf(file=paste(idhistofile,"pdf",sep="."),width=11,height=8)
-hist(idhistvals,col="grey",border="grey",xlab="Percentage identity",main="Histogram of read identity to reference")
+pdf(file=paste(idhistofile,"pdf",sep="."),
+    width=11,
+    height=8)
+hist(idhistvals,
+     breaks=100,
+     col="grey",
+     border="grey",
+     xlab="Percentage identity",
+     main="Histogram of read identity to reference"
+     )
 dev.off()
 # Export PNG
-png(file=paste(idhistofile,"png",sep="."),width=660,height=480)
-hist(idhistvals,col="grey",border="grey",xlab="Percentage identity",main="Histogram of read identity to reference")
+png(file=paste(idhistofile,"png",sep="."),
+    width=660,
+    height=480)
+hist(idhistvals,
+     breaks=100,
+     col="grey",
+     border="grey",
+     xlab="Percentage identity",
+     main="Histogram of read identity to reference"
+     )
 dev.off()
