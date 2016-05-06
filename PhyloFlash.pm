@@ -108,9 +108,11 @@ the part of the filename preceding the first digit. E.g.:
 
 =cut
 sub version_sort {
+    # this will fail with Perl <5.13.2. Versions before that lack the
+    # non-destructive subsitition flag /r used in the map line below.
     return  map { $_->[0] }  
             sort { - ($a->[1] cmp $b->[1]) }
-            map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] } 
+            map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] }
             @_;
     # works like this:
     # last map creates a key->value map with the path the key and the value
