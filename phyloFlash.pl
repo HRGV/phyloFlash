@@ -1,4 +1,6 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
+use strict;
+use warnings;
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
