@@ -40,6 +40,7 @@ Python installed. (OSX is for the brave, we have not tested this!)
 
 2. Install the tools phyloFlash uses:
 
+ - Perl >= 5.13.2 (http://www.perl.org/get.html)
  - EMIRGE and its dependencies (https://github.com/csmiller/EMIRGE)
  - bbmap (http://sourceforge.net/projects/bbmap/)
  - vsearch (https://github.com/torognes/vsearch)
