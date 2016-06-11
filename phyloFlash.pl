@@ -128,7 +128,8 @@ Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 
 =item -decimalcomma
 
-Use decimal comma instead of decimal point (default: off)
+Use decimal comma instead of decimal pointto fix locale problems
+(default: off)
 
 =item -skip_emirge
 
@@ -322,7 +323,7 @@ sub parse_cmdline {
                'html' => \$html_flag,
                'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
-               'decsep' => \$decimalcomma,
+               'decimalcomma' => \$decimalcomma,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
