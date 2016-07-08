@@ -128,7 +128,7 @@ Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 
 =item -decimalcomma
 
-Use decimal comma instead of decimal pointto fix locale problems
+Use decimal comma instead of decimal point to fix locale problems
 (default: off)
 
 =item -skip_emirge
@@ -815,7 +815,7 @@ sub spades_run {
 
 sub spades_parse {
     # getting spades output and reformatting it...
-    msg("getting 16S phylotypes and their coverages...");
+    msg("getting SSU phylotypes and their coverages...");
 
     #spades scaffolds file is empty, settting skip_spades variable to avoid
     #further processing
@@ -867,7 +867,7 @@ sub spades_parse {
         # put our desired output fasta name into "feature" col 3
         # the may be "bug" using / mixing bed and gff formats
         # but it saves us messing with the fasta afterwards
-        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
+        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
         $cols[2] = "$libraryNAME.PFspades_$1_$2";
 
         # do the actual merging, left most start and right most stop wins
