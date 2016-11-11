@@ -115,6 +115,13 @@ warn  <- function(...) msg(lvl=1,...);
 info  <- function(...) msg(lvl=3,...);
 debug <- function(...) msg(lvl=4,...);
 
+
+## helper function to extract a number from a factor without
+## potentially causing warnigs about numbers that can't be
+## converted (e.g. "NaN").
+factor2numeric <- function(x) suppressWarnings(as.numeric(levels(x))[x])
+
+
 ## workaround for not working rbind(gtable...)
 ## adapted from http://stackoverflow.com/questions/24234791
 rbind_max <- function(...,size=grid::unit.pmax){
@@ -482,7 +489,7 @@ plot.phyloFlash <- function(pf,
     ## some empty tables
     zero <- gtable(widths=unit(0,"null"),heights=unit(0,"null"));
     zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
-    
+
     ## render the heapmaps
     gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors[1:nmaps], SIMPLIFY=FALSE);
 
@@ -517,17 +524,15 @@ plot.phyloFlash <- function(pf,
     gr_labels$heights   <- gr_labels$heights   * (nrows/sum(nrows));
     gr_trees$heights    <- gr_trees$heights    * (nrows/sum(nrows));
 
-    # render tree over samples
+    ## render tree over samples
     axis     <- ifelse(match("tree",row.order) < match("map", row.order), 3, 1);
     gr_sampleTree     <- g_get(g_make_dendro_plot(pf$col_dendro, axis=axis), "panel");
     gr_sampleTree$heights <- unit(0.1,"null")
-
-    # make chao line
-    chao <- pf$meta$NTU.Chao1.richness.estimate;
-    chao <- round(as.numeric(as.character(chao)))
+    ## make chao line
+    chao <- round(factor2numeric(pf$meta$NTU.Chao1.richness.estimate))
     gr_chao_grob <- textGrob("Chao1",x=unit(.99,"npc"),just="right",gp=gpar(fontsize=8))
     gr_chao_lab <- gtable_add_grob(zero1,gr_chao_grob,t=1,l=1,r=1,b=1);
-   
+
     ## handle ordering / component selection
     ## columns:
     corder <- match(col.order, c("labels","map","tree"));
