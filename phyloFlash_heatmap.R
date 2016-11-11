@@ -302,23 +302,27 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     libs <- lapply(files[grepl("phyloFlash.*csv$",files)],
                    function(x) sub("\\.phyloFlash.*\\.csv","", x));
     libs <- unique(libs);
-    
+
     if (length(libs) == 0)  {
         err("No phyloFlash output CSVs found on command line.")
     }
 
     msg("Selected phyloFlash libraries:");
     msg(unlist(libs), fill=77);
-    
+
     msg("Loading CSV files...");
     for (lib in libs) tryCatch({
         fileName <- paste(lib, ".phyloFlash.NTUabundance.csv", sep="");
         info("Reading: ",fileName);
         fileData <- read.csv(fileName);
-       
+        if (nrow(fileData) < 2) {
+          warn("Skipping empty file: ", fileName)
+          next;
+        }
+
         # rename "reads" column to lib name
         colnames(fileData)[colnames(fileData)=="reads"] = lib;
-       
+
         # merge into single dataframe
         if (!exists("NTUcounts")) {
             NTUcounts <- fileData;
