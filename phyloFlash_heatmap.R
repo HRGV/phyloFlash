@@ -714,12 +714,14 @@ Files:
     if (outdim[1] == "auto") {
         labelwidth <- max(nchar(unlist(sapply(pf$data, rownames)))) * 5;
         width <- 80 + labelwidth + nsample * 25;
+        msg("Computed output width as ", width)
     } else {
         width=as.integer(outdim[1])
     }
     if (outdim[2] == "auto") {
         labelwidth <- max(nchar(unlist(sapply(pf$data, colnames)))) * 5;
         height <- 120 + labelwidth + ntaxa * 10;
+        msg("Computed output height as ", height)
     } else {
         height=as.integer(outdim[2])
     }
