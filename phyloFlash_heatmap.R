@@ -675,12 +675,14 @@ Files:
         print_help(parser);
         quit(status=2);
     }
-    
+
     ## set loglevel
     if (conf$options$quiet) {
         pf_setLogLevel(1);
     } else if (conf$options$verbose) {
         pf_setLogLevel(3);
+    } else if (conf$options$debug) {
+        pf_setLogLevel(4);
     }
 
     ## set debug mode
