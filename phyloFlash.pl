@@ -35,7 +35,8 @@ only letters, numbers and "_" or "-" (no whitespace or other punctuation).
 =item -read1 F<file>
 
 File containing forward reads. Both FASTA and FASTQ formats are understood.
-The file may be compressed (.gz).
+The file may be compressed (.gz). If interleaved read data is provided, please
+use --interleaved flag for paired-end processing
 
 =item -read2 F<file>
 
@@ -66,6 +67,10 @@ Show manual.
 
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
+
+=item -interleaved
+
+Interleaved readfile with R1 and R2 in a single file at read1
 
 =item -readlength I<N>
 
@@ -120,6 +125,11 @@ although it is free to use.
 =item -crlf
 
 Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
+
+=item -decimalcomma
+
+Use decimal comma instead of decimal point to fix locale problems
+(default: off)
 
 =item -skip_emirge
 
@@ -187,10 +197,11 @@ my $readsf      = undef;        # forward read filename, stripped of directory n
 my $readsr      = undef;        # reverse read filename, stripped of directory names
 my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
+my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
 my $id          = 70;           # minimum %id for mapping
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
-my $amplimit   = 500000;        # number of SSU pairs at which to switch to emirge_amplicon
+my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
@@ -198,10 +209,11 @@ my $clusterid   = 97;           # threshold for vsearch clustering
 my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
+my $decimalcomma= 0;            # Decimal separator (default = .)
 my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
-my $sc = 0;                     # Flag - single cell data? (default = 0, no)
-my $check_env = 0;              # Check environment (runs check_environment subroutine only)
+my $sc          = 0;            # Flag - single cell data? (default = 0, no)
+my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 
@@ -300,6 +312,7 @@ sub parse_cmdline {
                'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
                'dbhome=s' => \$DBHOME,
+	       'interleaved' => \$interleaved,
                'readlength=i' => \$readlength,
                'readlimit=i' => \$readlimit,
 	       'amplimit=i' => \$amplimit,
@@ -310,6 +323,7 @@ sub parse_cmdline {
                'html' => \$html_flag,
                'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
+               'decimalcomma' => \$decimalcomma,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
@@ -377,6 +391,9 @@ sub parse_cmdline {
         if ($readsr_full =~ m/.*\/(.+)/) {    # strip directory paths from reverse read filename
           $readsr = $1;
         } else { $readsr = $readsr_full; }
+     
+     } elsif ( $interleaved == 1 ){
+	msg("Using interleaved read data");
         
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
@@ -386,7 +403,11 @@ sub parse_cmdline {
 
     msg("Forward reads $readsf_full");
     if ($SEmode == 0)  {
-        msg("Reverse reads $readsr_full");
+        if (defined($readsr_full)) {
+	    msg("Reverse reads $readsr_full");
+	} else{
+	    msg("Reverse reads from interleaved read file $readsf_full");
+	}
     } else {
         msg("Running in single ended mode");
     }
@@ -425,19 +446,33 @@ sub print_report {
 $version - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)
 Library name:\t$libraryNAME
 ---
-Forward read file\t$readsf_full
-Reverse read file\t$readsr_full
+Forward read file\t$readsf_full~;
+if ($SEmode == 0) {
+  if ($interleaved == 1) { # reads are provided interleaved
+        print {$fh} qq~
+Reverse reads provided interleaved in file\t$readsf_full~;}
+  else { # reads are provided in two separate files
+    print {$fh} qq ~
+Reverse read file\t$readsr_full~;
+  }
+}
+
+print {$fh} qq~
+---
 Current working directory\t$cwd
 ---
 Minimum mapping identity:\t$id%
 ~;
 
-    if ($SEmode == 1) { # If in SE mode
+    if (defined($readsr_full) || $interleaved == 1) { # If in PE mode
         print {$fh} qq~
 ---
 Input PE-reads:\t$readnr_pairs
-Mapped SSU read pairs:\t$SSU_total_pairs
+Mapped SSU reads:\t$SSU_total_pairs
 Mapping ratio:\t$SSU_ratio_pc%
+Detected median insert size:\t$ins_me
+Used insert size:\t$ins_used
+Insert size standard deviation:\t$ins_std
 ~;
     } else { # Else if in PE mode
         print {$fh} qq~
@@ -445,9 +480,6 @@ Mapping ratio:\t$SSU_ratio_pc%
 Input SE-reads:\t$readnr_pairs
 Mapped SSU reads:\t$SSU_total_pairs
 Mapping ratio:\t$SSU_ratio_pc%
-Detected median insert size:\t$ins_me
-Used insert size:\t$ins_used
-Insert size standard deviation:\t$ins_std
 ~;
     }
 
@@ -574,11 +606,16 @@ sub bbmap_fast_filter_run {
 
     my $args = "";
     if ($SEmode == 0) {
-        $args =
-        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert in2=$readsr_full";
+	if ($interleaved == 1) {
+	    $args =
+	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+	    . "pairlen=$maxinsert interleaved=t";
+	} else {
+	    $args =
+	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+	    . "pairlen=$maxinsert in2=$readsr_full";
+	}
     }
-
     run_prog("bbmap",
              "  fast=t "
              . "minidentity=$minID "
@@ -778,7 +815,7 @@ sub spades_run {
 
 sub spades_parse {
     # getting spades output and reformatting it...
-    msg("getting 16S phylotypes and their coverages...");
+    msg("getting SSU phylotypes and their coverages...");
 
     #spades scaffolds file is empty, settting skip_spades variable to avoid
     #further processing
@@ -830,7 +867,7 @@ sub spades_parse {
         # put our desired output fasta name into "feature" col 3
         # the may be "bug" using / mixing bed and gff formats
         # but it saves us messing with the fasta afterwards
-        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)_/;
+        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
         $cols[2] = "$libraryNAME.PFspades_$1_$2";
 
         # do the actual merging, left most start and right most stop wins
@@ -1123,7 +1160,8 @@ sub run_plotscript {
         run_prog("plotscript",
                  "--args NULL "
                  . "$inshist "
-                 . "$libraryNAME.idhistogram ",
+                 . "$libraryNAME.idhistogram "
+                 . "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
@@ -1131,7 +1169,8 @@ sub run_plotscript {
         run_prog("plotscript",
                  "--args $libraryNAME.SSU.collection.fasta.tree "
                  . "$inshist "
-                 . "$libraryNAME.idhistogram ",
+                 . "$libraryNAME.idhistogram "
+                 . "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
