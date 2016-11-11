@@ -451,6 +451,79 @@ scale_to_percent <- function(mat) {
     return (scale(mat, center=FALSE, scale=colSums(mat)) * 100);
 }
 
+## create fake clusters by alphanumeric order
+alpha_clust <- function(dm) {
+    ## Creates an hclust object from the rows in `dm` with clusters
+    ## "faked" to create an alphanumeric order.
+
+    # begin by creating the hclust object
+    res <- list() # this will become the fake hclust object
+    res$labels <- rownames(dm)
+    res$order <- order(as.character(res$labels))
+    res$method <- "alpha"
+    res$height <- rep(1, nrow(dm)-1)
+
+    ## the $merge field contains a 2 x (n-1) matrix describing the merge
+    ## order, i.e. a list of pairs. negative values refer to the leaves,
+    ## positive values to the index of a previously defined pair.
+    ##
+    ## we begin by adding pairs from all the leaves (in sorted order
+    ## generated above):
+
+    if (nrow(dm)%%2 == 0) {
+        merge <- -res$order
+        missing <- NULL
+    } else {
+        ## if the number of leaves is odd, we set the last leaf aside
+        merge <- -res$order[1:nrow(dm)-1]
+        missing <- -res$order[nrow(dm)]
+    }
+
+    ## iteratively merge pairs
+    i=1 # next internal node to be inserted
+    n=length(merge)/2  # number of nodes on last level
+    h=1 # height of current level
+    while ((n > 1 )| !is.null(missing)) {
+        ## increment height
+        h <- h + 1
+        ## compute end of current range
+        j <- i + n - 1
+        ## set heights (FIXME: this looks wrong)
+        res$height[i:j] = h
+        if (n %% 2 == 0) { # even number of nodes on last level
+            ## add pairs comprising all those nodes (even, so all fine)
+            merge <- c(merge, i:j)
+        } else {
+            if (n!=1) { # last round left more than 1 node
+                ## add the pairs, leaving the odd last node alone
+                merge <- c(merge, i:(j-1))
+            }
+            if (is.null(missing)) {
+                ## one node left ("j"), but nothing set aside, so
+                ## set node j aside
+                missing <- j
+            } else {
+                ## one node left ("j") and one node set aside, so
+                ## add those as a pair
+                merge <- c(merge, j, missing)
+                missing <- NULL
+                ## add the missing node we just merged in this round
+                ## to the number of nodes created by last round
+                n <- n + 1
+            }
+        }
+        ## new start index:
+        i <- j+1
+        ## new number of nodes created
+        n <- n %/% 2
+    }
+    res$height[i] = h+1
+    res$merge <- matrix(merge, nc=2, byrow=TRUE)
+    class(res) <- "hclust"
+    res
+}
+
+
 # cluster, create dendrograms and reorder data
 cluster <- function(pf, method="ward") {
     mkdendro <- function(mat) {
