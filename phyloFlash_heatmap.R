@@ -468,7 +468,7 @@ cluster <- function(pf, method="ward") {
 plot.phyloFlash <- function(pf,
                             row.order=c("tree","map","chao","labels"),
                             col.order=c("labels","map","tree"),
-                            map.colors=c("steelblue", "indianred")
+                            map.colors=c("steelblue", "indianred", "green", "orange")
 ) {
     ## turn arguments into vectors (workaround)
     row.order = strsplit(paste(collapse=",",row.order),",")[[1]];
@@ -484,7 +484,7 @@ plot.phyloFlash <- function(pf,
     zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
     
     ## render the heapmaps
-    gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors, SIMPLIFY=FALSE);
+    gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors[1:nmaps], SIMPLIFY=FALSE);
 
     ## extract maps column
     gr_heatmaps <- lapply(gg_heatmaps, g_get, "panel");
@@ -623,7 +623,7 @@ pF_main <- function() {
             ),
         make_option(
             c("--colors"),
-            default="steelblue,indianred",
+            default="steelblue,indianred,green,orange",
             help="Colors for heatmaps. Default is %default."
         ),
         make_option(
