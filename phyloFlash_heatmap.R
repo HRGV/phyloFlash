@@ -771,8 +771,8 @@ Files:
     info("Loading libraries");
     load_libraries();
 
-    pf      <- read.phyloFlash(conf$args,
-                               sampleNameFromMeta = !conf$options$"library-name-from-file");
+    pf <- read.phyloFlash(conf$args,
+                          sampleNameFromMeta = !conf$options$"library-name-from-file");
 
     ## split by domain
     if (!conf$options$"no-split") {
@@ -786,7 +786,7 @@ Files:
 
     pf$data <- merge_low_counts(pf$data,
                                 thres=conf$options$"min-ntu-count");
-    
+
     if (!conf$options$absolute) {
         msg("Rescaling counts to percentages");
         pf$data <- scale_to_percent(pf$data);
