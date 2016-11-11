@@ -216,7 +216,7 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
          labs(x = NULL, y = NULL) +
          scale_y_continuous(expand=c(0,0), trans=trans) +
          theme(axis.ticks.length = unit(0,"null"),
-               axis.ticks.margin = unit(0,"null")
+               axis.text.x = element_text(margin=margin(0,0,0,0,"null"))
                );
 
     # flip if vertical and add 1 mm space on the outer
