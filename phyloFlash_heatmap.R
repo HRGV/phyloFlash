@@ -176,6 +176,9 @@ rbind_select <- function(select, ..., size=grid::unit.pmax) {
 # extract a grob from a ggplot/gtable
 g_get <- function(obj, pat) {
     if (is.ggplot(obj)) obj <- ggplotGrob(obj);
+    if (is.null(obj)) {
+        return (gtable(widths=unit(0,"null"),heights=unit(0,"null")))
+    }
     if (!is.grob(obj)) err("not a grob?!");
     return (gtable_filter(obj,pattern=pat));
 }
