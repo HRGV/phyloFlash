@@ -187,6 +187,9 @@ g_get <- function(obj, pat) {
 # @param bool axis       1:4=below,left,above,right
 # @param bool labels     If true, plot includes labels
 g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
+    if (is.null(dendro)) {
+        return(NULL)
+    }
     ddata <- dendro_data(dendro, type="rectangle");
     
     # Unexpanded, the dendrogram will span maximum width. That is,
