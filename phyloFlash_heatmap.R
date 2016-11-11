@@ -591,7 +591,8 @@ pF_main <- function() {
             c("-t", "--split-regex"),
             default="Eukaryota",
             type="character",
-            help="Split heatmap using this regex on taxa. Default '%default'",
+            help="Split heatmap using this regex on taxa. Multiple regex can be
+                specified comma separated. Default '%default'",
             ),
         make_option(
             c("-l", "--long-taxnames"),
