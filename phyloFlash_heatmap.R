@@ -525,24 +525,39 @@ alpha_clust <- function(dm) {
 
 
 # cluster, create dendrograms and reorder data
-cluster <- function(pf, method="ward") {
-    mkdendro <- function(mat) {
-        return(as.dendrogram(hclust(dist(mat), method)));
+cluster <- function(pf, samples="ward.D", taxa="ward.D") {
+    debug("In function 'cluster'")
+    mkdendro <- function(mat, method) {
+        if (nrow(mat) < 2) return (NULL)
+        if (method == "alpha") {
+            hc = alpha_clust(mat)
+        } else {
+            dm = dist(mat)
+            dm = 1-as.dist(cor(t(mat)))
+            print(paste(length(which(is.na(dm))), "of", length(dm)))
+            dm[is.na(dm)]=1
+            hc = hclust(dm, method)
+        }
+        dd <- as.dendrogram(hc)
+        dd <- reorder(dd, order(as.character(rownames(mat))))
     }
 
-    ## re-join data if list
-    joined = do.call(rbind, pf$data);
     ## create horizontal clusters
-    pf$col_dendro <- mkdendro(t(joined));
+    joined = do.call(rbind, pf$data); # re-join data if list
+    pf$col_dendro <- mkdendro(t(joined), samples);
     ## re-order meta-data
     pf$meta <- pf$meta[order.dendrogram(pf$col_dendro),];
 
     ## create vertical clusters
-    pf$row_dendro <- lapply(pf$data, mkdendro);
+    pf$row_dendro <- lapply(pf$data, mkdendro, taxa);
     ## re-order data matrices
     rorder <- function(mat, dendr) {
-        return (mat[order.dendrogram(dendr),
+        if (!is.null(dendr)) {
+            return (mat[order.dendrogram(dendr),
                     order.dendrogram(pf$col_dendro)]);
+        } else {
+            return (mat)
+        }
     }
 
     pf$data <- mapply(rorder, pf$data, pf$row_dendro, SIMPLIFY=FALSE);
@@ -686,11 +701,18 @@ pF_main <- function() {
             help="Do not scale columns to percentages"
             ),
         make_option(
-            c("-m","--hclust-method"),
-            default="ward",
-            help="Use this method for hclust clustering. Can be:
-                ward, single, complete, average, mcquitty, median or centroid.
+            c("-m", "--cluster-samples"),
+            default="ward.D",
+            help="Use this method for clustering/sorting samples. Can be:
+                alpha, ward, single, complete, average, mcquitty, median or centroid.
                 Default is %default."
+            ),
+        make_option(
+            c("-M", "--cluster-taxa"),
+            default="ward.D",
+            help="Use this method for clustering/sorting samples. Can be:
+               alpha, ward, single, cimplete, average, mcquitty, median or centroid.
+               Default is %default"
             ),
         make_option(
             c("-r","--rows"),
@@ -793,7 +815,8 @@ Files:
     }
 
     msg("Clustering...");
-    pf      <- cluster(pf, method=conf$options$"hclust-method");
+    pf      <- cluster(pf, samples=conf$options$"cluster-samples",
+                           taxa=conf$options$"cluster-taxa");
 
     ntaxa   <- sum(sapply(pf$data, nrow))
     nsample <- ncol(pf$data[[1]])
@@ -839,7 +862,7 @@ Files:
 
     invisible(1);
 }
-    
+
 # if we are run as a script from the cmdline
 if (!interactive()) {
     check_libraries();
