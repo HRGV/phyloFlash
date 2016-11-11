@@ -363,7 +363,7 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     NTUcounts  <- as.matrix(NTUcounts[,-1]);
     rownames(NTUcounts) <- ntu_names;
     if (sampleNameFromMeta) {
-        colnames(NTUcounts) <- pfData$meta$library.name
+        colnames(NTUcounts) <- as.character(pfData$meta$library.name)
     } else {
         colnames(NTUcounts) <- sample_names;
     }
@@ -399,6 +399,7 @@ shorten_taxnames <- function(data, n=2) {
 # splits matrix using regex (returns list)
 split_by_name <- function(data, re_list) {
     names  <- rownames(data[[1]]);
+    samples <- colnames(data[[1]]);
     groups <- rep(0, length(names));
     i <- 1;
     for (pat in re_list) {
@@ -406,7 +407,12 @@ split_by_name <- function(data, re_list) {
         i <- i+1;
     }
     sd <- split(data.frame(data), groups);
-    return (lapply(sd, as.matrix));
+    sd <- lapply(sd, function(x) {
+        r <- as.matrix(x);
+        colnames(r) <- samples;
+        r
+    });
+    return (sd);
 }
 
 ### remove taxa observed rarely
