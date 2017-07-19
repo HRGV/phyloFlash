@@ -115,6 +115,13 @@ warn  <- function(...) msg(lvl=1,...);
 info  <- function(...) msg(lvl=3,...);
 debug <- function(...) msg(lvl=4,...);
 
+
+## helper function to extract a number from a factor without
+## potentially causing warnigs about numbers that can't be
+## converted (e.g. "NaN").
+factor2numeric <- function(x) suppressWarnings(as.numeric(levels(x))[x])
+
+
 ## workaround for not working rbind(gtable...)
 ## adapted from http://stackoverflow.com/questions/24234791
 rbind_max <- function(...,size=grid::unit.pmax){
@@ -176,6 +183,9 @@ rbind_select <- function(select, ..., size=grid::unit.pmax) {
 # extract a grob from a ggplot/gtable
 g_get <- function(obj, pat) {
     if (is.ggplot(obj)) obj <- ggplotGrob(obj);
+    if (is.null(obj)) {
+        return (gtable(widths=unit(0,"null"),heights=unit(0,"null")))
+    }
     if (!is.grob(obj)) err("not a grob?!");
     return (gtable_filter(obj,pattern=pat));
 }
@@ -184,6 +194,9 @@ g_get <- function(obj, pat) {
 # @param bool axis       1:4=below,left,above,right
 # @param bool labels     If true, plot includes labels
 g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
+    if (is.null(dendro)) {
+        return(NULL)
+    }
     ddata <- dendro_data(dendro, type="rectangle");
     
     # Unexpanded, the dendrogram will span maximum width. That is,
@@ -210,7 +223,7 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
          labs(x = NULL, y = NULL) +
          scale_y_continuous(expand=c(0,0), trans=trans) +
          theme(axis.ticks.length = unit(0,"null"),
-               axis.ticks.margin = unit(0,"null")
+               axis.text.x = element_text(margin=margin(0,0,0,0,"null"))
                );
 
     # flip if vertical and add 1 mm space on the outer
@@ -296,23 +309,27 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     libs <- lapply(files[grepl("phyloFlash.*csv$",files)],
                    function(x) sub("\\.phyloFlash.*\\.csv","", x));
     libs <- unique(libs);
-    
+
     if (length(libs) == 0)  {
         err("No phyloFlash output CSVs found on command line.")
     }
 
     msg("Selected phyloFlash libraries:");
     msg(unlist(libs), fill=77);
-    
+
     msg("Loading CSV files...");
     for (lib in libs) tryCatch({
         fileName <- paste(lib, ".phyloFlash.NTUabundance.csv", sep="");
         info("Reading: ",fileName);
         fileData <- read.csv(fileName);
-       
+        if (nrow(fileData) < 2) {
+          warn("Skipping empty file: ", fileName)
+          next;
+        }
+
         # rename "reads" column to lib name
         colnames(fileData)[colnames(fileData)=="reads"] = lib;
-       
+
         # merge into single dataframe
         if (!exists("NTUcounts")) {
             NTUcounts <- fileData;
@@ -346,7 +363,7 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     NTUcounts  <- as.matrix(NTUcounts[,-1]);
     rownames(NTUcounts) <- ntu_names;
     if (sampleNameFromMeta) {
-        colnames(NTUcounts) <- pfData$meta$library.name
+        colnames(NTUcounts) <- as.character(pfData$meta$library.name)
     } else {
         colnames(NTUcounts) <- sample_names;
     }
@@ -382,6 +399,7 @@ shorten_taxnames <- function(data, n=2) {
 # splits matrix using regex (returns list)
 split_by_name <- function(data, re_list) {
     names  <- rownames(data[[1]]);
+    samples <- colnames(data[[1]]);
     groups <- rep(0, length(names));
     i <- 1;
     for (pat in re_list) {
@@ -389,7 +407,12 @@ split_by_name <- function(data, re_list) {
         i <- i+1;
     }
     sd <- split(data.frame(data), groups);
-    return (lapply(sd, as.matrix));
+    sd <- lapply(sd, function(x) {
+        r <- as.matrix(x);
+        colnames(r) <- samples;
+        r
+    });
+    return (sd);
 }
 
 ### remove taxa observed rarely
@@ -428,25 +451,113 @@ scale_to_percent <- function(mat) {
     return (scale(mat, center=FALSE, scale=colSums(mat)) * 100);
 }
 
-# cluster, create dendrograms and reorder data
-cluster <- function(pf, method="ward") {
-    mkdendro <- function(mat) {
-        return(as.dendrogram(hclust(dist(mat), method)));
+## create fake clusters by alphanumeric order
+alpha_clust <- function(dm) {
+    ## Creates an hclust object from the rows in `dm` with clusters
+    ## "faked" to create an alphanumeric order.
+
+    # begin by creating the hclust object
+    res <- list() # this will become the fake hclust object
+    res$labels <- rownames(dm)
+    res$order <- order(as.character(res$labels))
+    res$method <- "alpha"
+    res$height <- rep(1, nrow(dm)-1)
+
+    ## the $merge field contains a 2 x (n-1) matrix describing the merge
+    ## order, i.e. a list of pairs. negative values refer to the leaves,
+    ## positive values to the index of a previously defined pair.
+    ##
+    ## we begin by adding pairs from all the leaves (in sorted order
+    ## generated above):
+
+    if (nrow(dm)%%2 == 0) {
+        merge <- -res$order
+        missing <- NULL
+    } else {
+        ## if the number of leaves is odd, we set the last leaf aside
+        merge <- -res$order[1:nrow(dm)-1]
+        missing <- -res$order[nrow(dm)]
     }
 
-    ## re-join data if list
-    joined = do.call(rbind, pf$data);
+    ## iteratively merge pairs
+    i=1 # next internal node to be inserted
+    n=length(merge)/2  # number of nodes on last level
+    h=1 # height of current level
+    while ((n > 1 )| !is.null(missing)) {
+        ## increment height
+        h <- h + 1
+        ## compute end of current range
+        j <- i + n - 1
+        ## set heights (FIXME: this looks wrong)
+        res$height[i:j] = h
+        if (n %% 2 == 0) { # even number of nodes on last level
+            ## add pairs comprising all those nodes (even, so all fine)
+            merge <- c(merge, i:j)
+        } else {
+            if (n!=1) { # last round left more than 1 node
+                ## add the pairs, leaving the odd last node alone
+                merge <- c(merge, i:(j-1))
+            }
+            if (is.null(missing)) {
+                ## one node left ("j"), but nothing set aside, so
+                ## set node j aside
+                missing <- j
+            } else {
+                ## one node left ("j") and one node set aside, so
+                ## add those as a pair
+                merge <- c(merge, j, missing)
+                missing <- NULL
+                ## add the missing node we just merged in this round
+                ## to the number of nodes created by last round
+                n <- n + 1
+            }
+        }
+        ## new start index:
+        i <- j+1
+        ## new number of nodes created
+        n <- n %/% 2
+    }
+    res$height[i] = h+1
+    res$merge <- matrix(merge, nc=2, byrow=TRUE)
+    class(res) <- "hclust"
+    res
+}
+
+
+# cluster, create dendrograms and reorder data
+cluster <- function(pf, samples="ward.D", taxa="ward.D") {
+    debug("In function 'cluster'")
+    mkdendro <- function(mat, method) {
+        if (nrow(mat) < 2) return (NULL)
+        if (method == "alpha") {
+            hc = alpha_clust(mat)
+        } else {
+            dm = dist(mat)
+            dm = 1-as.dist(cor(t(mat)))
+            print(paste(length(which(is.na(dm))), "of", length(dm)))
+            dm[is.na(dm)]=1
+            hc = hclust(dm, method)
+        }
+        dd <- as.dendrogram(hc)
+        dd <- reorder(dd, order(as.character(rownames(mat))))
+    }
+
     ## create horizontal clusters
-    pf$col_dendro <- mkdendro(t(joined));
+    joined = do.call(rbind, pf$data); # re-join data if list
+    pf$col_dendro <- mkdendro(t(joined), samples);
     ## re-order meta-data
     pf$meta <- pf$meta[order.dendrogram(pf$col_dendro),];
 
     ## create vertical clusters
-    pf$row_dendro <- lapply(pf$data, mkdendro);
+    pf$row_dendro <- lapply(pf$data, mkdendro, taxa);
     ## re-order data matrices
     rorder <- function(mat, dendr) {
-        return (mat[order.dendrogram(dendr),
+        if (!is.null(dendr)) {
+            return (mat[order.dendrogram(dendr),
                     order.dendrogram(pf$col_dendro)]);
+        } else {
+            return (mat)
+        }
     }
 
     pf$data <- mapply(rorder, pf$data, pf$row_dendro, SIMPLIFY=FALSE);
@@ -458,7 +569,7 @@ cluster <- function(pf, method="ward") {
 plot.phyloFlash <- function(pf,
                             row.order=c("tree","map","chao","labels"),
                             col.order=c("labels","map","tree"),
-                            map.colors=c("steelblue", "indianred")
+                            map.colors=c("steelblue", "indianred", "green", "orange")
 ) {
     ## turn arguments into vectors (workaround)
     row.order = strsplit(paste(collapse=",",row.order),",")[[1]];
@@ -472,9 +583,9 @@ plot.phyloFlash <- function(pf,
     ## some empty tables
     zero <- gtable(widths=unit(0,"null"),heights=unit(0,"null"));
     zero1 <- gtable(widths=unit(1,"null"),heights=unit(0,"null"));
-    
+
     ## render the heapmaps
-    gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors, SIMPLIFY=FALSE);
+    gg_heatmaps <- mapply(g_make_heatmap, pf$data, map.colors[1:nmaps], SIMPLIFY=FALSE);
 
     ## extract maps column
     gr_heatmaps <- lapply(gg_heatmaps, g_get, "panel");
@@ -507,17 +618,15 @@ plot.phyloFlash <- function(pf,
     gr_labels$heights   <- gr_labels$heights   * (nrows/sum(nrows));
     gr_trees$heights    <- gr_trees$heights    * (nrows/sum(nrows));
 
-    # render tree over samples
+    ## render tree over samples
     axis     <- ifelse(match("tree",row.order) < match("map", row.order), 3, 1);
     gr_sampleTree     <- g_get(g_make_dendro_plot(pf$col_dendro, axis=axis), "panel");
     gr_sampleTree$heights <- unit(0.1,"null")
-
-    # make chao line
-    chao <- pf$meta$NTU.Chao1.richness.estimate;
-    chao <- round(as.numeric(as.character(chao)))
+    ## make chao line
+    chao <- round(factor2numeric(pf$meta$NTU.Chao1.richness.estimate))
     gr_chao_grob <- textGrob("Chao1",x=unit(.99,"npc"),just="right",gp=gpar(fontsize=8))
     gr_chao_lab <- gtable_add_grob(zero1,gr_chao_grob,t=1,l=1,r=1,b=1);
-   
+
     ## handle ordering / component selection
     ## columns:
     corder <- match(col.order, c("labels","map","tree"));
@@ -576,7 +685,8 @@ pF_main <- function() {
             c("-t", "--split-regex"),
             default="Eukaryota",
             type="character",
-            help="Split heatmap using this regex on taxa. Default '%default'",
+            help="Split heatmap using this regex on taxa. Multiple regex can be
+                specified comma separated. Default '%default'",
             ),
         make_option(
             c("-l", "--long-taxnames"),
@@ -591,11 +701,18 @@ pF_main <- function() {
             help="Do not scale columns to percentages"
             ),
         make_option(
-            c("-m","--hclust-method"),
-            default="ward",
-            help="Use this method for hclust clustering. Can be:
-                ward, single, complete, average, mcquitty, median or centroid.
+            c("-m", "--cluster-samples"),
+            default="ward.D",
+            help="Use this method for clustering/sorting samples. Can be:
+                alpha, ward, single, complete, average, mcquitty, median or centroid.
                 Default is %default."
+            ),
+        make_option(
+            c("-M", "--cluster-taxa"),
+            default="ward.D",
+            help="Use this method for clustering/sorting samples. Can be:
+               alpha, ward, single, cimplete, average, mcquitty, median or centroid.
+               Default is %default"
             ),
         make_option(
             c("-r","--rows"),
@@ -613,7 +730,7 @@ pF_main <- function() {
             ),
         make_option(
             c("--colors"),
-            default="steelblue,indianred",
+            default="steelblue,indianred,green,orange",
             help="Colors for heatmaps. Default is %default."
         ),
         make_option(
@@ -660,12 +777,14 @@ Files:
         print_help(parser);
         quit(status=2);
     }
-    
+
     ## set loglevel
     if (conf$options$quiet) {
         pf_setLogLevel(1);
     } else if (conf$options$verbose) {
         pf_setLogLevel(3);
+    } else if (conf$options$debug) {
+        pf_setLogLevel(4);
     }
 
     ## set debug mode
@@ -674,8 +793,8 @@ Files:
     info("Loading libraries");
     load_libraries();
 
-    pf      <- read.phyloFlash(conf$args,
-                               sampleNameFromMeta = !conf$options$"library-name-from-file");
+    pf <- read.phyloFlash(conf$args,
+                          sampleNameFromMeta = !conf$options$"library-name-from-file");
 
     ## split by domain
     if (!conf$options$"no-split") {
@@ -689,14 +808,15 @@ Files:
 
     pf$data <- merge_low_counts(pf$data,
                                 thres=conf$options$"min-ntu-count");
-    
+
     if (!conf$options$absolute) {
         msg("Rescaling counts to percentages");
         pf$data <- scale_to_percent(pf$data);
     }
 
     msg("Clustering...");
-    pf      <- cluster(pf, method=conf$options$"hclust-method");
+    pf      <- cluster(pf, samples=conf$options$"cluster-samples",
+                           taxa=conf$options$"cluster-taxa");
 
     ntaxa   <- sum(sapply(pf$data, nrow))
     nsample <- ncol(pf$data[[1]])
@@ -714,12 +834,14 @@ Files:
     if (outdim[1] == "auto") {
         labelwidth <- max(nchar(unlist(sapply(pf$data, rownames)))) * 5;
         width <- 80 + labelwidth + nsample * 25;
+        msg("Computed output width as ", width)
     } else {
         width=as.integer(outdim[1])
     }
     if (outdim[2] == "auto") {
         labelwidth <- max(nchar(unlist(sapply(pf$data, colnames)))) * 5;
         height <- 120 + labelwidth + ntaxa * 10;
+        msg("Computed output height as ", height)
     } else {
         height=as.integer(outdim[2])
     }
@@ -740,7 +862,7 @@ Files:
 
     invisible(1);
 }
-    
+
 # if we are run as a script from the cmdline
 if (!interactive()) {
     check_libraries();

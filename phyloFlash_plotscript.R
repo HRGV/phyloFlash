@@ -37,11 +37,16 @@ if (decimalcomma == 1) {
 
 ## Plot insert size histogram if not running in SE mode
 if (histofile != "SEmode") {
-    histo <- read.table(file=histofile,
+    histo <- try(
+        read.table(file=histofile,
                         header=F,
                         sep="\t", # Tab-separated table
                         dec=dec, 
                         comment.char="#")
+    )
+    if (class(histo) == "try-error") {
+        quit()
+    }
     names(histo) <- c("InsertSize", "Count")
     # "Untabulate" the tabulated insert size counts
     histvals <- as.vector( # Convert to vector
@@ -78,11 +83,14 @@ if (histofile != "SEmode") {
 }
 
 ## Plot percent-identity histogram
-idhisto <- read.table (file=idhistofile,
+idhisto <- try(
+    read.table (file=idhistofile,
                        header=F,
                        sep="\t",
                        dec=dec, # Detect decimal separator for this locale
                        comment.char="#")
+)
+if (class(idhisto) != "try-error") {
 idhistvals <- as.vector(
                       unlist(
                              apply(idhisto,
@@ -91,6 +99,7 @@ idhistvals <- as.vector(
                                    )
                              )
                      )
+
 # Export PDF
 pdf(file=paste(idhistofile,"pdf",sep="."),
     width=11,
@@ -115,3 +124,4 @@ hist(idhistvals,
      main="Histogram of read identity to reference"
      )
 dev.off()
+}
