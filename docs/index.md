@@ -1,101 +1,62 @@
-# phyloFlash
-## Version 2.0
+---
+layout: home
+---
 
-![](phyloFlash_logo.png)
+<img src="phyloFlash_logo.png" alt="phyloFlash logo" style="width: 200px;"/>
 
-by Harald Gruber-Vodicka and Elmar A. Pruesse with Brandon Seah.
+phyloFlash is a pipeline to rapidly reconstruct the SSU rRNAs and explore phylogenetic composition of an illumina (meta)genomic dataset.
 
-*phyloFlash* is a pipeline to rapidly reconstruct the SSU rRNAs and
-explore phylogenetic composition of an illumina (meta)genomic dataset.
+This manual explains how to install and use phyloFlash.
 
-> NOTE: This software is still under development and might not work as
-> expected or might not work at all.
-
-## Updates
-
-## What phyloFlash does
-
-
-## Install phyloFlash and dependencies
-
-To use phyloFlash you will need a GNU/Linux system with Perl, R and
-Python installed. (OSX is for the brave, we have not tested this!)
-
-1. Download and unpack phyloFlash. You can find the most recent release
-   here https://github.com/HRGV/phyloFlash/releases
-
-   ```bash
-   wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta5.tar.gz  
-   tar -xzf v2.0-beta5.tar.gz
-   ```
-
-2. Install the tools phyloFlash uses:
-
- - Perl >= 5.13.2 (http://www.perl.org/get.html)
- - EMIRGE and its dependencies (https://github.com/csmiller/EMIRGE)
- - bbmap (http://sourceforge.net/projects/bbmap/)
- - vsearch (https://github.com/torognes/vsearch)
- - spades (http://bioinf.spbau.ru/spades)
- - bedtools (https://github.com/arq5x/bedtools2)
- - mafft (http://mafft.cbrc.jp/alignment/software/)
- - barrnap (currently provided with phyloFlash)
-
- These tools need to be "in your $PATH" so that *phyloFlash* can find
- them. To see whether all required tools are available, just run
- *phyloFlash* with the option ```check_env```:
-
- ```bash
- cd phyloFlash-2.0
- ./phyloFlash.pl -check_env
- ```
-## Setting up the reference database
-
-phyloFlash uses modified versions of the SILVA SSU database that is maintained
-by the SILVA team - for more information visit their webpage www.arb-silva.de.
-
-The SILVA license prohibits usage of the SILVA databases or parts of them within
-a non-academic/commercial environment beyond a 48h test period. If you want to use
-the SILVA databases with phyloFlash in a non-academic/commercial environment please
-contact them at contact(at)arb-silva.de.
-
-The detailed SILVA license can be found at
-http://www.arb-silva.de/fileadmin/silva_databases/current/LICENSE.txt.
-
-To create a suitable database, just run
+## Quick-start
 
 ```bash
+# Download phyloFlash
+wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz  
+tar -xzf v2.0-beta6.tar.gz
+
+# Check for dependencies
+cd phyloFlash-2.0
+./phyloFlash.pl -check_env
+
+# Install reference database
 ./phyloFlash_makedb.pl --remote
+
+# Run with test data
+phyloFlash.pl -lib TEST -read1 test_files/test_F.fq.gz -read2 test_files/test_R.fq.gz
+
+# Run with interleaved reads
+phyloFlash.pl -lib run01 -read1 your_reads.fq.gz -interleaved
 ```
 
-in the directory where you unpacked *phyloFlash*. The script will download
-the most current source databases and prepare the files required by ```phyloFlash.pl```.
+Use the `-help` option to display a brief help and the `-man` option to display a man-file.
 
-> NOTE: This currently only works if you are not behind a proxy
+Use the `-skip_spades` and/or `-skip_emirge` options to turn off SSU sequence reconstruction with SPAdes assembler or EMIRGE respectively.
 
-If you have a local copy of the SILVA SSU NR99 database (Fasta format)
-and the NCBI Univec database, you can supply the paths:
+Use the `-sc` switch for MDA datasets (single cell) or other hard to assemble read sets.
 
-```bash
-./phyloFlash_makedb.pl --univec_file /path/to/univec --silva_file /path/to/silva_db
-```
+Use the `-html` switch to generate HTML-formatted report, and `-treemap` to draw an interactive treemap of taxonomic classification in the HTML report.
 
-By default, ```phyloFlash.pl``` will look for a directory named "119"
-(the most recent SILVA release as of March 2015). You can change this
-by passing the ```-dbhome <dir>``` switch to phyloFlash.pl or
-by modifying the ```DBHOME``` variable in phyloFlash.pl
+## Contents
 
-## Use phyloFlash
+ - [Installation](install.md)
+ - [Usage](usage.md)
+ - [Comparing multiple samples](multiple-samples.md)
+ - [FAQ](FAQ.md)
 
-```bash
-./phyloFlash.pl -lib LIBRARYNAME -read1 READFILE_F.fq(.gz) -read2 READFILE_R.fq(.gz) [options]
-./phyloFlash.pl -help # Help page
-./phyloFlash.pl -man # Manual page in pager
-```
+## About
 
-## phyloFlash output
+phyloFlash is written by Harald Gruber-Vodicka ([Google Scholar](https://scholar.google.de/citations?user=imYEnqMAAAAJ&hl=en&oi=ao), [GitHub](https://github.com/HRGV)) and Elmar A. Pruesse ([Google Scholar](https://scholar.google.de/citations?user=F-yGwRIAAAAJ&hl=en&oi=ao), [GitHub](https://github.com/epruesse)) with contributions from Brandon Seah ([Google Scholar](https://scholar.google.de/citations?user=3l8G5BwAAAAJ&hl=en&oi=ao), [GitHub](https://github.com/kbseah))
 
-## phyloFlash vs other pipelines
+You can find the source code for phyloFlash at GitHub:
+[HRGV/phyloFlash](https://github.com/HRGV/phyloFlash/)
 
-## FAQ
+[Max Planck Institute for Marine Microbiology](http://www.mpi-bremen.de/)
 
-## Contact
+## Citation
+
+If you use phyloFlash for a publication, please cite as
+
+Gruber-Vodicka HR, Pruesse E, Seah B. 2017. phyloFlash. Online:https://github.com/HRGV/phyloFlash
+
+and also remember to cite the dependencies used.
