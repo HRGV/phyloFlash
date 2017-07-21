@@ -2,6 +2,7 @@
 layout: page
 title: Comparing Multiple Samples
 permalink: /multiple-samples/
+order: 3
 ---
 
 **phyloFlash** runs from multiple libraries can be compared with a heatmap with the `phyloFlash_heatmap.R` script.
@@ -58,27 +59,44 @@ Here is an overview of the more commonly-used options
 
 ### 4.1. Changing output appearance
 
-Cosmetic changes to the output image can be made via the following options for the `phyloFlash_heatmap.R` script:
+Changes to the appearance of the output figure can be made via the following options for the `phyloFlash_heatmap.R` script:
 
- - Change colors: `--colors=`, options are steelblue, indianred, green, and orange.
- - Change output image size: `-s SIZExSIZE`
- - Change output format: `-o FILENAME` which must end in either .png or .pdf extensions
- - Choose what components to render in rows `-r`, any combination of `tree`, `map`, `chao`, and `labels`, separated by commas
- - Choose what components to render in columns `-c`, any combination of `labels`, `map`, `tree`, separated by commas
- - Do not shorten taxa names to only the last two fields of taxonomy string; `-l`
+`-o FILENAME` or `--out=FILENAME` Choose output filename. Format is either PNG or PDF, specified by the output filename extensions.
+
+`--colors=COLORS` Change colors used for heatmap. Options are `steelblue`, `indianred`, `green`, and `orange`.
+
+`-s HEIGHTXWIDTH` or `--out-size=HEIGHTXWIDTH` Change output image size, the default is `autoXauto`
+
+`-r ROWS` or `--rows=ROWS` Choose what elements to draw for each row, any combination of `tree`, `map`, `chao`, and `labels`, separated by commas
+
+`-c COLS` or `--cols=COLS` Choose what elemnts to draw for each column, any combination of `labels`, `map`, `tree`, separated by commas
+
+`-l` or `--long-taxnames` Do not shorten taxa names to only the last two fields of taxonomy string
 
 ### 4.2. Changing clustering parameters
 
-Clustering parameters for both libraries and taxa can be modified.
+Clustering parameters for either libraries or taxa can be modified.
 
- - Use absolute values instead of percentages: `-a`
- - Adjust minimum NTU count to not be assigned to "Other": `-n`
- - Change clustering method for samples (`-m`) or taxa (`-M`), choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`.
- - Do not split heatmap: `--no-split`
- - Split heatmap by some other regular expression instead of "Eukaryota": `-t REGEX`
+`-a` or `--absolute` Use absolute values instead of percentages
+
+`-n MIN-NTU-COUNT` or `--min-ntu-count=MIN-NTU-COUNT` Change the threshold of counts per NTU to be included in the category "Other" in the heatmap. Default: 50
+
+`-m CLUSTER-SAMPLES` or `--cluster-samples=CLUSTER-SAMPLES` Change the clustering method used for samples, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. Default: `ward.D`
+
+`-M CLUSTER-TAXA` or `--cluster-taxa=CLUSTER-TAXA` Change the clustering method used for taxa, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. Default: `ward.D`
+
+`--no-split` Do not split heatmap
+
+`-t SPLIT-REGEX` or `--split-regex=SPLIT-REGEX` Split the heatmap by a regular expression applied to the taxonomy strings. Default: 'Eukaryota'
 
 ### 4.3. Further options and known issues
 
- - Get library/sample names for heatmap from filenames: `--library-name-from-file`. Otherwise the script will look into the `*report.csv` files to find the corresponding library name
- - The clustering may fail if there is only one taxon
- - Running the comparison script will only give a first overview of your data - the output is dependent on the accuracy and consistency of the taxonomic annotation of the SILVA database. Publication-ready figures will require additional curation, including in most cases a custom database for the organisms being targeted.
+`--library-name-from-file` Get library/sample names for heatmap from filenames. Otherwise the script will look into the `*report.csv` files to find the corresponding library name
+
+`-v` or `--verbose`; `-q` or `--quiet` Change the amount of detail in status/error messages.
+
+`-d` or `--debug` Show debug messages - use this if there is a bug and you would like to submit an error report. The output will help us to diagnose the problem.
+
+  - The clustering may fail if there is only one taxon
+  - Running the comparison script will only give a first overview of your data - the output is dependent on the accuracy and consistency of the taxonomic annotation of the SILVA database.
+  - Publication-ready figures will require additional curation, including in most cases a custom database for the organisms being targeted.

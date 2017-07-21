@@ -2,6 +2,7 @@
 layout: page
 title: FAQ
 permalink: /faq/
+order: 4
 ---
 
 # What is phyloFlash for?
@@ -58,4 +59,4 @@ EMIRGE in particular can be tricky to install because of its own software depend
 
 First check if you have all the dependencies installed properly with `phyloFlash.pl -check_env`.
 
-To get in touch, please use the [issues tracker](https://github.com/HRGV/phyloFlash/issues) on GitHub to submit bug reports, and supply us with information that will help us diagnose the problem. We'll try to help if we can but please understand that phyloFlash is for academic, non-commercial use and we may not always be able to respond promptly.
+To get in touch, please use the [phyloFlash Google group](https://groups.google.com/forum/#!forum/phyloflash), or the [issues tracker](https://github.com/HRGV/phyloFlash/issues) on GitHub to submit bug reports, and supply us with information that will help us diagnose the problem. We'll try to help if we can but please understand that phyloFlash is for academic, non-commercial use and we may not always be able to respond promptly.

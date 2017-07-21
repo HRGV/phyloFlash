@@ -2,6 +2,7 @@
 layout: page
 title: Installation
 permalink: /install/
+order: 1
 ---
 
 ## Quick-start
@@ -80,6 +81,8 @@ To create a suitable database, just run
 in the directory where you unpacked **phyloFlash**. The script will download the most current source databases and prepare the files required by `phyloFlash.pl`.
 
 *NOTE: This currently only works if you are not behind a proxy*
+
+If you are behind a proxy and cannot download the database via the script, you can download the current version of the SILVA database from [the SILVA website](https://www.arb-silva.de/no_cache/download/archive/current/Exports/). The filename should be `SILVA_XXX_SSURef_Nr99_tax_silva_trunc.fasta.gz` where `XXX` is the current version number. You should also download the UniVec database [from NCBI](https://www.ncbi.nlm.nih.gov/tools/vecscreen/univec/). Then proceed with the instructions in section 4.2 below.
 
 ### 4.2. Set up database from local copy of SILVA SSU NR99
 
