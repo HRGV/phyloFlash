@@ -17,17 +17,14 @@ title: phyloFlash
 email: your-email@example.com
 description: > # this means to ignore newlines until "baseurl:"
  phyloFlash is a pipeline to rapidly reconstruct the SSU rRNAs and explore the phylogenetic composition of an Illumina (meta)genomic dataset.
-baseurl: /phyloFlash # the subpath of your site, e.g. /blog
-url: https://kbseah.github.io # the base hostname & protocol for your site, e.g. http://example.com
+#baseurl: /phyloFlash
+#url: https://kbseah.github.io
 #twitter_username:
 github_username:  HRGV
 
 # Build settings
 markdown: kramdown
-theme: jekyll-theme-minimal
-plugins:
-  - jekyll-feed
-
+theme: minima
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
 # to override the default setting.
