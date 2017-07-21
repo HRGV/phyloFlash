@@ -66,11 +66,11 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
 
 ## 2.3. Customizing the run
 
-`-id N`
+`-id N` Minimum % identity of reads to map against reference database. Must be between 63 and 98. Set to a lower value for very divergent taxa. Default: 70.
 
-`-clusterid N`
+`-clusterid N` % identity threshold for reference sequence clustering step. Must be between 50 and 100. Default: 97.
 
-`-maxinsert N`
+`-maxinsert N` Maximum insert size allowed for paired end read mapping. Must be between 0 and 1200. Default: 1200.
 
 `-sc` Use if data are from single-cell MDA libraries, option is passed to the SPAdes assembler.
 

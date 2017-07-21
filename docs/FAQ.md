@@ -19,8 +19,6 @@ Transcriptomes typically have a much higher proportion of rRNA reads than genome
  - Sanger or PacBio libraries
  - Amplicon libraries - use a dedicated tool like mothur
 
-NOT suitable for amplicon libraries - use a dedicated tool like mothur.
-
 # What output will I get?
 
 The default **phyloFlash** pipeline provides the following output:
