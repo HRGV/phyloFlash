@@ -1,7 +1,7 @@
 phyloFlash 2.0
 ==============
 
-<img src="docs/phyloFlash_logo.png" style="width:200px" alt="phyloFlash logo" />
+<img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
 
 by Harald Gruber-Vodicka and Elmar A. Pruesse with Brandon Seah.
 
