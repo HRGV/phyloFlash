@@ -1,6 +1,8 @@
 phyloFlash 2.0
 ==============
 
+<img src="docs/phyloFlash_logo.png" style="width:200px" alt="phyloFlash logo" />
+
 by Harald Gruber-Vodicka and Elmar A. Pruesse with Brandon Seah.
 
 *phyloFlash* is a pipeline to rapidly reconstruct the SSU rRNAs and explore phylogenetic composition of an illumina (meta)genomic dataset.
