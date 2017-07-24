@@ -43,7 +43,7 @@ Use the `-html` switch to generate HTML-formatted report, and `-treemap` to draw
 Manual
 ------
 
-For further information **please refer to the [Manual](https://kbseah.github.io/phyloFlash)**.
+For further information **please refer to the [Manual](https://hrgv.github.io/phyloFlash)**.
 
 
 Versions and changes
