@@ -47,7 +47,7 @@ sub do_histogram_plots { # operates on global vars
     }
     
     # Plot insert size histogram
-    if (defined $histofile) {
+    if ($histofile ne "SEmode") { # "SEmode" is the flag from main phyloflash.pl script that there is no histogram
         my $histofile_out = "$histofile.svg";       # Append .svg to get output file name
         my %histo_hash;                             # Define hash to hold data
         read_hist($histofile, \%histo_hash);        # Read histogram file into memory

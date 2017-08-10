@@ -293,7 +293,8 @@ sub process_required_tools {
         grep => "grep",
         awk => "awk",
         cat => "cat",
-        plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R"
+        plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R",
+	plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
     );
     if ($skip_spades == 0) {
         require_tools(spades => "spades.py");
@@ -1176,6 +1177,31 @@ sub run_plotscript {
     }
 }
 
+sub run_plotscript_SVG {
+    msg ("generating histogram and tree graphics in SVG format");
+    my $inshist = "$libraryNAME.inserthistogram"; # Name of insert histogram file
+    if ($SEmode==1) { # If running in SE mode ...
+      $inshist="SEmode"; # ... replace name of ins histogram file with "SEmode"
+    }
+    if ($skip_spades + $skip_emirge == 2) {
+        run_prog("plotscript_SVG",
+                 "--hist $inshist "
+                 . "--id $libraryNAME.idhistogram ",
+                 #. "$decimalcomma ",
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
+    }
+    else {
+        run_prog("plotscript_SVG",
+                 "--tree $libraryNAME.SSU.collection.fasta.tree "
+                 . "--hist $inshist "
+                 . "--id $libraryNAME.idhistogram ",
+                 #. "$decimalcomma ",
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
+    }
+}
+
 sub generate_treemap_data_rows {
   # Generate data rows for drawing treemap chart
   my %parents_HoH; # Hash of count vals by parent and child taxa
@@ -1466,8 +1492,9 @@ print {$fh} <<ENDHTML;
 <p>Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</p>
 ENDHTML
 
-print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".inserthistogram.png\" />\n";
-print {$fh} "<p><a href=\"".$libraryNAME.".inserthistogram.pdf\">PDF version</a></p>\n";
+#print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".inserthistogram.png\" />\n";
+#print {$fh} "<p><a href=\"".$libraryNAME.".inserthistogram.pdf\">PDF version</a></p>\n";
+print {$fh} "<img width=480 height=480 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
 print {$fh} <<ENDHTML;
 </div>
 ENDHTML
@@ -1480,8 +1507,9 @@ print {$fh} <<ENDHTML;
 <p>Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</p>
 ENDHTML
 
-print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".idhistogram.png\" />\n";
-print {$fh} "<p><a href=\"".$libraryNAME.".idhistogram.pdf\">PDF version</a></p>\n";
+print {$fh} "<img width=480 height=480 src=\"".$libraryNAME.".idhistogram.svg\" />\n";
+#print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".idhistogram.png\" />\n";
+#print {$fh} "<p><a href=\"".$libraryNAME.".idhistogram.pdf\">PDF version</a></p>\n";
 print {$fh} <<ENDHTML;
 </div>
 
@@ -1657,8 +1685,9 @@ print {$fh} <<ENDHTML;
 <div id="tree" class="more">
 ENDHTML
 
-print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.png\" />\n";
-print {$fh} "<p><a href=\"".$libraryNAME.".SSU.collection.fasta.tree.pdf\">PDF version</a></p>\n";
+print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200 />\n";
+#print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.png\" />\n";
+#print {$fh} "<p><a href=\"".$libraryNAME.".SSU.collection.fasta.tree.pdf\">PDF version</a></p>\n";
 }
 
 print {$fh} <<ENDHTML;
@@ -1702,7 +1731,8 @@ $runtime = $timer->minutes;
 
 print_report();
 write_csv();
-run_plotscript()    if ($html_flag);
+#run_plotscript()    if ($html_flag);
+run_plotscript_SVG()    if ($html_flag);
 write_report_html() if ($html_flag);
 clean_up();
 
