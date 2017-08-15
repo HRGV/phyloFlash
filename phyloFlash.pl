@@ -185,7 +185,7 @@ use FindBin;
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v2.0';
+my $version       = 'phyloFlash v3.0 beta 1';
 my $progname      = $FindBin::Script;
 my $cwd = getcwd;
 
@@ -220,14 +220,17 @@ my @tools_list;                 # Array to store list of tools required
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
-
 my $ins_used = "SE mode!";
 
-
 # variables for report generation
-my %taxa_from_hitmaps; # Hash of read counts from mapping, keyed by taxon string
-my @taxa_from_hitmaps_sorted;
-my @ssuassem_results_sorted; #sorted list of SSU sequences for reporting
+my %ssu_sam;            # Readin sam file from first mapping vs SSU database
+my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
+my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string
+my @taxa_from_hitmaps_sorted;   # Sorted list of read counts
+my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string
+my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads
+my @ssuassem_results_sorted;    #sorted list of SSU sequences for reporting
+my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
 my $readnr_pairs;
 my $SSU_total_pairs;
@@ -239,7 +242,6 @@ my $readnr = 0;
 my $ins_me = 0;
 my $ins_std =0;
 my $runtime;
-
 
 # display welcome message incl. version
 sub welcome {
@@ -475,7 +477,7 @@ Detected median insert size:\t$ins_me
 Used insert size:\t$ins_used
 Insert size standard deviation:\t$ins_std
 ~;
-    } else { # Else if in PE mode
+    } else { # Else if in SE mode
         print {$fh} qq~
 ---
 Input SE-reads:\t$readnr_pairs
@@ -484,6 +486,10 @@ Mapping ratio:\t$SSU_ratio_pc%
 ~;
     }
 
+    if (defined $ssu_sam_mapstats{"assem_ratio"}) {
+        print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
+    }
+    
     print {$fh} qq~
 ---
 Runtime:\t$runtime
@@ -512,10 +518,22 @@ NTU\treads
         ## Print the table of SSU assembly-based taxa to report file
         print {$fh} "---\n";
         print {$fh} "SSU assembly based taxa:\n";
-        print {$fh} "OTU\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+        print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
 
         foreach my $arr (@ssuassem_results_sorted) {
-            print {$fh} join("\t",  @$arr)."\n";
+            my @out = @$arr;
+            my $spades_id = $out[0];
+            splice @out, 1, 0, $ssuassem_cov{$spades_id};
+            print {$fh} join("\t",  @out)."\n";
+        }
+        
+        ## Print the table of taxonomic affiliations for unassembled SSU reads
+        print {$fh} "---\n";
+        print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
+        foreach my $taxonshortstring ( @taxa_from_hitmaps_unassem_sorted ) {
+            # Print the name of this higher taxon, and the
+            # corresponding no. of unambig hits mapped
+            print {$fh} join("\t",@$taxonshortstring)."\n";
         }
     }
 
@@ -546,7 +564,7 @@ sub write_csv {
         "single ended mode",$SEmode,
         "input reads",$readnr_pairs,
         "mapped SSU reads",$SSU_total_pairs,
-        "mapping ration",$SSU_ratio_pc,
+        "mapping ratio",$SSU_ratio_pc,
         "detected median insert size",$ins_me,
         "used insert size",$ins_used,
         "insert size stddev",$ins_std,
@@ -573,10 +591,19 @@ sub write_csv {
 
     if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
       open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
-      print $fh "OTU,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
+      print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
       if ($skip_spades == 0) {
         foreach my $arr (@ssuassem_results_sorted) {
-            print {$fh} join(",",csv_escape(@$arr)).$crlf;
+            my $otu = ${$arr}[0];
+            my @out = @$arr;
+            splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
+            print {$fh} join(",",csv_escape(@out)).$crlf;
+        }
+        my $fh2;
+        open_or_die (\$fh2, ">", "$libraryNAME.phyloFlash.unassembled.NTUabundance.csv");
+        print $fh2 "NTU,reads\n";
+        foreach my $arr ( @taxa_from_hitmaps_unassem_sorted ) {
+            print {$fh2} join (",",csv_escape(@$arr)).$crlf;
         }
       }
       if ($skip_emirge == 0) {
@@ -589,7 +616,7 @@ sub write_csv {
 }
 
 
-sub bbmap_fast_filter_run {
+sub bbmap_fast_filter_run { # Replaced
     # input: $readsf, $readsr
     # output: lib.$readsf.SSU.{1,2}.fq
     #         lib.bbmap.out
@@ -770,7 +797,94 @@ sub bbmap_fast_filter_parse() {
     }
 }
 
-sub bbmap_sam_parse {
+
+sub readsam {
+    # Read SAM file into memory
+    
+    # Input params
+    my $infile = "$libraryNAME.$readsf.SSU.sam";
+    my $href = \%ssu_sam;
+    my $stats_href = \%ssu_sam_mapstats;
+    
+    msg ("reading mapping into memory");
+    my $fh;
+    open_or_die(\$fh, "<", "$infile");
+    while (my $line = <$fh>) {
+        next if ($line =~ m/^@/); # Skip header lines
+        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        # If not mapped, skip entry, do NOT record into hash
+        if ($bitflag & 0x4) {
+            next;
+        } else {
+            # Check if reads are PE or SE
+            my $pair;
+            if ($bitflag & 0x1) { # If PE read
+                if ($SEmode != 0) { # Sanity check
+                    msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
+                }
+                if ($bitflag & 0x40) {
+                    $pair="F";
+                    ${$stats_href}{"ssu_fwd_map"}++;
+                } elsif ($bitflag & 0x80) {
+                    $pair="R";
+                    ${$stats_href}{"ssu_rev_map"}++;
+                }
+            } else {
+                $pair = "U";
+                ${$stats_href}{"ssu_fwd_map"}++;
+            }
+            # Record into hash
+            ${$href}{$read}{$pair}{"ref"} = $ref;
+            ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
+            
+            # Shorten taxonomy string and save into NTU table
+            if ($ref =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+                # Truncate to 6 levels
+                my $taxonshortstring = truncate_taxonstring($1, 6);
+                # Increment count for taxon
+                $taxa_from_hitmaps{$taxonshortstring}++;
+            } else {
+                msg ("Warning: malformed database entry $ref");
+            }
+        }
+    }
+    
+    # Sort counts of taxa from hits
+    @taxa_from_hitmaps_sorted =
+        sort { @$b[1] <=> @$a[1] }
+        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
+        map  { [$_, $taxa_from_hitmaps{$_}] }
+        keys %taxa_from_hitmaps;
+
+    # Calculate Chao1 statistic
+    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
+    if ($xtons[1] > 0) {
+        $chao1 =
+          $xtons[2] +
+          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    } else {
+        $chao1 = 'n.d.';
+    }
+    
+    close($fh);
+    msg("done...");
+}
+
+sub truncate_taxonstring {
+    my ($in, $level) = @_;
+    my $out;
+    my $lvl = $level - 1;
+    my @arr = split (";", $in);
+    if ( $#arr > $lvl ) {
+        $out = join (";", @arr[0..$lvl]);
+    } else {
+        $out = $in;
+    }
+    return ($out);
+}
+
+sub bbmap_sam_parse { # Replaced
+    # Superseded by readsam()
     # Read SAM file from mapping of reads vs. SILVA, tabulate number of hitmaps
     # input: lib.$readsf.SSU.sam
     msg("creating taxon list from read mappings");
@@ -779,30 +893,23 @@ sub bbmap_sam_parse {
     my $fh;
     open_or_die(\$fh, "<", "$libraryNAME.$readsf.SSU.sam");
     while (<$fh>) {
-	chomp;
-	next if ($_ =~ m/^@/);          # Skip header lines
-	my @samline = split /\t/, $_;   # Split sam fields by tab char
-	# Extract taxonomy of hit for mapped segements
-	if ($samline[1] & 0x4) {        # Bitflag for "segment unmapped" is on
-	    $total_reads++;
-	} else {                        # Bitflag for segment unmapped is off (i.e. segment is mapped)
-	    $total_reads++;
-	    $total_reads_mapped++;
-	    # Get taxonomy string from reference name in SAM file
-	    if ($samline[2] =~ m/\w+\.\d+\.\d+\s(\S+)/) {
-		my $taxonlongstring = $1;
-		# Truncate to 6 levels
-		my $taxonshortstring;
-		my @taxonstringarray = split (";", $taxonlongstring);
-		if ( $#taxonstringarray > 5 ) {
-		    $taxonshortstring = join (";", @taxonstringarray[0..5]);
-		} else {
-		    $taxonshortstring = $taxonlongstring;
-		}
-		# Increment count for taxon
-		$taxa_from_hitmaps{$taxonshortstring}++;
-	    }
-	}
+        chomp;
+        next if ($_ =~ m/^@/);          # Skip header lines
+        my @samline = split /\t/, $_;   # Split sam fields by tab char
+        # Extract taxonomy of hit for mapped segements
+        if ($samline[1] & 0x4) {        # Bitflag for "segment unmapped" is on
+            $total_reads++;
+        } else {                        # Bitflag for segment unmapped is off (i.e. segment is mapped)
+            $total_reads++;
+            $total_reads_mapped++;
+            # Get taxonomy string from reference name in SAM file
+            if ($samline[2] =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+                # Truncate to 6 levels
+                my $taxonshortstring = truncate_taxonstring($1, 6);
+                # Increment count for taxon
+                $taxa_from_hitmaps{$taxonshortstring}++;
+            }
+        }
     }
     close($fh);
 
@@ -825,7 +932,7 @@ sub bbmap_sam_parse {
 
 }
 
-sub bbmap_hitstats_parse {
+sub bbmap_hitstats_parse { # Replaced
     # create taxa list from hitmaps with at least 3 unambiguously mapping reads
     # input: lib.hitstats
     msg("creating taxon list from read mappings");
@@ -1020,6 +1127,122 @@ sub spades_parse {
     msg("done...");
 }
 
+sub bbmap_spades_out {
+    # Map extracted reads back to the SPAdes output to see what proportion
+    # of reads can be explained by the assembled sequences
+    msg("mapping extracted SSU reads back on assembled SSU sequences");
+    my $args = ""; # Check whether running in PE or SE mode
+    if ($SEmode == 0) {
+	if ($interleaved == 1) {
+	    $args =
+	    "  interleaved=t "
+	    . "pairlen=$maxinsert ";
+	} else {
+	    $args =
+	    "  in2=$libraryNAME.$readsf.SSU.2.fq "
+	    . "pairlen=$maxinsert ";
+	}
+    }
+    run_prog("bbmap",
+         "  fast=t "
+         . "minidentity=0.98 "
+         . "-Xmx20g "
+         . "threads=$cpus "
+         . "po=f "
+         . "outputunmapped=t " # This is important
+         . "ref=$libraryNAME.spades_rRNAs.final.fasta "
+         . "nodisk "
+         . "in=$libraryNAME.$readsf.SSU.1.fq "
+         . "out=$libraryNAME.$readsf.SSU_assem.sam " # Also skip SAM header?
+         . $args,
+         undef,
+         "$libraryNAME.bbmap.out");
+    msg("done...");
+}
+
+sub taxonomy_spades_unmapped {
+    # Filter output of mapping to SPAdes assembled SSU sequences
+    # Report taxonomy of "leftover" sequences
+    my $in = "$libraryNAME.$readsf.SSU_assem.sam";  # mapping of extracted reads vs assembled SSU seq
+    my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
+    my $stats_href = \%ssu_sam_mapstats;
+    my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
+    my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassemble reads
+    my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
+    msg ("extracting taxonomy of unassembled SSU reads");
+    my $fh;
+    open_or_die(\$fh, "<", $in);
+    while (my $line = <$fh>) {
+        next if ( $line =~ m/^@/ ); # Skip headers
+        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        # Check whether fwd or rev read
+        my $pair;
+        if ($bitflag & 0x1) { # If PE read
+            if ($SEmode != 0) { # Sanity check
+                msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
+            }
+            if ($bitflag & 0x40) {
+                $pair="F";
+            } elsif ($bitflag & 0x80) {
+                $pair="R";
+            }
+        } else {
+            $pair = "U";
+        }
+        # Check whether read mapped to assembled SSU
+        if ($bitflag & 0x4) { # If not mapped, check corresponding read in original mapping 
+            if (defined ${$sam_href}{$read}{$pair}{"ref"}) {
+                my $ref = ${$sam_href}{$read}{$pair}{"ref"};
+                # Shorten taxonomy string and save into NTU table
+                if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+                    # Truncate to 6 levels
+                    my $taxonshortstring = truncate_taxonstring($1, 6);
+                    # Increment count for taxon
+                    ${$out_href}{$taxonshortstring}++;
+                } else {
+                    msg ("warning: malformed database entry $ref");
+                }
+            }
+        } else {
+            # Add to read count
+            my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
+            ${$cov_href}{$refshort}++;
+            if ($pair eq "F" | $pair eq "U") {
+                ${$stats_href}{"assem_fwd_map"}++;
+            } elsif ($pair eq "R") {
+                ${$stats_href}{"assem_rev_map"}++;
+            }
+            
+        }
+    }
+    
+    # Sort taxon strings for unassembled reads affiliation
+    my @discard2;
+    @{$out_sorted_aref} =
+        sort { @$b[1] <=> @$a[1] }
+        grep { if (@$_[1] < 3) { @discard2[@$_[1]-1]++;} @$_[1] > 2 }
+        map  { [$_, ${$out_href}{$_}] }
+        keys %{$out_href};
+
+    close($fh);
+    #foreach my $key (keys %{$cov_href}) {
+    #    print STDERR join "\t", ($key, ${$cov_href}{$key});
+    #    print STDERR "\n";
+    #}
+    
+    # Calculate ratio of reads assembled
+    my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
+    if (defined ${$stats_href}{"assem_rev_map"}) {
+        $assem_tot_map += ${$stats_href}{"assem_rev_map"};
+    }
+    my $ssu_tot_map = ${$stats_href}{"ssu_fwd_map"};
+    if (defined ${$stats_href}{"ssu_rev_map"}) {
+        $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
+    }
+    ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
+    
+    msg ("done ... ");
+}
 
 sub emirge_run {
     # running Emirge on bbmap output
@@ -1256,7 +1479,7 @@ sub clean_up {
     msg("done...");
 }
 
-sub run_plotscript {
+sub run_plotscript { # Replaced
     msg("generating histogram and tree graphics");
     my $inshist = "$libraryNAME.inserthistogram"; # Name of insert histogram file
     if ($SEmode==1) { # If running in SE mode ...
@@ -1554,6 +1777,18 @@ print {$fh} "    <td>".$SSU_ratio_pc."\%</td>\n";
 print {$fh} <<ENDHTML;
   </tr>
 ENDHTML
+
+if (defined $ssu_sam_mapstats{"assem_ratio"}) {
+print {$fh} <<ENDHTML;
+  <tr>
+    <th><span class="withHoverText" title="Fraction of extracted sequences assembled">Fraction assembled</span></th>
+ENDHTML
+    print {$fh} "    <td>".$ssu_sam_mapstats{"assem_ratio"}."</td>\n";
+    print {$fh} <<ENDHTML;
+  </tr>
+ENDHTML
+}
+
 if ($SEmode==0) { # Only print insert size information if in paired-end mode
 print {$fh} <<ENDHTML;
   <tr>
@@ -1641,7 +1876,7 @@ print {$fh} "  </tr>\n";
 
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Insert size histogram (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".inserthistogram.png or .pdf</td>\n";
+print {$fh} "    <td>".$libraryNAME.".inserthistogram.svg</td>\n";
 print {$fh} "  </tr>\n";
 }
 
@@ -1652,7 +1887,7 @@ print {$fh} "  </tr>\n";
 
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Mapping identity histogram (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".idhistogram.png or .pdf</td>\n";
+print {$fh} "    <td>".$libraryNAME.".idhistogram.svg</td>\n";
 print {$fh} "  </tr>\n";
 
 if ($skip_spades + $skip_emirge < 2) {
@@ -1664,7 +1899,7 @@ print {$fh} "  </tr>\n";
 
 print {$fh} "  <tr>\n";
 print {$fh} "    <th>Tree of recovered SSU sequences (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree.png or .pdf</td>\n";
+print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree.svg</td>\n";
 print {$fh} "  </tr>\n";
 
 }
@@ -1692,7 +1927,7 @@ print {$fh} <<ENDHTML;
 <table>
   <tr>
     <th><span class="withHoverText" title="Higher taxon found by SSU mapping to reference database">Taxon</span></th>
-    <th><span class="withHoverText" title="No. reads mapped unambiguously to this taxonomic group">Unambig maps</span></th>
+    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Maps</span></th>
   </tr>
 ENDHTML
 
@@ -1720,7 +1955,8 @@ print {$fh} <<ENDHTML;
 <table>
   <tr>
     <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
-    <th><span class="withHoverText" title="Per-base coverage of assembled SSU sequence, from assembler">coverage</span></th>
+    <th><span class="withHoverText" title="Read coverage of assembled SSU sequence, from mapping">read_cov</span></th>
+    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">coverage</span></th>
     <th><span class="withHoverText" title="Closest hit in SSU reference database">dbHit</span></th>
     <th>taxonomy</th>
     <th>\%id</th>
@@ -1735,6 +1971,7 @@ foreach (@ssuassem_results_sorted) {
         # Parse the database entry number of the reference sequence to get Genbank accession
     print {$fh} "  <tr>\n";
     print {$fh} "    <td>".$split_entry[0]."</td>\n";
+    print {$fh} "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
     print {$fh} "    <td>".$split_entry[1]."</td>\n";
     print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
     #	print {$fh} "    <td>".$split_entry[2]."</td>\n";
@@ -1744,6 +1981,37 @@ foreach (@ssuassem_results_sorted) {
     print {$fh} "    <td>".$split_entry[6]."</td>\n";
     print {$fh} "  </tr>\n";
 }
+
+## write table of taxonomic affiliations for unassembled reads
+print {$fh} <<ENDHTML;
+</table>
+</div>
+<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU reads</a></h3>
+<div id="unassemtaxa" class="more">
+<p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
+    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
+  </tr>
+ENDHTML
+
+## write list of higher taxa found
+foreach my $taxonshortstring ( @taxa_from_hitmaps_unassem_sorted ) {
+    # For each of these higher taxa
+    print {$fh} "  <tr>\n";
+    # print name of taxon
+    print {$fh} "    <td>".@$taxonshortstring[0]."</td>\n";
+    # print no . of reads mapping unambiguously
+    print {$fh} "    <td>".@$taxonshortstring[1]."</td>\n";
+    print {$fh} "  </tr>\n";
+}
+
+print {$fh} <<ENDHTML;
+</table>
+</div>
+ENDHTML
+
 }
 
 if ($skip_emirge == 0) {
@@ -1815,36 +2083,36 @@ check_environment();
 
 my $timer = new Timer;
 
-bbmap_fast_filter_sam_run();
-#bbmap_fast_filter_run();
-bbmap_fast_filter_parse();
-#bbmap_hitstats_parse();
+bbmap_fast_filter_sam_run();            ## Replaced: bbmap_fast_filter_run();
+bbmap_fast_filter_parse();              ## Replaced: bbmap_hitstats_parse();
+# Parse sam file
+readsam();                              ## Replaced: ## bbmap_sam_parse();
+
 if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
-#    spades_run();
-#    spades_parse();
+    spades_run();
+    spades_parse();
 }
 if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
-#    emirge_run();
-#    emirge_parse();
+    emirge_run();
+    emirge_parse();
 }
 if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
-#    vsearch_best_match();
-#    vsearch_parse();
-#    vsearch_cluster();
-#    mafft_run();
+    bbmap_spades_out();
+    taxonomy_spades_unmapped();
+    vsearch_best_match();
+    vsearch_parse();
+    vsearch_cluster();
+    mafft_run();
 }
-
-# Parse sam file
-bbmap_sam_parse();
 
 $runtime = $timer->minutes;
 
-#print_report();
-#write_csv();
-#run_plotscript()    if ($html_flag);
-#run_plotscript_SVG()    if ($html_flag);
-#write_report_html() if ($html_flag);
-#clean_up();
+print_report();
+write_csv();
+
+run_plotscript_SVG() if ($html_flag);    ## Replaced: run_plotscript() if ($html_flag);
+write_report_html()  if ($html_flag);
+clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash

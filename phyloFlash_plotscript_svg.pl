@@ -28,8 +28,8 @@ do_phylog_tree();
 sub do_histogram_plots { # operates on global vars
     # SVG and Plot parameters for histograms
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 220\" width=\"100%\" height=\"100%\">\n"; 
-    my $viewBox = "0 0 220 220";         # Viewbox parameter for SVG header
-    my @box_coords = (20, 200, 20, 200); # Bounding box coordinates for plot area
+    my $viewBox = "0 0 240 220";         # Viewbox parameter for SVG header - x y width height
+    my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
                                          # left right bottom top - NB: DIFFERENT FROM VIEWBOX - 
     my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
     
