@@ -12,9 +12,9 @@ B<phyloFlash.pl> [OPTIONS] -lib I<name> -read1 F<<file>> -read2 F<<file>>
 
 B<phyloFlash.pl> -help
 
-B<phyloFlash.pl> -man 
+B<phyloFlash.pl> -man
 
-B<phyloFlash.pl> -check_env 
+B<phyloFlash.pl> -check_env
 
 =head1 DESCRIPTION
 
@@ -182,7 +182,7 @@ use Cwd;
 use FindBin;
 
 # change these to match your installation
-my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin); 
+my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
 my $version       = 'phyloFlash v2.0';
@@ -368,7 +368,7 @@ sub parse_cmdline {
 
     msg("working on library $libraryNAME");
 
-    
+
     # verify read files
     pod2usage("\nPlease specify input forward read file with -read1")
         if !defined($readsf_full);
@@ -379,10 +379,10 @@ sub parse_cmdline {
     # strip directory paths from forward read filename
     if ($readsf_full =~ m/.*\/(.+)/) {
       $readsf = $1;
-    } else { 
-	$readsf = $readsf_full; 
+    } else {
+	$readsf = $readsf_full;
     }
-    
+
     if (defined($readsr_full)) {
         pod2usage("\nUnable to open reverse read file '$readsr_full'.".
                   "Make sure the file exists and is readable by you.")
@@ -392,10 +392,10 @@ sub parse_cmdline {
         if ($readsr_full =~ m/.*\/(.+)/) {    # strip directory paths from reverse read filename
           $readsr = $1;
         } else { $readsr = $readsr_full; }
-     
+
      } elsif ( $interleaved == 1 ){
 	msg("Using interleaved read data");
-        
+
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
         $readsr = "<NONE>";
@@ -639,6 +639,57 @@ sub bbmap_fast_filter_run {
     msg("done...");
 }
 
+sub bbmap_fast_filter_sam_run {
+    # input: $readsf, $readsr
+    # output: lib.$readsf.SSU.sam
+    #         lib.$readsf.SSU.{1,2}.fq
+    #         lib.bbmap.out
+    #         lib.inserthistogram
+    # tmp:    tmp.lib.basecompositionhistogram
+    msg("filtering reads with SSU db using minimal identity of $id%");
+    if ($readlimit != -1) {
+        msg("Only using the first $readlimit reads");
+    }
+
+    my $minID= $id / 100;
+    if ($minID < 0.63) {
+        $minID = 0.63
+    }
+
+    my $args = "";
+    if ($SEmode == 0) {
+	if ($interleaved == 1) {
+	    $args =
+	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+	    . "pairlen=$maxinsert interleaved=t";
+	} else {
+	    $args =
+	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+	    . "pairlen=$maxinsert in2=$readsr_full";
+	}
+    }
+    run_prog("bbmap",
+             "  fast=t "
+             . "minidentity=$minID "
+             . "-Xmx20g reads=$readlimit "
+             . "threads=$cpus "
+             . "po=f "
+             . "outputunmapped=f "
+             . "path=$DBHOME "
+	     . "out=$libraryNAME.$readsf.SSU.sam " # Also skip SAM header?
+             . "outm=$libraryNAME.$readsf.SSU.1.fq "
+             . "build=1 "
+             . "in=$readsf_full "
+             . "bhist=tmp.$libraryNAME.basecompositionhistogram "
+             . "ihist=$libraryNAME.inserthistogram "
+             . "idhist=$libraryNAME.idhistogram "
+             . "scafstats=$libraryNAME.hitstats "
+             . $args,
+             undef,
+             "$libraryNAME.bbmap.out");
+
+    msg("done...");
+}
 
 sub bbmap_fast_filter_parse() {
     # parsing bbmap.out for used read numbers, mapped reads,
@@ -717,6 +768,61 @@ sub bbmap_fast_filter_parse() {
       $skip_emirge = 1;
       $skip_spades = 1;
     }
+}
+
+sub bbmap_sam_parse {
+    # Read SAM file from mapping of reads vs. SILVA, tabulate number of hitmaps
+    # input: lib.$readsf.SSU.sam
+    msg("creating taxon list from read mappings");
+    my $total_reads; # Counter for total number of reads in SAM file
+    my $total_reads_mapped; # Counter for total number of reads with mapping
+    my $fh;
+    open_or_die(\$fh, "<", "$libraryNAME.$readsf.SSU.sam");
+    while (<$fh>) {
+	chomp;
+	next if ($_ =~ m/^@/);          # Skip header lines
+	my @samline = split /\t/, $_;   # Split sam fields by tab char
+	# Extract taxonomy of hit for mapped segements
+	if ($samline[1] & 0x4) {        # Bitflag for "segment unmapped" is on
+	    $total_reads++;
+	} else {                        # Bitflag for segment unmapped is off (i.e. segment is mapped)
+	    $total_reads++;
+	    $total_reads_mapped++;
+	    # Get taxonomy string from reference name in SAM file
+	    if ($samline[2] =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+		my $taxonlongstring = $1;
+		# Truncate to 6 levels
+		my $taxonshortstring;
+		my @taxonstringarray = split (";", $taxonlongstring);
+		if ( $#taxonstringarray > 5 ) {
+		    $taxonshortstring = join (";", @taxonstringarray[0..5]);
+		} else {
+		    $taxonshortstring = $taxonlongstring;
+		}
+		# Increment count for taxon
+		$taxa_from_hitmaps{$taxonshortstring}++;
+	    }
+	}
+    }
+    close($fh);
+
+    @taxa_from_hitmaps_sorted =
+        sort { @$b[1] <=> @$a[1] }
+        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
+        map  { [$_, $taxa_from_hitmaps{$_}] }
+        keys %taxa_from_hitmaps;
+
+    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
+    # Calculate Chao1 statistic
+    if ($xtons[1] > 0) {
+        $chao1 =
+          $xtons[2] +
+          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    } else {
+        $chao1 = 'n.d.';
+    }
+    msg("done...");
+
 }
 
 sub bbmap_hitstats_parse {
@@ -1226,9 +1332,9 @@ sub generate_treemap_data_rows {
       if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
         $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
       }
-    }  
+    }
   }
-  
+
   # Write output in dataRow format for treemap chart
   # Root and top-level taxa
   push @output, "[\'Cellular organisms\',\t,\t0],\n";
@@ -1315,7 +1421,7 @@ print {$fh} <<ENDHTML;
       showScale: false,
       generateTooltip: showFullTooltip
     });
-    
+
     function showFullTooltip(row,size,value) {
       return '<div style="background:white; padding:10px; border-style:none">' +
       '<b>' + data.getValue(row, 0) + '</b><br>' +
@@ -1709,32 +1815,36 @@ check_environment();
 
 my $timer = new Timer;
 
-bbmap_fast_filter_run();
+bbmap_fast_filter_sam_run();
+#bbmap_fast_filter_run();
 bbmap_fast_filter_parse();
-bbmap_hitstats_parse();
+#bbmap_hitstats_parse();
 if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
-    spades_run();
-    spades_parse();
+#    spades_run();
+#    spades_parse();
 }
 if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
-    emirge_run();
-    emirge_parse();
+#    emirge_run();
+#    emirge_parse();
 }
 if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
-    vsearch_best_match();
-    vsearch_parse();
-    vsearch_cluster();
-    mafft_run();
+#    vsearch_best_match();
+#    vsearch_parse();
+#    vsearch_cluster();
+#    mafft_run();
 }
+
+# Parse sam file
+bbmap_sam_parse();
 
 $runtime = $timer->minutes;
 
-print_report();
-write_csv();
+#print_report();
+#write_csv();
 #run_plotscript()    if ($html_flag);
-run_plotscript_SVG()    if ($html_flag);
-write_report_html() if ($html_flag);
-clean_up();
+#run_plotscript_SVG()    if ($html_flag);
+#write_report_html() if ($html_flag);
+#clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
