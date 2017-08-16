@@ -883,6 +883,35 @@ sub truncate_taxonstring {
     return ($out);
 }
 
+
+sub summarize_taxonomy {
+    # Given list of taxon strings and desired taxonomic level:
+    # Count number of occurrences of given taxon substring and output counts
+    my ($in_aref,       # Ref to input array of taxon strings
+        $lvl            # Level to output summary; 1-based
+        ) = @_; 
+    my @input = @$in_aref; # Dereference array input
+    my %taxhash;        # Hash to store counts per taxon at each taxonomic level
+    my @output;         # Array of arrays to store output
+    
+    foreach my $taxstring (@input) {
+        my @taxsplit = split /;/, $taxstring;
+        my $lvlidx = $lvl-1;    # Convert to 0-based index
+        if (scalar @taxsplit < $lvl) { # If current taxon not reported fine-grained enough
+            $lvlidx = $#taxsplit;
+        }
+        my $taxshort = join ";", @taxsplit [0 .. $lvlidx];
+        $taxhash{$taxshort}++;
+    }
+    # Sort output in descending order
+    foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
+        my @outline = ($key, $taxhash{$key});
+        push @output, \@outline;
+    }
+
+    return (\@output); # Return reference to output array
+}
+
 sub bbmap_sam_parse { # Replaced
     # Superseded by readsam()
     # Read SAM file from mapping of reads vs. SILVA, tabulate number of hitmaps
@@ -1532,6 +1561,11 @@ sub run_plotscript_SVG {
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
+    
+    # Generate barplot of taxonomy at level XX
+    my @taxlist = keys %taxa_from_hitmaps;
+    my @taxsummary = summarize_taxonomy(\@taxlist, 4); # Magic number
+    ## TODO: Pass this taxonomic summary to plotscript to convert to barplot
 }
 
 sub generate_treemap_data_rows {
@@ -2086,14 +2120,14 @@ check_environment();
 
 my $timer = new Timer;
 
-bbmap_fast_filter_sam_run();            ## Replaced: bbmap_fast_filter_run();
+#bbmap_fast_filter_sam_run();            ## Replaced: bbmap_fast_filter_run();
 bbmap_fast_filter_parse();              ## Replaced: bbmap_hitstats_parse();
 # Parse sam file
 readsam();                              ## Replaced: ## bbmap_sam_parse();
 
 if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
-    spades_run();
-    spades_parse();
+    #spades_run();
+    #spades_parse();
 }
 if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
     emirge_run();
@@ -2102,7 +2136,7 @@ if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
 if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
     bbmap_spades_out();
     taxonomy_spades_unmapped();
-    vsearch_best_match();
+    #vsearch_best_match();
     vsearch_parse();
     vsearch_cluster();
     mafft_run();
@@ -2115,7 +2149,7 @@ write_csv();
 
 run_plotscript_SVG() if ($html_flag);    ## Replaced: run_plotscript() if ($html_flag);
 write_report_html()  if ($html_flag);
-clean_up();
+#clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
