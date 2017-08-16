@@ -838,7 +838,7 @@ sub readsam {
             ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
             
             # Shorten taxonomy string and save into NTU table
-            if ($ref =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+            if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
                 # Truncate to 6 levels
                 my $taxonshortstring = truncate_taxonstring($1, 6);
                 # Increment count for taxon
@@ -1194,7 +1194,7 @@ sub taxonomy_spades_unmapped {
             if (defined ${$sam_href}{$read}{$pair}{"ref"}) {
                 my $ref = ${$sam_href}{$read}{$pair}{"ref"};
                 # Shorten taxonomy string and save into NTU table
-                if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(\S+)/) {
+                if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
                     # Truncate to 6 levels
                     my $taxonshortstring = truncate_taxonstring($1, 6);
                     # Increment count for taxon
