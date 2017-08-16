@@ -27,8 +27,8 @@ do_phylog_tree();
 
 sub do_histogram_plots { # operates on global vars
     # SVG and Plot parameters for histograms
-    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 220\" width=\"100%\" height=\"100%\">\n"; 
-    my $viewBox = "0 0 240 220";         # Viewbox parameter for SVG header - x y width height
+    my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 
     my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
                                          # left right bottom top - NB: DIFFERENT FROM VIEWBOX - 
     my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
@@ -354,18 +354,22 @@ sub draw_tree {
         $outfile, # Name of output file
         ) = @_;
 
-    # SVG and Plot parameters for tree
-    my $viewBox = "0 0 600 400";         # Viewbox parameter for SVG header
-    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 
-    my $linestyle = "stroke:rgb(0,0,0);stroke-width:1"; # Style for drawing lines
-    # Parse viewBox params
-    my ($vb_x, $vb_y, $vb_width, $vb_height) = split " ", $viewBox;
-    
     # Parse Newick file to get tree node info
     my ($nodes_href, $taxa_href) = newick2tables ($treestr);
     
     #dump_node_data($nodes_href); # diagnostics
     #dump_taxon_data($taxa_href); # diagnostics 
+    
+    # SVG and Plot parameters for tree
+    my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 400);
+    # Count number of taxa to calculate image height
+    my $num_taxa = scalar (keys %$taxa_href);
+    if ($num_taxa > 10) {   # Make image larger if number of taxa is large
+        $vb_height = 40*$num_taxa; 
+    }
+    my $viewBox = join " ", ($vb_x, $vb_y, $vb_width, $vb_height); # Viewbox parameter for SVG header
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
+    my $linestyle = "stroke:rgb(0,0,0);stroke-width:1"; # Style for drawing lines
     
     # Find the highest cumulative branchlength, to scale the brlen parameters for plotting
     # Find also the length of longest taxon name to scale font size for legibility
