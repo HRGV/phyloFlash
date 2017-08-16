@@ -895,12 +895,7 @@ sub summarize_taxonomy {
     my @output;         # Array of arrays to store output
     
     foreach my $taxstring (@input) {
-        my @taxsplit = split /;/, $taxstring;
-        my $lvlidx = $lvl-1;    # Convert to 0-based index
-        if (scalar @taxsplit < $lvl) { # If current taxon not reported fine-grained enough
-            $lvlidx = $#taxsplit;
-        }
-        my $taxshort = join ";", @taxsplit [0 .. $lvlidx];
+        my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
     # Sort output in descending order
