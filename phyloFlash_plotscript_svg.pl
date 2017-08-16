@@ -9,7 +9,7 @@ use Getopt::Long;
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $idhistofile, $nbreaks);
+my ($treefile, $histofile, $nbreaks);
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT 
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "breakpoints|b=i" => \$nbreaks   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
@@ -25,12 +25,6 @@ if (defined $histofile) {
 if (defined $treefile) {
     do_phylog_tree($treefile);
 }
-
-
-
-
-do_histogram_plots();
-do_phylog_tree();
 
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
@@ -54,41 +48,6 @@ sub do_histogram_plots { # operates on global vars
     draw_histogram ($viewBox, \@box_coords, \%histo_hash, $fill_style, $histo_fh, $nbreaks);
     print $histo_fh "</svg>\n";                 # Closing SVG tag
     close ($histo_fh);                          # Close file
-}
-
-sub do_histogram_plots_old { # operates on global vars
-    # SVG and Plot parameters for histograms
-    my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
-    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 
-    my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
-                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX - 
-    my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
-    
-    # Plot ID histogram
-    if (defined $idhistofile) {
-        my $idhistofile_out = "$idhistofile.svg";   # Append .svg to get output file name
-        my %idhisto_hash;                           # Define hash to hold data
-        read_hist($idhistofile, \%idhisto_hash);    # Read histogram file into memory
-        open (my $idhisto_fh, ">", $idhistofile_out)# Open file for printing
-            or die ("Cannot write to output file $idhistofile_out: $!");
-        print $idhisto_fh $svg_open;                # Print SVG header
-        draw_histogram ($viewBox, \@box_coords, \%idhisto_hash, $fill_style, $idhisto_fh, $nbreaks);
-        print $idhisto_fh "</svg>\n";               # Closing SVG tag
-        close ($idhisto_fh);                        # Close file
-    }
-    
-    # Plot insert size histogram
-    if ($histofile ne "SEmode") { # "SEmode" is the flag from main phyloflash.pl script that there is no histogram
-        my $histofile_out = "$histofile.svg";       # Append .svg to get output file name
-        my %histo_hash;                             # Define hash to hold data
-        read_hist($histofile, \%histo_hash);        # Read histogram file into memory
-        open (my $histo_fh, ">", $histofile_out)    # Open file for printing
-            or die ("Cannot write to output file $histofile_out: $!");
-        print $histo_fh $svg_open;                  # Print SVG header
-        draw_histogram ($viewBox, \@box_coords, \%histo_hash, $fill_style, $histo_fh, $nbreaks);
-        print $histo_fh "</svg>\n";                 # Closing SVG tag
-        close ($histo_fh);                          # Close file
-    }
 }
 
 sub draw_histogram {
@@ -364,16 +323,16 @@ sub rect_params { # COORD SPACE
 
 ## SUBROUTINES FOR TREE #######################################################
 
-
 sub do_phylog_tree { # Global vars
+    my ($infile) = @_;
     my @treearr; # Array to store lines of tree
-    open(IN, "<", $treefile) or die ("Cannot open for reading $treefile: $!");
+    open(IN, "<", $infile) or die ("Cannot open for reading $infile: $!");
     while (<IN>) {
         chomp;
         push @treearr, $_;
     }
     close(IN);
-    my $treefile_out = "$treefile.svg"; # Append .svg suffix to infile name for output
+    my $treefile_out = "$infile.svg"; # Append .svg suffix to infile name for output
     my $treestr = join "", @treearr; # Concatenate all lines of Newick file into a single string
     
     draw_tree($treestr, $treefile_out);
