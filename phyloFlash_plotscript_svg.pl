@@ -12,7 +12,6 @@ use Getopt::Long;
 my ($treefile, $histofile, $idhistofile, $nbreaks);
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT 
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
-           "id|i=s" => \$idhistofile,       # Mapping ID histogram from BBmap
            "breakpoints|b=i" => \$nbreaks   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 
@@ -20,12 +19,44 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
 
 ## MAIN ########################################################################
 
+if (defined $histofile) {
+    do_histogram_plots($histofile);
+}
+if (defined $treefile) {
+    do_phylog_tree($treefile);
+}
+
+
+
+
 do_histogram_plots();
 do_phylog_tree();
 
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
 sub do_histogram_plots { # operates on global vars
+    my ($infile) = @_;
+    
+    # SVG and Plot parameters for histograms
+    my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 
+    my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
+                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX - 
+    my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
+    
+    # Plot histogram
+    my $infile_out = "$infile.svg";       # Append .svg to get output file name
+    my %histo_hash;                             # Define hash to hold data
+    read_hist($infile, \%histo_hash);        # Read histogram file into memory
+    open (my $histo_fh, ">", $infile_out)    # Open file for printing
+        or die ("Cannot write to output file $infile_out: $!");
+    print $histo_fh $svg_open;                  # Print SVG header
+    draw_histogram ($viewBox, \@box_coords, \%histo_hash, $fill_style, $histo_fh, $nbreaks);
+    print $histo_fh "</svg>\n";                 # Closing SVG tag
+    close ($histo_fh);                          # Close file
+}
+
+sub do_histogram_plots_old { # operates on global vars
     # SVG and Plot parameters for histograms
     my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 

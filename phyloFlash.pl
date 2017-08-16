@@ -1508,23 +1508,26 @@ sub run_plotscript { # Replaced
 
 sub run_plotscript_SVG {
     msg ("generating histogram and tree graphics in SVG format");
-    my $inshist = "$libraryNAME.inserthistogram"; # Name of insert histogram file
-    if ($SEmode==1) { # If running in SE mode ...
-      $inshist="SEmode"; # ... replace name of ins histogram file with "SEmode"
-    }
-    if ($skip_spades + $skip_emirge == 2) {
+    # Plot mapping ID histogram
+    run_prog("plotscript_SVG",
+         "--hist $libraryNAME.idhistogram ",
+         #. "$decimalcomma ",
+         "tmp.$libraryNAME.plotscript.out",
+         "&1");
+    
+    # Plot insert size histogram unless running in SE mode
+    if ($SEmode != 1) { # If not running in SE mode ...
         run_prog("plotscript_SVG",
-                 "--hist $inshist "
-                 . "--id $libraryNAME.idhistogram ",
+                 "--hist $libraryNAME.inserthistogram ",
                  #. "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
-    else {
+
+    # Plot tree if spades/emirge unless both skipped
+    unless ($skip_spades + $skip_emirge == 2) {
         run_prog("plotscript_SVG",
-                 "--tree $libraryNAME.SSU.collection.fasta.tree "
-                 . "--hist $inshist "
-                 . "--id $libraryNAME.idhistogram ",
+                 "--tree $libraryNAME.SSU.collection.fasta.tree ",
                  #. "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
