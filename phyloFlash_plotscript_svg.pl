@@ -169,8 +169,14 @@ sub csv2barchart {
     
     print $fh $svg_open;
     foreach my $rect (sort {$a <=> $b} keys %rect_vals) {
-        my @rand_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
-        my $bar_color="fill:rgb(".join(",",@rand_colors).");";
+        my @bar_colors;
+        if ($rect_vals{$rect}{"label"} eq "Other taxa (below threshold)") {
+            @bar_colors = (155,155,155); # "Other taxa" should appear grey
+        } else {
+            # Named taxa have nice colors
+            @bar_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
+        }
+        my $bar_color="fill:rgb(".join(",",@bar_colors).");";
         my $style=$style_base.$bar_color;
         print $fh "<rect ".
                   "x=\"".$rect_vals{$rect}{"x"}."\" ".
@@ -364,7 +370,7 @@ sub svg_axis_ticks {
                           "y=\"$y_text\" ".
                           "text-anchor=\"$text_anchor\" ".
                           "fill=\"black\" ".
-                          "style=\"fill:black;font-size:4px;\"".
+                          "style=\"fill:black;font-size:8px;\"".
                           ">";
             print $handle ${$ticks_vals_aref}[$j]; # Text of label
             print $handle "</text>\n";
