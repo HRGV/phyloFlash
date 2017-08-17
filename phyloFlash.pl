@@ -225,10 +225,13 @@ my $ins_used = "SE mode!";
 # variables for report generation
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
-my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string
-my @taxa_from_hitmaps_sorted;   # Sorted list of read counts
-my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string
-my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads
+my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string         # To be replaced
+my @taxa_from_hitmaps_sorted;   # Sorted list of read counts                                            # To be replaced
+my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string  # To be replaced
+my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads                  # To be replaced
+my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
+my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
+my $taxon_report_lvl = 4;       # Taxonomic level to report counts
 my @ssuassem_results_sorted;    #sorted list of SSU sequences for reporting
 my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
@@ -589,6 +592,15 @@ sub write_csv {
     }
     close($fh);
 
+    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.taxonsummary.csv");
+    # Sort results descending 
+    my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
+    foreach my $key (@keys) {
+        my @out = ($key, ${$taxa_summary_href}{$key}); 
+        print {$fh} join(",",csv_escape(@out)).$crlf;
+    }
+    close($fh);
+    
     if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
       open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
       print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
@@ -802,9 +814,12 @@ sub readsam {
     # Read SAM file into memory
     
     # Input params
-    my $infile = "$libraryNAME.$readsf.SSU.sam";
-    my $href = \%ssu_sam;
-    my $stats_href = \%ssu_sam_mapstats;
+    my $infile = "$libraryNAME.$readsf.SSU.sam";    # Input SAM filename
+    my $href = \%ssu_sam;                           # Reference to hash to store SAM data
+    my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
+    
+    # Internal vars
+    my @taxa_full;                                  # Arr of taxon names from first mapping
     
     msg ("reading mapping into memory");
     my $fh;
@@ -839,23 +854,27 @@ sub readsam {
             
             # Shorten taxonomy string and save into NTU table
             if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                my $taxonlongstring = $1;
                 # Truncate to 6 levels
-                my $taxonshortstring = truncate_taxonstring($1, 6);
+                my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6); # To be superseded
                 # Increment count for taxon
-                $taxa_from_hitmaps{$taxonshortstring}++;
+                $taxa_from_hitmaps{$taxonshortstring}++;                          # To be superseded
+                # Save full taxonomy string
+                push @taxa_full, $taxonlongstring;
             } else {
                 msg ("Warning: malformed database entry $ref");
             }
         }
     }
-    
-    # Sort counts of taxa from hits
+    close($fh);
+
+    # Sort counts of taxa from hits, minimum of three hits                      # To be superseded
     @taxa_from_hitmaps_sorted =
         sort { @$b[1] <=> @$a[1] }
         grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
         map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
-
+        
     # Calculate Chao1 statistic
     $xtons[2] = $#taxa_from_hitmaps_sorted +1;
     if ($xtons[1] > 0) {
@@ -866,7 +885,9 @@ sub readsam {
         $chao1 = 'n.d.';
     }
     
-    close($fh);
+    # Summarize taxonomy
+    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize 
+    
     msg("done...");
 }
 
@@ -883,7 +904,6 @@ sub truncate_taxonstring {
     return ($out);
 }
 
-
 sub summarize_taxonomy {
     # Given list of taxon strings and desired taxonomic level:
     # Count number of occurrences of given taxon substring and output counts
@@ -892,7 +912,7 @@ sub summarize_taxonomy {
         ) = @_; 
     my @input = @$in_aref; # Dereference array input
     my %taxhash;        # Hash to store counts per taxon at each taxonomic level
-    my @output;         # Array of arrays to store output
+    my %output;         # Hash to store output
     
     foreach my $taxstring (@input) {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
@@ -900,11 +920,9 @@ sub summarize_taxonomy {
     }
     # Sort output in descending order
     foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
-        my @outline = ($key, $taxhash{$key});
-        push @output, \@outline;
+        $output{$key} = $taxhash{$key};
     }
-
-    return (\@output); # Return reference to output array
+    return (\%output); # Return reference to output array
 }
 
 sub bbmap_sam_parse { # Replaced
@@ -1191,8 +1209,9 @@ sub taxonomy_spades_unmapped {
     my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
     my $stats_href = \%ssu_sam_mapstats;
     my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
-    my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassemble reads
+    my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassembled reads
     my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
+    my @taxa_full;
     msg ("extracting taxonomy of unassembled SSU reads");
     my $fh;
     open_or_die(\$fh, "<", $in);
@@ -1219,10 +1238,12 @@ sub taxonomy_spades_unmapped {
                 my $ref = ${$sam_href}{$read}{$pair}{"ref"};
                 # Shorten taxonomy string and save into NTU table
                 if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                    my $taxonlongstring = $1;
+                    push @taxa_full, $taxonlongstring;
                     # Truncate to 6 levels
-                    my $taxonshortstring = truncate_taxonstring($1, 6);
+                    my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6);           # To be superseded
                     # Increment count for taxon
-                    ${$out_href}{$taxonshortstring}++;
+                    ${$out_href}{$taxonshortstring}++;                                          # To be superseded
                 } else {
                     msg ("warning: malformed database entry $ref");
                 }
@@ -1253,6 +1274,9 @@ sub taxonomy_spades_unmapped {
     #    print STDERR join "\t", ($key, ${$cov_href}{$key});
     #    print STDERR "\n";
     #}
+    
+    # Summarize taxonomy
+    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize 
     
     # Calculate ratio of reads assembled
     my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
@@ -1558,9 +1582,10 @@ sub run_plotscript_SVG {
     }
     
     # Generate barplot of taxonomy at level XX
-    my @taxlist = keys %taxa_from_hitmaps;
-    my @taxsummary = summarize_taxonomy(\@taxlist, 4); # Magic number
-    ## TODO: Pass this taxonomic summary to plotscript to convert to barplot
+    run_prog("plotscript_SVG",
+             "--bar $libraryNAME.phyloFlash.taxonsummary.csv ",
+             "tmp.$libraryNAME.plotscript.out",
+             "&1");
 }
 
 sub generate_treemap_data_rows {
@@ -1953,31 +1978,12 @@ ENDHTML
 }
 
 print {$fh} <<ENDHTML;
-<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Read mapping based detected higher taxa in order of appearance (min. 3 reads mapped)</a></h3>
+<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
-<p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
-<table>
-  <tr>
-    <th><span class="withHoverText" title="Higher taxon found by SSU mapping to reference database">Taxon</span></th>
-    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Maps</span></th>
-  </tr>
 ENDHTML
-
-## write list of higher taxa found
-foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {
-    # For each of these higher taxa
-    print {$fh} "  <tr>\n";
-    # print name of taxon
-    print {$fh} "    <td>".@$taxonshortstring[0]."</td>\n";
-    # print no . of reads mapping unambiguously
-    print {$fh} "    <td>".@$taxonshortstring[1]."</td>\n";
-    print {$fh} "  </tr>\n";
-}
-
-print {$fh} <<ENDHTML;
-</table>
-</div>
-ENDHTML
+print {$fh} "<p>Approximate overview of taxonomic composition, by mapping reads to database sequences and summarizing their taxonomy strings to taxon level $taxon_report_lvl.</p>\n";
+print {$fh} "<img height=480 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n";
+print {$fh} "</div>\n";
 
 if ($skip_spades == 0) {
 ## write list of assembled SSU sequences
@@ -2018,9 +2024,9 @@ foreach (@ssuassem_results_sorted) {
 print {$fh} <<ENDHTML;
 </table>
 </div>
-<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU reads</a></h3>
+<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
-<p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences. Only displaying taxa with > 3 reads mapped.</p>
 <table>
   <tr>
     <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
@@ -2029,14 +2035,17 @@ print {$fh} <<ENDHTML;
 ENDHTML
 
 ## write list of higher taxa found
-foreach my $taxonshortstring ( @taxa_from_hitmaps_unassem_sorted ) {
-    # For each of these higher taxa
-    print {$fh} "  <tr>\n";
-    # print name of taxon
-    print {$fh} "    <td>".@$taxonshortstring[0]."</td>\n";
-    # print no . of reads mapping unambiguously
-    print {$fh} "    <td>".@$taxonshortstring[1]."</td>\n";
-    print {$fh} "  </tr>\n";
+my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+foreach my $uatax (@taxsort) {
+    if (${$taxa_unassem_summary_href}{$uatax} > 3) { # Only display those with at least three reads mapping
+        # For each of these higher taxa
+        print {$fh} "  <tr>\n";
+        # print name of taxon
+        print {$fh} "    <td>".$uatax."</td>\n";
+        # print no . of reads mapping
+        print {$fh} "    <td>".${$taxa_unassem_summary_href}{$uatax}."</td>\n";
+        print {$fh} "  </tr>\n";
+    }
 }
 
 print {$fh} <<ENDHTML;

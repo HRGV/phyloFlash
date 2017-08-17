@@ -9,13 +9,13 @@ use Getopt::Long;
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $nbreaks);
+my ($treefile, $histofile, $barfile);
+my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT 
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
-           "breakpoints|b=i" => \$nbreaks   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
+           "bar|h=s" => \$barfile,          # Table of counts to make barplot
+           "breakpoints|b=i" => \$nbreaks,   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
-
-
 
 ## MAIN ########################################################################
 
@@ -25,6 +25,196 @@ if (defined $histofile) {
 if (defined $treefile) {
     do_phylog_tree($treefile);
 }
+if (defined $barfile) {
+    do_barchart($barfile);
+}
+
+### SUBROUTINES FOR BARCHART ##################################################
+
+sub do_barchart {
+    my ($infile) = @_;
+    my $outfile = $infile.".svg";
+    my $fhout;
+    open($fhout, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
+    csv2barchart($infile, $fhout);
+    close($fhout);
+}
+
+sub csv2barchart {
+    # Read input
+    my ($infile,        # Input CSV file
+        $fh,            # Filehandle for output print
+        $delim          # Delimiter for input (either "tab" or "comma")
+        ) = @_;
+
+    # Set preferences
+    my $maxprop = 0.8;              # Maximum cumulative percentile to display taxonomic breakdown
+    my $minprop = 1 - $maxprop;
+    
+    # SVG plot preferences
+    my $orientation = "v";          # Horizontal (h) or vertical (v) alignment of figure long axis
+    my $box_proportion = 0.10;      # Proportion of figure viewbox occupied by bar vs. text
+    my $viewBox_longaxis = 300;     # Long dimension of the viewbox (parallel to main axis)
+    my $viewBox_shortaxis = 800;    # Short dimension of the viewbox (perpendicular to main axis)
+    my $margin = 5;
+    
+    # Initialize variables
+    my $total = 0;
+    my %valhash;
+    
+    # Get input
+    my $fhin;
+    open($fhin, "<", $infile) or die ("Cannot open $infile for reading: $!");
+    while (<$fhin>){
+        chomp;
+        my @line;
+        if (defined $delim && $delim eq "tab") {
+            @line = split /\t/; # TSV formatted input
+        } else { 
+            @line = split /,/; # CSV formatted input by default 
+        }
+        $valhash{$line[0]}{"raw"} = $line[1];
+        $total += $line[1];
+    }
+    close($fhin);
+    
+    # Calculate cumulative total
+    my $running_total;
+    my @sortkey = sort {$valhash{$b}{"raw"} <=> $valhash{$a}{"raw"}} keys %valhash;
+    my $index = 0;
+    my $last_index;
+    my @labels_arr;     # Array of text labels
+    my @x1_arr;         # Array of values for right side of bars
+    my @counts_arr;     # Array of counts
+    my $other_count = 0;
+    for (my $i=0; $i <= $#sortkey; $i++) {
+        $running_total += $valhash{$sortkey[$i]}{"raw"}; # Update cumulative total
+        $valhash{$sortkey[$i]}{"cumul"}  = $running_total;
+        # Convert values to fractions of total
+        $valhash{$sortkey[$i]}{"pc"} = $valhash{$sortkey[$i]}{"raw"} / $total;
+        $valhash{$sortkey[$i]}{"cumul_pc"} = $valhash{$sortkey[$i]}{"cumul"} / $total;
+        my $leftover = 1;
+        $leftover = 1 - $valhash{$sortkey[$i-1]}{"cumul_pc"} if $i > 0; # Some gymnastics
+        unless ($leftover < $minprop) {
+            push @labels_arr, $sortkey[$i];
+            push @x1_arr, $valhash{$sortkey[$i]}{"cumul_pc"};
+            push @counts_arr, $valhash{$sortkey[$i]}{"raw"};
+        } else {
+            # If there are taxa below minimum cumulative count, add counts to group "other"
+            $other_count += $valhash{$sortkey[$i]}{"raw"};
+        }
+    }
+    # Add last value for "Other" if it is defined
+    if ($other_count > 0) {
+        push @labels_arr, "Other taxa (below threshold)";
+        push @x1_arr, 1;
+        push @counts_arr, $other_count;
+    }
+    
+    # Generate array of values for left side of bars
+    my @x0_arr = @x1_arr;
+    pop @x0_arr;
+    unshift @x0_arr, 0;
+    my @widths_arr;
+    my @y0_arr = (0) x scalar @x0_arr;
+    my @y1_arr = (1) x scalar @x1_arr;
+    
+    # SVG plot parameters
+    my @boxval = (0, 1, 0, 1);
+    my $viewBox;
+    my @box;
+    
+    if ($orientation eq "h") { # for horizontal bars
+        $viewBox = "0 0 $viewBox_longaxis $viewBox_shortaxis"; # x y width height
+        @box = ($margin,
+                $viewBox_longaxis - $margin,
+                $viewBox_shortaxis - $viewBox_shortaxis*$box_proportion + $margin,
+                $viewBox_shortaxis - $margin
+                ); # left right bottom top coordinates
+    } else {
+    # for vertical bars
+        $viewBox = "0 0 $viewBox_shortaxis $viewBox_longaxis"; # x y width height
+        @box = ($margin,
+                $viewBox_shortaxis*$box_proportion + $margin,
+                $margin,
+                $viewBox_longaxis - $margin
+                ); # left right bottom top coordinates
+    }
+    
+    # Convert to coordinates
+    my ($x0_rescale_aref, $y0_rescale_aref, $x1_rescale_aref, $y1_rescale_aref);
+    if ($orientation eq "h") {
+        ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@x0_arr, \@y0_arr);
+        ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@x1_arr, \@y1_arr);
+    } else {
+        ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y0_arr, \@x0_arr);
+        ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y1_arr, \@x1_arr);
+    }
+    
+    # Create rectangle values
+    my %rect_vals;
+    for (my $i=0; $i <= $#labels_arr; $i++) {
+        $rect_vals{$i}{"label"} = $labels_arr[$i];
+        $rect_vals{$i}{"x"} = $x0_rescale_aref->[$i];
+        $rect_vals{$i}{"width"} = $x1_rescale_aref->[$i] - $x0_rescale_aref->[$i];
+        $rect_vals{$i}{"y"} = $y1_rescale_aref->[$i];
+        $rect_vals{$i}{"height"} = $y0_rescale_aref->[$i] - $y1_rescale_aref->[$i];
+        $rect_vals{$i}{"counts"} = $counts_arr[$i];
+    }
+    
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
+    my $style_base = "fill-opacity:0.5;stroke:rgb(0,0,0);stroke-width:1;"; # Style for histogram bars
+    
+    print $fh $svg_open;
+    foreach my $rect (sort {$a <=> $b} keys %rect_vals) {
+        my @rand_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
+        my $bar_color="fill:rgb(".join(",",@rand_colors).");";
+        my $style=$style_base.$bar_color;
+        print $fh "<rect ".
+                  "x=\"".$rect_vals{$rect}{"x"}."\" ".
+                  "y=\"".$rect_vals{$rect}{"y"}."\" ".
+                  "width=\"".$rect_vals{$rect}{"width"}."\" ".
+                  "height=\"".$rect_vals{$rect}{"height"}."\" ".
+                  "style=\"$style\" ".
+                  "/>\n";
+        # Print taxonomy string label
+        my ($x_text, $y_text);
+        my ($x_text_counts, $y_text_counts);
+        my $font_size =  8;
+        my $text_style_base = "fill:black;font-size:".$font_size."px;";
+        my $text_style;
+        if ($orientation eq "h") {
+            $text_style = $text_style_base."writing-mode:tb;";
+            $x_text = $margin + $rect_vals{$rect}{"x"} + $rect_vals{$rect}{"width"}/2;
+            $y_text = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"} + $font_size;
+            $x_text_counts = $x_text;
+            $y_text_counts = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"}/2;
+        } elsif ($orientation eq "v") {
+            $text_style = $text_style_base;
+            $x_text = $margin + $rect_vals{$rect}{"width"} + $font_size;
+            $y_text = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"} / 2;
+            $x_text_counts = $margin + $rect_vals{$rect}{"width"} / 2;
+            $y_text_counts = $y_text;
+        }
+        print $fh "<text ".
+                  "x=\"$x_text\" ".
+                  "y=\"$y_text\" ".
+                  "style=\"$text_style;text-anchor:left;\" ".
+                  ">".
+                  $rect_vals{$rect}{"label"}.
+                  "</text>\n";
+        # Print counts labels
+        print $fh "<text ".
+                  "x=\"$x_text_counts\" ".
+                  "y=\"$y_text_counts\" ".
+                  "style=\"$text_style;text-anchor:middle;\" ".
+                  ">".
+                  $rect_vals{$rect}{"counts"}.
+                  "</text>\n";
+    }
+    print $fh "</svg>\n";
+}
+
 
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
@@ -172,7 +362,7 @@ sub svg_axis_ticks {
                           "y=\"$y_text\" ".
                           "text-anchor=\"$text_anchor\" ".
                           "fill=\"black\" ".
-                          "font-size=\"8\"".
+                          "style=\"fill:black;font-size:4px;\"".
                           ">";
             print $handle ${$ticks_vals_aref}[$j]; # Text of label
             print $handle "</text>\n";
