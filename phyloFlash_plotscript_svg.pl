@@ -147,8 +147,10 @@ sub csv2barchart {
         ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@x0_arr, \@y0_arr);
         ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@x1_arr, \@y1_arr);
     } else {
-        ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y0_arr, \@x0_arr);
-        ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y1_arr, \@x1_arr);
+        @x0_arr = map { 1 - $_ } @x0_arr; # Flip coordinates so that most abundant taxon appears on top
+        @x1_arr = map { 1 - $_ } @x1_arr;
+        ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y0_arr, \@x1_arr);
+        ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y1_arr, \@x0_arr);
     }
     
     # Create rectangle values
@@ -156,9 +158,9 @@ sub csv2barchart {
     for (my $i=0; $i <= $#labels_arr; $i++) {
         $rect_vals{$i}{"label"} = $labels_arr[$i];
         $rect_vals{$i}{"x"} = $x0_rescale_aref->[$i];
-        $rect_vals{$i}{"width"} = $x1_rescale_aref->[$i] - $x0_rescale_aref->[$i];
+        $rect_vals{$i}{"width"} = abs ($x1_rescale_aref->[$i] - $x0_rescale_aref->[$i]);
         $rect_vals{$i}{"y"} = $y1_rescale_aref->[$i];
-        $rect_vals{$i}{"height"} = $y0_rescale_aref->[$i] - $y1_rescale_aref->[$i];
+        $rect_vals{$i}{"height"} = abs($y0_rescale_aref->[$i] - $y1_rescale_aref->[$i]);
         $rect_vals{$i}{"counts"} = $counts_arr[$i];
     }
     
@@ -199,7 +201,7 @@ sub csv2barchart {
         print $fh "<text ".
                   "x=\"$x_text\" ".
                   "y=\"$y_text\" ".
-                  "style=\"$text_style;text-anchor:left;\" ".
+                  "style=\"$text_style"."text-anchor:left;\" ".
                   ">".
                   $rect_vals{$rect}{"label"}.
                   "</text>\n";
