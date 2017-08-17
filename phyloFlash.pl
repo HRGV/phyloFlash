@@ -1969,11 +1969,13 @@ ENDHTML
 
 if ($treemap_flag == 1) { # Display interactive treemap if flag is on
 print {$fh}<<ENDHTML;
-<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
+<h3><a href="#" id="treemap-show" class="showLink" onClick="showHide('treemap');return false;">Interactive treemap of mapping-based taxonomic read classification</a></h3>
+<div id="treemap" class="more">
     <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
     <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
     <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
+</div>
 ENDHTML
 }
 
