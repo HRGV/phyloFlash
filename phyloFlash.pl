@@ -627,57 +627,6 @@ sub write_csv {
     }
 }
 
-
-sub bbmap_fast_filter_run { # Replaced
-    # input: $readsf, $readsr
-    # output: lib.$readsf.SSU.{1,2}.fq
-    #         lib.bbmap.out
-    #         lib.inserthistogram
-    # tmp:    tmp.lib.basecompositionhistogram
-    msg("filtering reads with SSU db using minimal identity of $id%");
-    if ($readlimit != -1) {
-        msg("Only using the first $readlimit reads");
-    }
-
-    my $minID= $id / 100;
-    if ($minID < 0.63) {
-        $minID = 0.63
-    }
-
-    my $args = "";
-    if ($SEmode == 0) {
-	if ($interleaved == 1) {
-	    $args =
-	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert interleaved=t";
-	} else {
-	    $args =
-	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert in2=$readsr_full";
-	}
-    }
-    run_prog("bbmap",
-             "  fast=t "
-             . "minidentity=$minID "
-             . "-Xmx20g reads=$readlimit "
-             . "threads=$cpus "
-             . "po=f "
-             . "outputunmapped=f "
-             . "path=$DBHOME "
-             . "outm=$libraryNAME.$readsf.SSU.1.fq "
-             . "build=1 "
-             . "in=$readsf_full "
-             . "bhist=tmp.$libraryNAME.basecompositionhistogram "
-             . "ihist=$libraryNAME.inserthistogram "
-             . "idhist=$libraryNAME.idhistogram "
-             . "scafstats=$libraryNAME.hitstats "
-             . $args,
-             undef,
-             "$libraryNAME.bbmap.out");
-
-    msg("done...");
-}
-
 sub bbmap_fast_filter_sam_run {
     # input: $readsf, $readsr
     # output: lib.$readsf.SSU.sam
@@ -923,55 +872,6 @@ sub summarize_taxonomy {
         $output{$key} = $taxhash{$key};
     }
     return (\%output); # Return reference to output array
-}
-
-sub bbmap_sam_parse { # Replaced
-    # Superseded by readsam()
-    # Read SAM file from mapping of reads vs. SILVA, tabulate number of hitmaps
-    # input: lib.$readsf.SSU.sam
-    msg("creating taxon list from read mappings");
-    my $total_reads; # Counter for total number of reads in SAM file
-    my $total_reads_mapped; # Counter for total number of reads with mapping
-    my $fh;
-    open_or_die(\$fh, "<", "$libraryNAME.$readsf.SSU.sam");
-    while (<$fh>) {
-        chomp;
-        next if ($_ =~ m/^@/);          # Skip header lines
-        my @samline = split /\t/, $_;   # Split sam fields by tab char
-        # Extract taxonomy of hit for mapped segements
-        if ($samline[1] & 0x4) {        # Bitflag for "segment unmapped" is on
-            $total_reads++;
-        } else {                        # Bitflag for segment unmapped is off (i.e. segment is mapped)
-            $total_reads++;
-            $total_reads_mapped++;
-            # Get taxonomy string from reference name in SAM file
-            if ($samline[2] =~ m/\w+\.\d+\.\d+\s(\S+)/) {
-                # Truncate to 6 levels
-                my $taxonshortstring = truncate_taxonstring($1, 6);
-                # Increment count for taxon
-                $taxa_from_hitmaps{$taxonshortstring}++;
-            }
-        }
-    }
-    close($fh);
-
-    @taxa_from_hitmaps_sorted =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, $taxa_from_hitmaps{$_}] }
-        keys %taxa_from_hitmaps;
-
-    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
-    # Calculate Chao1 statistic
-    if ($xtons[1] > 0) {
-        $chao1 =
-          $xtons[2] +
-          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-    } else {
-        $chao1 = 'n.d.';
-    }
-    msg("done...");
-
 }
 
 sub bbmap_hitstats_parse { # Replaced
@@ -1525,33 +1425,6 @@ sub clean_up {
     }
     system ("rm tmp.$libraryNAME.* -r");
     msg("done...");
-}
-
-sub run_plotscript { # Replaced
-    msg("generating histogram and tree graphics");
-    my $inshist = "$libraryNAME.inserthistogram"; # Name of insert histogram file
-    if ($SEmode==1) { # If running in SE mode ...
-      $inshist="SEmode"; # ... replace name of ins histogram file with "SEmode"
-    }
-    #FIXME: crashes if .inserthistorgram contains no lines
-    if ($skip_spades + $skip_emirge == 2) {
-        run_prog("plotscript",
-                 "--args NULL "
-                 . "$inshist "
-                 . "$libraryNAME.idhistogram "
-                 . "$decimalcomma ",
-                 "tmp.$libraryNAME.plotscript.out",
-                 "&1");
-    }
-    else {
-        run_prog("plotscript",
-                 "--args $libraryNAME.SSU.collection.fasta.tree "
-                 . "$inshist "
-                 . "$libraryNAME.idhistogram "
-                 . "$decimalcomma ",
-                 "tmp.$libraryNAME.plotscript.out",
-                 "&1");
-    }
 }
 
 sub run_plotscript_SVG {
