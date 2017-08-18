@@ -686,7 +686,7 @@ sub bbmap_fast_filter_sam_run {
     msg("done...");
 }
 
-sub bbmap_fast_filter_parse() {
+sub bbmap_fast_filter_parse {
     # parsing bbmap.out for used read numbers, mapped reads,
     # insert size median and standard deviation
 
@@ -2025,7 +2025,7 @@ bbmap_fast_filter_sam_run();
 ## Replaced: bbmap_hitstats_parse();
 
 # Parse statistics from BBmap initial mapping
-my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse("$libraryNAME.bbmap.out", $SEmode);
+my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($libraryNAME.".bbmap.out", $SEmode);
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
 if ($skipflag == 1) {
