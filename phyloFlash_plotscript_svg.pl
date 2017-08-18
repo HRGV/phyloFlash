@@ -5,15 +5,17 @@ use warnings;
 use POSIX qw (ceil floor);
 use List::Util qw(min max);
 use Getopt::Long;
+use Math::Trig qw(pi cylindrical_to_cartesian);
 
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile);
+my ($treefile, $histofile, $barfile, $piefile);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
-           "bar|h=s" => \$barfile,          # Table of counts to make barplot
+           "bar|r=s" => \$barfile,          # Table of counts to make barplot
+           "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "breakpoints|b=i" => \$nbreaks,   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 
@@ -29,6 +31,121 @@ if (defined $barfile) {
     do_barchart($barfile);
 }
 
+if (defined $piefile) {
+    do_piechart($piefile);
+}
+
+## SUBROUTINES FOR PIECHART ###################################################
+
+sub do_piechart {
+    my ($infile) = @_;
+    my $outname = $infile.".svg";
+    my $outfh;
+    open ($outfh, ">", $outname) or die ("Cannot open file $outname for writing: $!");
+    csv2pie ($infile, $outfh ,"comma");
+    close ($outfh);
+}
+
+sub pc2xy {
+    # Convert percentages along a circle to x-y coordinates
+    my ($pc,    # Fractional (0 to 1) position along the circle
+        $cx,    # Center of circle
+        $cy,
+        $rad    # Radius
+        ) = @_;
+    # Reminder - offset is counter-clockwise and starts from 3 o'clock
+    $pc = 1 - $pc;      # Account for counter-clockwiseness
+    # Use functions from Math::Trig
+    my $theta = 2 * pi * $pc;
+    my ($xoff, $yoff, $discard) = cylindrical_to_cartesian ($rad, $theta, 0);
+    my ($x, $y) = ($xoff + $cx, $yoff + $cy); # Offset by circle center
+    return ($x, $y);
+}
+
+sub csv2pie {
+    my ($infile,    # Name of input file
+        $fh,        # Filehandle for output print
+        $delim      # Delimiter for input (either "tab" or "comma")
+        ) = @_;
+
+    # Read CSV file
+    my $dl = defined $delim && $delim eq "tab" ? "\t" : ",";
+    my $csv_href = csv2hash ($infile, $dl);
+
+    # Calculate cumulative percentages of input sorted by counts
+    my $cumul_href = counthash_cumul_sum ($csv_href, 1, "counts");
+
+    # Dereference output into arrays for plotting
+    my @labels_arr = @{$cumul_href->{"labels"}};     # Array of text labels
+    my @cumul_pc_arr = @{$cumul_href->{"cumul_pc"}}; # Array of cumulative percentages
+    my @pc_arr = @{$cumul_href->{"pc"}};
+    my @counts_arr = @{$cumul_href->{"counts"}};     # Array of counts
+
+    # SVG plot preferences
+    my $viewBox_width = 100;     # width
+    my $viewBox_height = 100;    # height
+    my $margin = 25;
+    my $font_size = 8;
+
+    # Take shorter dimension, and calculate the pie diameter and circumference
+    my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;
+    $diam = $diam - 2 * $margin;
+    my $rad = $diam / 2;
+    my $cx = $viewBox_width / 2;
+    my $cy = $viewBox_height / 2;
+    my $circum = $diam * 3.14159265; # probably precise enough
+    my $stroke_width = 0.75 * $rad; # stroke width is proportion of radius
+
+    # Calculate stroke-dasharray and stroke-dashoffset
+    # Tips: http://openstudio.redhat.com/scratch-made-svg-donut-pie-charts-in-html5/
+    my @dasharray_arr;
+    my @dashoffset_arr;
+    for (my $i=0; $i <= $#labels_arr; $i++) {
+        push @dashoffset_arr, $cumul_pc_arr[$i] * $circum;
+        my $stroke = $pc_arr[$i] * $circum;
+        my $space = $circum - $stroke;
+        push @dasharray_arr, ("$stroke $space");
+    }
+
+    # SVG parameters
+    my $viewBox = "0 0 $viewBox_width $viewBox_height";
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" height=\"100%\" >\n";
+    my $donut_std_params = "cx=\"$cx\" ".
+                            "cy=\"$cy\" ".
+                            "r=\"$rad\" ".
+                            "fill=\"transparent\" ".
+                            "stroke-width=\"$stroke_width\" ";
+    print $fh $svg_open;
+    for (my $i=0; $i <= $#labels_arr; $i++) {
+        my @rand_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
+        print $fh "<circle class=\"donut-segment\" ".
+                  $donut_std_params.
+                  "stroke=\"rgb(".join(",", @rand_colors).")\" ".
+                  "stroke-dasharray=\"".$dasharray_arr[$i]."\" ".
+                  "stroke-dashoffset=\"".$dashoffset_arr[$i]."\" ".
+                  "></circle>\n";
+    }
+    # Print labels in separate loop because they must be on top of donut segments
+    my $text_style_base = "fill:black;font-size:".$font_size."px;";
+    for (my $i=0; $i <= $#labels_arr; $i++) {
+        my ($x_text, $y_text) = pc2xy($cumul_pc_arr[$i] - $pc_arr[$i] / 2,
+                                      $cx,
+                                      $cy,
+                                      $rad);
+        print $fh "<text ".
+                "x=\"$x_text\" ".
+                "y=\"$y_text\" ".
+                "style=\"".$text_style_base."text-anchor:middle;\" ".
+                ">".
+                $labels_arr[$i].
+                "</text>\n";
+    }
+    print $fh "</svg>\n";
+    # Mysteries:
+    # why does stroke-dashoffset move counterclockwise????!?
+    # why does SVG y coordinate start from the top????!??
+}
+
 ### SUBROUTINES FOR BARCHART ##################################################
 
 sub do_barchart {
@@ -38,38 +155,6 @@ sub do_barchart {
     open($fhout, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     csv2barchart($infile, $fhout);
     close($fhout);
-}
-
-sub csv2pie {
-    my ($infile,    # Name of input file
-        $fh,        # Filehandle for output print
-        $delim      # Delimiter for input (either "Tab" or "comma")
-        ) = @_;
-
-    my %hash;       # Hash to store data
-    # Read CSV file and return hash keyed by col 1 with val from col 2
-    open (IN, "<", $infile) or die ("Cannot open file $infile: $!");
-    while (<IN>) {
-        chomp;
-        my @splitline = split "$delim";
-        $hash{$splitline[0]} = $splitline[1];
-    }
-    close(IN);
-
-    # SVG plot preferences
-    my $viewBox_width = 400;     # width
-    my $viewBox_height = 400;    # height
-    my $margin = 5;
-
-    my $minprop = 0;
-
-    # Take shorter dimension, and calculate the pie diameter and circumference
-    my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;
-    $diam = $diam - 2 * $margin;
-    my $rad = $diam / 2;
-    my $center_x = $viewBox_width / 2;
-    my $center_y = $viewBox_height / 2;
-    my $circum = $diam * 3.14159265; # probably precise enough
 }
 
 sub csv2hash {
