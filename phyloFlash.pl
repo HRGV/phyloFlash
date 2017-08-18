@@ -220,7 +220,7 @@ my @tools_list;                 # Array to store list of tools required
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
-my $ins_used = "SE mode!";
+my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 
 # variables for report generation
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
@@ -751,6 +751,7 @@ sub bbmap_fast_filter_parse {
         $readnr_pairs /= 2;
     }
 
+    # Total read pairs with at least one partner mapping
     $SSU_total_pairs =
         $ssu_f_reads + $ssu_r_reads
         - $ssu_pairs - $ssu_bad_pairs;
@@ -767,8 +768,6 @@ sub bbmap_fast_filter_parse {
     if ($SSU_total_pairs * 2 * $readlength < 1800) {
       msg("WARNING: mapping coverage lower than 1x,\n
       reconstruction with SPADES and Emirge disabled.");
-      #$skip_emirge = 1;
-      #$skip_spades = 1;
       $skip_assembly_flag = 1;
     }
 
@@ -890,69 +889,6 @@ sub summarize_taxonomy {
         $output{$key} = $taxhash{$key};
     }
     return (\%output); # Return reference to output array
-}
-
-sub bbmap_hitstats_parse { # Replaced
-    # create taxa list from hitmaps with at least 3 unambiguously mapping reads
-    # input: lib.hitstats
-    msg("creating taxon list from read mappings");
-
-    my $fh;
-    open_or_die(\$fh, "<", "$libraryNAME.hitstats");
-
-    # hitstats format/example
-    #name %unambiguousReads unambiguousMB %ambiguousReads ambiguousMB unambiguousReads ambiguousReads
-    #X03680.934.2693 Eukaryota;Opistho[...]abditis elegans\t4,72750\t0,57297\t52,23750\t6,33119\t5673\t62685
-
-    while (<$fh>) {
-        chomp;
-
-        # skip comments
-        next if ($_ =~ /^#/);
-
-        # space to tab in name: "<acc>.<start>.<stop> <taxpath>"
-        s/(\w+\.\d+\.\d+)\s/$1\t/;
-
-        my @hitstats_line = split ("\t", $_);
-
-        # skip 0 unambiguousReads
-        next if ($hitstats_line[6] == 0);
-
-        # truncate materialized path taxonomy string to 6 levels
-        my $taxonshortstring;
-        my @taxonstringarray = split (";", $hitstats_line[1]);
-        if ( $#taxonstringarray > 5 ) {
-            $taxonshortstring = join (";", @taxonstringarray[0..5]);
-        } else {
-            $taxonshortstring = $hitstats_line[1];
-        }
-
-        # add to hash or increment existing count
-        if ( !exists $taxa_from_hitmaps{$taxonshortstring} ) {
-            $taxa_from_hitmaps{$taxonshortstring} = $hitstats_line[6];
-        } else {
-            $taxa_from_hitmaps{$taxonshortstring} += $hitstats_line[6];
-        }
-
-    }
-    close($fh);
-
-    @taxa_from_hitmaps_sorted =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, $taxa_from_hitmaps{$_}] }
-        keys %taxa_from_hitmaps;
-
-    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
-
-    if ($xtons[1] > 0) {
-        $chao1 =
-          $xtons[2] +
-          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-    } else {
-        $chao1 = 'n.d.';
-    }
-    msg("done...");
 }
 
 sub spades_run {
@@ -2028,7 +1964,7 @@ bbmap_fast_filter_sam_run();
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($libraryNAME.".bbmap.out", $SEmode);
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
-if ($skipflag == 1) {
+if (defined $skipflag && $skipflag == 1) {
     # If coverage too low, skip assembly
     $skip_spades = 1;
     $skip_emirge = 1;
