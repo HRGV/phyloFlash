@@ -232,19 +232,26 @@ my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassem
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
 my $taxon_report_lvl = 4;       # Taxonomic level to report counts
-my @ssuassem_results_sorted;    #sorted list of SSU sequences for reporting
+my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting
 my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
+# mapping statistics parsed from BBmap output
+my $readnr = 0;
 my $readnr_pairs;
 my $SSU_total_pairs;
 my $SSU_ratio;
 my $SSU_ratio_pc;
+
+# Insert size stats from BBmap output
+my $ins_me = 0;
+my $ins_std = 0;
+
+# Alpha-diversity statistics calculated from taxon counts
 my $chao1 = 0;
 my @xtons = (0,0,0);  # singleton, doubleton and tripleton count
-my $readnr = 0;
-my $ins_me = 0;
-my $ins_std =0;
+
 my $runtime;
+
 
 # display welcome message incl. version
 sub welcome {
@@ -684,15 +691,21 @@ sub bbmap_fast_filter_parse() {
     # insert size median and standard deviation
 
     # input: lib.bbmap.out
-
+    my ($infile,            # Input file
+        $SEmode,            # Flag for single-end mode
+        ) = @_;
+    # Variables used internally
     my $ssu_pairs     = 0;
     my $ssu_bad_pairs = 0;
     my $ssu_f_reads   = 0;
     my $ssu_r_reads   = 0;
     my $forward_count = 0;
+    # Variables for output
+    my ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
 
     my $fh;
-    open_or_die(\$fh, "<", $libraryNAME.'.bbmap.out');
+    #open_or_die(\$fh, "<", $libraryNAME.'.bbmap.out');
+    open_or_die(\$fh, "<", $infile);
     while (<$fh>) {
         if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
             $readnr = $1;
@@ -750,12 +763,17 @@ sub bbmap_fast_filter_parse() {
 
     msg("mapping rate: $SSU_ratio_pc%");
 
+    my $skip_assembly_flag;
     if ($SSU_total_pairs * 2 * $readlength < 1800) {
       msg("WARNING: mapping coverage lower than 1x,\n
       reconstruction with SPADES and Emirge disabled.");
-      $skip_emirge = 1;
-      $skip_spades = 1;
+      #$skip_emirge = 1;
+      #$skip_spades = 1;
+      $skip_assembly_flag = 1;
     }
+
+    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
+    return (\@output_array,$skip_assembly_flag);
 }
 
 
@@ -2003,23 +2021,37 @@ check_environment();
 
 my $timer = new Timer;
 
-#bbmap_fast_filter_sam_run();            ## Replaced: bbmap_fast_filter_run();
-bbmap_fast_filter_parse();              ## Replaced: bbmap_hitstats_parse();
-# Parse sam file
-readsam();                              ## Replaced: ## bbmap_sam_parse();
+bbmap_fast_filter_sam_run();
+## Replaced: bbmap_hitstats_parse();
 
-if ($skip_spades == 0) {  # Run SPAdes if not explicitly skipped
+# Parse statistics from BBmap initial mapping
+my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($libraryNAME.'.bbmap.out', $SEmode);
+# Dereference stats
+($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
+if ($skipflag == 1) {
+    # If coverage too low, skip assembly
+    $skip_spades = 1;
+    $skip_emirge = 1;
+}
+
+# Parse sam file
+readsam();
+
+# Run SPAdes if not explicitly skipped
+if ($skip_spades == 0) {
     #spades_run();
     #spades_parse();
 }
-if ($skip_emirge == 0) {  # Run Emirge if not explicitly skipped
+# Run Emirge if not explicitly skipped
+if ($skip_emirge == 0) {
     emirge_run();
     emirge_parse();
 }
-if ($skip_spades + $skip_emirge < 2) {  # If at least one of either SPAdes or Emirge is activated, parse results
+# If at least one of either SPAdes or Emirge is activated, parse results
+if ($skip_spades + $skip_emirge < 2) {
     bbmap_spades_out();
     taxonomy_spades_unmapped();
-    #vsearch_best_match();
+    vsearch_best_match();
     vsearch_parse();
     vsearch_cluster();
     mafft_run();
@@ -2030,7 +2062,7 @@ $runtime = $timer->minutes;
 print_report();
 write_csv();
 
-run_plotscript_SVG() if ($html_flag);    ## Replaced: run_plotscript() if ($html_flag);
+run_plotscript_SVG() if ($html_flag);
 write_report_html()  if ($html_flag);
 #clean_up();
 
