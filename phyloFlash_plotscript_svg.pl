@@ -11,39 +11,73 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 
 # Input arguments
 my ($treefile, $histofile, $barfile, $piefile);
+my $pipemode;
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
-           "breakpoints|b=i" => \$nbreaks,   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
+           "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
+           "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 
 ## MAIN ########################################################################
 
-if (defined $histofile) {
-    do_histogram_plots($histofile);
-}
-if (defined $treefile) {
-    do_phylog_tree($treefile);
-}
-if (defined $barfile) {
-    do_barchart($barfile);
-}
+my $delim = "comma";
+my $dl = defined $delim && $delim eq "tab" ? "\t" : ","; # Check if TSV
 
-if (defined $piefile) {
-    do_piechart($piefile);
+if (defined $pipemode) {
+    # If in pipe mode, take input from STDIN and write to STDOUT
+    # Get input into array
+    my @input_arr;
+    while (<>) {
+        chomp;
+        push @input_arr, $_;
+    }
+    # Process input depending on specified graphic type
+    if ($pipemode eq "pie") {
+        do_pie_or_bar_chart (\@input_arr, "array", $dl, "pie");
+    } elsif ($pipemode eq "bar") {
+        do_pie_or_bar_chart (\@input_arr, "array", $dl, "bar");
+    }
+} else {
+    # Otherwise in "file" mode read and write to specified files
+    if (defined $histofile) {
+        do_histogram_plots($histofile);
+    }
+    if (defined $treefile) {
+        do_phylog_tree($treefile);
+    }
+    if (defined $barfile) {
+        do_pie_or_bar_chart($barfile, "file", $dl, "bar");
+    }
+    if (defined $piefile) {
+        do_pie_or_bar_chart($piefile, "file", $dl, "pie");
+    }
 }
 
 ## SUBROUTINES FOR PIECHART ###################################################
 
-sub do_piechart {
-    my ($infile) = @_;
-    my $outname = $infile.".svg";
+sub do_pie_or_bar_chart {
+    my ($input, $mode, $dl, $type) = @_;
+    my $in_href;
+    my $outname;
     my $outfh;
-    open ($outfh, ">", $outname) or die ("Cannot open file $outname for writing: $!");
-    csv2pie ($infile, $outfh ,"comma");
-    close ($outfh);
+    # Array mode or infile mode
+    if ($mode eq "file") {
+        $in_href = csv2hash($input, $dl);
+        $outname = $input.".svg";
+        open ($outfh, ">", $outname) or die ("Cannot open file $outname for writing: $!");
+    } elsif ($mode eq "array") { # pipe mode
+        $in_href = csv_arr2hash ($input, $dl);
+        $outfh = *STDOUT;
+    }
+    if ($type eq "pie") {
+        hash2pie ($in_href, $outfh);
+    } elsif ($type eq "bar") {
+        hash2barchart ($in_href, $outfh);
+    }
+    close ($outfh) if $mode eq "file";
 }
 
 sub pc2xy {
@@ -62,15 +96,10 @@ sub pc2xy {
     return ($x, $y);
 }
 
-sub csv2pie {
-    my ($infile,    # Name of input file
+sub hash2pie {
+    my ($csv_href,  # Name of input hash
         $fh,        # Filehandle for output print
-        $delim      # Delimiter for input (either "tab" or "comma")
         ) = @_;
-
-    # Read CSV file
-    my $dl = defined $delim && $delim eq "tab" ? "\t" : ",";
-    my $csv_href = csv2hash ($infile, $dl);
 
     # Calculate cumulative percentages of input sorted by counts
     my $cumul_href = counthash_cumul_sum ($csv_href, 1, "counts");
@@ -148,16 +177,8 @@ sub csv2pie {
 
 ### SUBROUTINES FOR BARCHART ##################################################
 
-sub do_barchart {
-    my ($infile) = @_;
-    my $outfile = $infile.".svg";
-    my $fhout;
-    open($fhout, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
-    csv2barchart($infile, $fhout);
-    close($fhout);
-}
-
 sub csv2hash {
+    # CSV file to hash
     my ($infile, $delim) = @_;
     my %hash;
     open (IN, "<", $infile) or die ("Cannot open file $infile for reading: $!");
@@ -167,6 +188,17 @@ sub csv2hash {
         $hash{$splitline[0]} = $splitline[1];
     }
     close(IN);
+    return (\%hash);
+}
+
+sub csv_arr2hash {
+    # CSV array to hash
+    my ($aref, $delim) = @_;
+    my %hash;
+    foreach my $line (@$aref) {
+        my @splitline = split "$delim", $line;
+        $hash{$splitline[0]} = $splitline[1];
+    }
     return (\%hash);
 }
 
@@ -235,11 +267,10 @@ sub counthash_cumul_sum {
     return (\%outhash);
 }
 
-sub csv2barchart {
+sub hash2barchart {
     # Read input
-    my ($infile,        # Input CSV file
+    my ($csv_href,       # Input CSV file
         $fh,            # Filehandle for output print
-        $delim          # Delimiter for input (either "tab" or "comma")
         ) = @_;
 
     # Set preferences
@@ -252,10 +283,6 @@ sub csv2barchart {
     my $viewBox_longaxis = 300;     # Long dimension of the viewbox (parallel to main axis)
     my $viewBox_shortaxis = 800;    # Short dimension of the viewbox (perpendicular to main axis)
     my $margin = 5;
-
-    # Get input
-    my $dl = defined $delim && $delim eq "tab" ? "\t" : ",";
-    my $csv_href = csv2hash ($infile, $dl);
 
     # Calculate cumulative percentages of input sorted by counts
     my $cumul_href = counthash_cumul_sum ($csv_href, $maxprop, "counts");
@@ -422,7 +449,6 @@ sub csv2barchart {
     print $fh "</svg>\n";
 }
 
-
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
 sub do_histogram_plots { # operates on global vars
@@ -577,7 +603,6 @@ sub svg_axis_ticks {
     }
 }
 
-
 sub tick_intervals { # Value space
     # Determine intervals for tick marks of an axis, given the min and max vals
     # should have ca. ten tick marks
@@ -670,7 +695,6 @@ sub lump_hist { # VALUE SPACE
             \@counts  # Counts in each bin
             );
 }
-
 
 sub val2coord { # VALUE TO COORD SPACE
     # Rescale xy-values to xy-coordinates for SVG
@@ -1008,7 +1032,6 @@ sub dump_taxon_data { # Diagnostic
         print STDERR "\n";
     }
 }
-
 
 sub climbdown_node {
     my ($brlen, $cn, $par, $nodes_href) = @_;
