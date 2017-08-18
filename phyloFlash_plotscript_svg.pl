@@ -18,7 +18,7 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
-           "title=s" => \$title,            # Title for plot 
+           "title=s" => \$title,            # Title for plot
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 

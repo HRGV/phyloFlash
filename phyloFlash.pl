@@ -492,7 +492,7 @@ Mapping ratio:\t$SSU_ratio_pc%
     if (defined $ssu_sam_mapstats{"assem_ratio"}) {
         print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
     }
-    
+
     print {$fh} qq~
 ---
 Runtime:\t$runtime
@@ -529,7 +529,7 @@ NTU\treads
             splice @out, 1, 0, $ssuassem_cov{$spades_id};
             print {$fh} join("\t",  @out)."\n";
         }
-        
+
         ## Print the table of taxonomic affiliations for unassembled SSU reads
         print {$fh} "---\n";
         print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
@@ -593,14 +593,14 @@ sub write_csv {
     close($fh);
 
     open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.taxonsummary.csv");
-    # Sort results descending 
+    # Sort results descending
     my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
     foreach my $key (@keys) {
-        my @out = ($key, ${$taxa_summary_href}{$key}); 
+        my @out = ($key, ${$taxa_summary_href}{$key});
         print {$fh} join(",",csv_escape(@out)).$crlf;
     }
     close($fh);
-    
+
     if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
       open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
       print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
@@ -812,15 +812,15 @@ sub bbmap_fast_filter_parse() {
 
 sub readsam {
     # Read SAM file into memory
-    
+
     # Input params
     my $infile = "$libraryNAME.$readsf.SSU.sam";    # Input SAM filename
     my $href = \%ssu_sam;                           # Reference to hash to store SAM data
     my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
-    
+
     # Internal vars
     my @taxa_full;                                  # Arr of taxon names from first mapping
-    
+
     msg ("reading mapping into memory");
     my $fh;
     open_or_die(\$fh, "<", "$infile");
@@ -851,7 +851,7 @@ sub readsam {
             # Record into hash
             ${$href}{$read}{$pair}{"ref"} = $ref;
             ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
-            
+
             # Shorten taxonomy string and save into NTU table
             if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
                 my $taxonlongstring = $1;
@@ -874,7 +874,7 @@ sub readsam {
         grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
         map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
-        
+
     # Calculate Chao1 statistic
     $xtons[2] = $#taxa_from_hitmaps_sorted +1;
     if ($xtons[1] > 0) {
@@ -884,10 +884,10 @@ sub readsam {
     } else {
         $chao1 = 'n.d.';
     }
-    
+
     # Summarize taxonomy
-    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize 
-    
+    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
+
     msg("done...");
 }
 
@@ -909,11 +909,11 @@ sub summarize_taxonomy {
     # Count number of occurrences of given taxon substring and output counts
     my ($in_aref,       # Ref to input array of taxon strings
         $lvl            # Level to output summary; 1-based
-        ) = @_; 
+        ) = @_;
     my @input = @$in_aref; # Dereference array input
     my %taxhash;        # Hash to store counts per taxon at each taxonomic level
     my %output;         # Hash to store output
-    
+
     foreach my $taxstring (@input) {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
@@ -1198,7 +1198,7 @@ sub bbmap_spades_out {
          . "out=$libraryNAME.$readsf.SSU_assem.sam " # Also skip SAM header?
          . $args,
          undef,
-         "$libraryNAME.bbmap.out");
+         "$libraryNAME.remap.bbmap.out");
     msg("done...");
 }
 
@@ -1233,7 +1233,7 @@ sub taxonomy_spades_unmapped {
             $pair = "U";
         }
         # Check whether read mapped to assembled SSU
-        if ($bitflag & 0x4) { # If not mapped, check corresponding read in original mapping 
+        if ($bitflag & 0x4) { # If not mapped, check corresponding read in original mapping
             if (defined ${$sam_href}{$read}{$pair}{"ref"}) {
                 my $ref = ${$sam_href}{$read}{$pair}{"ref"};
                 # Shorten taxonomy string and save into NTU table
@@ -1257,10 +1257,10 @@ sub taxonomy_spades_unmapped {
             } elsif ($pair eq "R") {
                 ${$stats_href}{"assem_rev_map"}++;
             }
-            
+
         }
     }
-    
+
     # Sort taxon strings for unassembled reads affiliation
     my @discard2;
     @{$out_sorted_aref} =
@@ -1274,10 +1274,10 @@ sub taxonomy_spades_unmapped {
     #    print STDERR join "\t", ($key, ${$cov_href}{$key});
     #    print STDERR "\n";
     #}
-    
+
     # Summarize taxonomy
-    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize 
-    
+    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
+
     # Calculate ratio of reads assembled
     my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
     if (defined ${$stats_href}{"assem_rev_map"}) {
@@ -1288,7 +1288,7 @@ sub taxonomy_spades_unmapped {
         $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
     }
     ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
-    
+
     msg ("done ... ");
 }
 
@@ -1558,15 +1558,17 @@ sub run_plotscript_SVG {
     msg ("generating histogram and tree graphics in SVG format");
     # Plot mapping ID histogram
     run_prog("plotscript_SVG",
-         "--hist $libraryNAME.idhistogram ",
+         "--hist $libraryNAME.idhistogram "
+         ."--title=\"Mapping identity (%)\" ",
          #. "$decimalcomma ",
          "tmp.$libraryNAME.plotscript.out",
          "&1");
-    
+
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
         run_prog("plotscript_SVG",
-                 "--hist $libraryNAME.inserthistogram ",
+                 "--hist $libraryNAME.inserthistogram "
+                 ."--title=\"Insert size (bp)\" ",
                  #. "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
@@ -1580,10 +1582,11 @@ sub run_plotscript_SVG {
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
     }
-    
+
     # Generate barplot of taxonomy at level XX
     run_prog("plotscript_SVG",
-             "--bar $libraryNAME.phyloFlash.taxonsummary.csv ",
+             "--bar $libraryNAME.phyloFlash.taxonsummary.csv "
+             ."--title=\"Taxonomic summary from mapping to database\" ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
 }
