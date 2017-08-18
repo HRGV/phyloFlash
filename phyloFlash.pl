@@ -216,7 +216,7 @@ my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
-
+# default database names for EMIRGE and Vsearch
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
@@ -225,16 +225,21 @@ my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 # variables for report generation
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
+
 my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string         # To be replaced
 my @taxa_from_hitmaps_sorted;   # Sorted list of read counts                                            # To be replaced
 my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string  # To be replaced
 my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads                  # To be replaced
+
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
+
 my $taxon_report_lvl = 4;       # Taxonomic level to report counts
+
 my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting
 my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
+
 # mapping statistics parsed from BBmap output
 my $readnr = 0;
 my $readnr_pairs;
@@ -1720,9 +1725,7 @@ print {$fh} <<ENDHTML;
 <p>Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</p>
 ENDHTML
 
-#print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".inserthistogram.png\" />\n";
-#print {$fh} "<p><a href=\"".$libraryNAME.".inserthistogram.pdf\">PDF version</a></p>\n";
-print {$fh} "<img width=480 height=480 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
+print {$fh} "<embed width=240 height=240 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
 print {$fh} <<ENDHTML;
 </div>
 ENDHTML
@@ -1735,9 +1738,7 @@ print {$fh} <<ENDHTML;
 <p>Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</p>
 ENDHTML
 
-print {$fh} "<img width=480 height=480 src=\"".$libraryNAME.".idhistogram.svg\" />\n";
-#print {$fh} "<img width=660 height=480 src=\"".$libraryNAME.".idhistogram.png\" />\n";
-#print {$fh} "<p><a href=\"".$libraryNAME.".idhistogram.pdf\">PDF version</a></p>\n";
+print {$fh} "<embed width=240 height=240 src=\"".$libraryNAME.".idhistogram.svg\" />\n";
 print {$fh} <<ENDHTML;
 </div>
 
@@ -1802,7 +1803,7 @@ print {$fh} <<ENDHTML;
 <div id="taxa" class="more">
 ENDHTML
 print {$fh} "<p>Approximate overview of taxonomic composition, by mapping reads to database sequences and summarizing their taxonomy strings to taxon level $taxon_report_lvl.</p>\n";
-print {$fh} "<img height=480 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n";
+print {$fh} "<embed width=500 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n";
 print {$fh} "</div>\n";
 
 if ($skip_spades == 0) {
@@ -1920,9 +1921,7 @@ print {$fh} <<ENDHTML;
 <div id="tree" class="more">
 ENDHTML
 
-print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200 />\n";
-#print {$fh} "<img src=\"".$libraryNAME.".SSU.collection.fasta.tree.png\" />\n";
-#print {$fh} "<p><a href=\"".$libraryNAME.".SSU.collection.fasta.tree.pdf\">PDF version</a></p>\n";
+print {$fh} "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
 }
 
 print {$fh} <<ENDHTML;
