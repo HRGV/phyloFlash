@@ -10,7 +10,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile);
+my ($treefile, $histofile, $barfile, $piefile, $title);
 my $pipemode;
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
@@ -18,6 +18,7 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
+           "title=s" => \$title,            # Title for plot 
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 
@@ -36,30 +37,30 @@ if (defined $pipemode) {
     }
     # Process input depending on specified graphic type
     if ($pipemode eq "pie") {
-        do_pie_or_bar_chart (\@input_arr, "array", $dl, "pie");
+        do_pie_or_bar_chart (\@input_arr, "array", $dl, "pie", $title);
     } elsif ($pipemode eq "bar") {
-        do_pie_or_bar_chart (\@input_arr, "array", $dl, "bar");
+        do_pie_or_bar_chart (\@input_arr, "array", $dl, "bar", $title);
     }
 } else {
     # Otherwise in "file" mode read and write to specified files
     if (defined $histofile) {
-        do_histogram_plots($histofile);
+        do_histogram_plots($histofile, $title);
     }
     if (defined $treefile) {
         do_phylog_tree($treefile);
     }
     if (defined $barfile) {
-        do_pie_or_bar_chart($barfile, "file", $dl, "bar");
+        do_pie_or_bar_chart($barfile, "file", $dl, "bar", $title);
     }
     if (defined $piefile) {
-        do_pie_or_bar_chart($piefile, "file", $dl, "pie");
+        do_pie_or_bar_chart($piefile, "file", $dl, "pie", $title);
     }
 }
 
 ## SUBROUTINES FOR PIECHART ###################################################
 
 sub do_pie_or_bar_chart {
-    my ($input, $mode, $dl, $type) = @_;
+    my ($input, $mode, $dl, $type, $title) = @_;
     my $in_href;
     my $outname;
     my $outfh;
@@ -73,9 +74,9 @@ sub do_pie_or_bar_chart {
         $outfh = *STDOUT;
     }
     if ($type eq "pie") {
-        hash2pie ($in_href, $outfh);
+        hash2pie ($in_href, $outfh, $title);
     } elsif ($type eq "bar") {
-        hash2barchart ($in_href, $outfh);
+        hash2barchart ($in_href, $outfh, $title);
     }
     close ($outfh) if $mode eq "file";
 }
@@ -99,6 +100,7 @@ sub pc2xy {
 sub hash2pie {
     my ($csv_href,  # Name of input hash
         $fh,        # Filehandle for output print
+        $title,     # Title text, if available
         ) = @_;
 
     # Calculate cumulative percentages of input sorted by counts
@@ -109,12 +111,13 @@ sub hash2pie {
     my @cumul_pc_arr = @{$cumul_href->{"cumul_pc"}}; # Array of cumulative percentages
     my @pc_arr = @{$cumul_href->{"pc"}};
     my @counts_arr = @{$cumul_href->{"counts"}};     # Array of counts
+    my @colors_arr = @{$cumul_href->{"color"}} if defined $cumul_href->{"color"}; # Array of colors, if defined
 
     # SVG plot preferences
-    my $viewBox_width = 100;     # width
-    my $viewBox_height = 100;    # height
-    my $margin = 25;
-    my $font_size = 8;
+    my $viewBox_width = 150;     # width
+    my $viewBox_height = 150;    # height
+    my $margin = 35;
+    my $font_size = 10;
 
     # Take shorter dimension, and calculate the pie diameter and circumference
     my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;
@@ -123,6 +126,7 @@ sub hash2pie {
     my $cx = $viewBox_width / 2;
     my $cy = $viewBox_height / 2;
     my $circum = $diam * 3.14159265; # probably precise enough
+    #my $circum = $diam * 22 / 7; # probably not precise enough
     my $stroke_width = 0.75 * $rad; # stroke width is proportion of radius
 
     # Calculate stroke-dasharray and stroke-dashoffset
@@ -144,12 +148,30 @@ sub hash2pie {
                             "r=\"$rad\" ".
                             "fill=\"transparent\" ".
                             "stroke-width=\"$stroke_width\" ";
+    # Start SVG file
     print $fh $svg_open;
+    # Print title
+    if (defined $title) {
+        print $fh "<text ".
+                  "style=\"fill:black;font-size:$font_size;text-anchor:middle;font-weight:bold;\" ".
+                  "x=\"".($viewBox_width / 2)."\" ".
+                  "y=\"$font_size\" ".
+                  ">".
+                  $title.
+                  "</text>\n";
+    }
     for (my $i=0; $i <= $#labels_arr; $i++) {
-        my @rand_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
+        my $color;
+        if (defined $colors_arr[$i]) {
+            $color = $colors_arr[$i];
+        } else {
+            my @rand_colors = (int(rand(256)),int(rand(256)),int(rand(256)));
+            $color = join (",", @rand_colors);
+            $color = "rgb(".$color.")";
+        }
         print $fh "<circle class=\"donut-segment\" ".
                   $donut_std_params.
-                  "stroke=\"rgb(".join(",", @rand_colors).")\" ".
+                  "stroke=\"$color\" ".
                   "stroke-dasharray=\"".$dasharray_arr[$i]."\" ".
                   "stroke-dashoffset=\"".$dashoffset_arr[$i]."\" ".
                   "></circle>\n";
@@ -271,6 +293,7 @@ sub hash2barchart {
     # Read input
     my ($csv_href,       # Input CSV file
         $fh,            # Filehandle for output print
+        $title,         # Optional title
         ) = @_;
 
     # Set preferences
@@ -281,7 +304,7 @@ sub hash2barchart {
     my $orientation = "v";          # Horizontal (h) or vertical (v) alignment of figure long axis
     my $box_proportion = 0.10;      # Proportion of figure viewbox occupied by bar vs. text
     my $viewBox_longaxis = 300;     # Long dimension of the viewbox (parallel to main axis)
-    my $viewBox_shortaxis = 800;    # Short dimension of the viewbox (perpendicular to main axis)
+    my $viewBox_shortaxis = 350;    # Short dimension of the viewbox (perpendicular to main axis)
     my $margin = 5;
 
     # Calculate cumulative percentages of input sorted by counts
@@ -321,6 +344,7 @@ sub hash2barchart {
                 $viewBox_longaxis - $margin
                 ); # left right bottom top coordinates
     }
+    my @viewBox_arr = split " ", $viewBox;
 
     # Convert to coordinates
     my ($x0_rescale_aref, $y0_rescale_aref, $x1_rescale_aref, $y1_rescale_aref);
@@ -353,6 +377,15 @@ sub hash2barchart {
                      "stroke-width:1;";
 
     print $fh $svg_open;
+    # Print a title
+    print $fh "<text ".
+              "style=\"fill:black;text-anchor:middle;font-weight:bold;font-size:10px;\" ".
+              "x=\"".($viewBox_arr[2]/2)."\" ".
+              "y=\""."14"."\" ".
+              ">".
+              $title.
+              "</text>\n";
+
     foreach my $rect (sort {$a <=> $b} keys %rect_vals) {
         my @bar_colors;
         if ($rect_vals{$rect}{"label"} eq "Other taxa (below threshold)") {
@@ -451,11 +484,14 @@ sub hash2barchart {
 
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
-sub do_histogram_plots { # operates on global vars
-    my ($infile) = @_;
+sub do_histogram_plots {
+    my ($infile,    # Input filename
+        $title,     # Optional title
+        ) = @_;
 
     # SVG and Plot parameters for histograms
-    my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
+    my @viewBox_arr = (0, 0, 240, 240);         # Viewbox parameter for SVG header - x y width height
+    my $viewBox = join " ", @viewBox_arr;
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
                                          # left right bottom top - NB: DIFFERENT FROM VIEWBOX -
@@ -468,6 +504,15 @@ sub do_histogram_plots { # operates on global vars
     open (my $histo_fh, ">", $infile_out)    # Open file for printing
         or die ("Cannot write to output file $infile_out: $!");
     print $histo_fh $svg_open;                  # Print SVG header
+    if (defined $title) {                       # Print title if defined
+        print $histo_fh "<text ".
+                        "style=\"fill:black;font-size:14;text-anchor:middle;font-weight:bold;\" ".
+                        "x=\"".($viewBox_arr[2]/2)."\" ".
+                        "y=\"28\" ".
+                        ">".
+                        $title.
+                        "</text>\n";
+    }
     draw_histogram ($viewBox, \@box_coords, \%histo_hash, $fill_style, $histo_fh, $nbreaks);
     print $histo_fh "</svg>\n";                 # Closing SVG tag
     close ($histo_fh);                          # Close file
