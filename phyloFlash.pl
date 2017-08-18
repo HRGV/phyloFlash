@@ -2039,8 +2039,8 @@ readsam();
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
-    #spades_run();
-    #spades_parse();
+    spades_run();
+    spades_parse();
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
