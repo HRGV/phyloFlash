@@ -158,7 +158,7 @@ sub csv2barchart {
         ) = @_;
 
     # Set preferences
-    my $maxprop = 0.8;              # Maximum cumulative percentile to display taxonomic breakdown
+    my $maxprop = 1;              # Maximum cumulative percentile to display taxonomic breakdown
     my $minprop = 1 - $maxprop;
 
     # SVG plot preferences
@@ -231,10 +231,14 @@ sub csv2barchart {
         $rect_vals{$i}{"y"} = $y1_rescale_aref->[$i];
         $rect_vals{$i}{"height"} = abs($y0_rescale_aref->[$i] - $y1_rescale_aref->[$i]);
         $rect_vals{$i}{"counts"} = $counts_arr[$i];
+        $rect_vals{$i}{"id"} = "rect$i";    # ID of rect object in SVG file
     }
 
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
-    my $style_base = "fill-opacity:0.5;stroke:rgb(0,0,0);stroke-width:1;"; # Style for histogram bars
+    #my $style_base = "fill-opacity:0.5;stroke:rgb(0,0,0);stroke-width:1;"; # Style for histogram bars
+    my $style_base = "fill-opacity:0.5;".
+                     #"stroke:rgb(0,0,0);".
+                     "stroke-width:1;";
 
     print $fh $svg_open;
     foreach my $rect (sort {$a <=> $b} keys %rect_vals) {
@@ -248,36 +252,76 @@ sub csv2barchart {
         my $bar_color="fill:rgb(".join(",",@bar_colors).");";
         my $style=$style_base.$bar_color;
         print $fh "<rect ".
+                  "id=\"".$rect_vals{$rect}{"id"}."\" ".
                   "x=\"".$rect_vals{$rect}{"x"}."\" ".
                   "y=\"".$rect_vals{$rect}{"y"}."\" ".
                   "width=\"".$rect_vals{$rect}{"width"}."\" ".
                   "height=\"".$rect_vals{$rect}{"height"}."\" ".
                   "style=\"$style\" ".
+                  "onmouseover=\"evt.target.setAttribute('stroke','red');\" ". # Surrounded by red border on mouseover
+                  "onmouseout=\"evt.target.setAttribute('stroke','none');\" ".
                   "/>\n";
         # Print taxonomy string label
         my ($x_text, $y_text);
         my ($x_text_counts, $y_text_counts);
         my $font_size =  8;
-        my $text_style_base = "fill:black;font-size:".$font_size."px;";
+        #my $text_style_base = "fill:black;font-size:".$font_size."px;";
+        my $text_style_base = "fill:black;";
         my $text_style;
+
+        # If bars are too narrowly spaced, make text more transparent and
+        # smaller, but expand size and grow opaque on mouseover of bars for clarity
+        # Tips from: http://www.petercollingridge.co.uk/data-visualisation/mouseover-effects-svgs
+        # Optional params to make text smaller font size if bars too narrowsly spaced
+        my $mouseover = "<set attributeName=\"font-size\" ".
+                        "to=\"$font_size\" ".
+                        "begin=\"".$rect_vals{$rect}{"id"}.".mouseover\" ".
+                        "end=\"".$rect_vals{$rect}{"id"}.".mouseout\" ".
+                        "/>";
+        # ALL text labels set to fully opaque on mouseover of bar
+        my $attr_text = "<set attributeName=\"fill-opacity\" ".
+                        "to=\"1\" ".
+                        "begin=\"".$rect_vals{$rect}{"id"}.".mouseover\" ".
+                        "end=\"".$rect_vals{$rect}{"id"}.".mouseout\" ".
+                        "/>";
+        my $text_test_dimension;
+
         if ($orientation eq "h") {
             $text_style = $text_style_base."writing-mode:tb;";
             $x_text = $margin + $rect_vals{$rect}{"x"} + $rect_vals{$rect}{"width"}/2;
             $y_text = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"} + $font_size;
             $x_text_counts = $x_text;
             $y_text_counts = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"}/2;
+            $text_test_dimension = $rect_vals{$rect}{"width"};
         } elsif ($orientation eq "v") {
             $text_style = $text_style_base;
             $x_text = $margin + $rect_vals{$rect}{"width"} + $font_size;
             $y_text = $margin + $rect_vals{$rect}{"y"} + $rect_vals{$rect}{"height"} / 2;
             $x_text_counts = $margin + $rect_vals{$rect}{"width"} / 2;
             $y_text_counts = $y_text;
+            $text_test_dimension = $rect_vals{$rect}{"height"};
         }
+
+        # Check if bars are too narrow
+        if ($text_test_dimension < $font_size) {
+            # If bars are too narrow, set text labels to be shorter/thinner
+            $attr_text = $attr_text.$mouseover;
+            my $new_opacity = 0.5 * ($text_test_dimension / $font_size);
+            $text_style = $text_style."fill-opacity:$new_opacity;";
+            $text_style = $text_style."font-size:".$text_test_dimension."px;";
+        } else {
+            # All text labels are of 0.6 opacity to begin with, for animation
+            # to be more consistent to the eye
+            $text_style = $text_style."fill-opacity:0.6;";
+            $text_style = $text_style."font-size:".$font_size."px;";
+        }
+
         print $fh "<text ".
                   "x=\"$x_text\" ".
                   "y=\"$y_text\" ".
                   "style=\"$text_style"."text-anchor:left;\" ".
                   ">".
+                  $attr_text. # Attribute effects on mouseover
                   $rect_vals{$rect}{"label"}.
                   "</text>\n";
         # Print counts labels
@@ -286,6 +330,7 @@ sub csv2barchart {
                   "y=\"$y_text_counts\" ".
                   "style=\"$text_style;text-anchor:middle;\" ".
                   ">".
+                  $attr_text. # Attribute effects on mouseover
                   $rect_vals{$rect}{"counts"}.
                   "</text>\n";
     }
