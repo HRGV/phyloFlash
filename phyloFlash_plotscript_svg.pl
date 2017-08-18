@@ -11,7 +11,7 @@ use Getopt::Long;
 # Input arguments
 my ($treefile, $histofile, $barfile);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
-GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT 
+GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|h=s" => \$barfile,          # Table of counts to make barplot
            "breakpoints|b=i" => \$nbreaks,   # Optional: manually specify number of breakpoints in histogram (e.g. 30)
@@ -40,6 +40,116 @@ sub do_barchart {
     close($fhout);
 }
 
+sub csv2pie {
+    my ($infile,    # Name of input file
+        $fh,        # Filehandle for output print
+        $delim      # Delimiter for input (either "Tab" or "comma")
+        ) = @_;
+
+    my %hash;       # Hash to store data
+    # Read CSV file and return hash keyed by col 1 with val from col 2
+    open (IN, "<", $infile) or die ("Cannot open file $infile: $!");
+    while (<IN>) {
+        chomp;
+        my @splitline = split "$delim";
+        $hash{$splitline[0]} = $splitline[1];
+    }
+    close(IN);
+
+    # SVG plot preferences
+    my $viewBox_width = 400;     # width
+    my $viewBox_height = 400;    # height
+    my $margin = 5;
+
+    my $minprop = 0;
+
+    # Take shorter dimension, and calculate the pie diameter and circumference
+    my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;
+    $diam = $diam - 2 * $margin;
+    my $rad = $diam / 2;
+    my $center_x = $viewBox_width / 2;
+    my $center_y = $viewBox_height / 2;
+    my $circum = $diam * 3.14159265; # probably precise enough
+}
+
+sub csv2hash {
+    my ($infile, $delim) = @_;
+    my %hash;
+    open (IN, "<", $infile) or die ("Cannot open file $infile for reading: $!");
+    while (<IN>) {
+        chomp;
+        my @splitline = split "$delim";
+        $hash{$splitline[0]} = $splitline[1];
+    }
+    close(IN);
+    return (\%hash);
+}
+
+sub counthash_cumul_sum {
+    my ($inhref,    # Ref to hash of raw counts (keyed by label)
+        $maxprop,   # Maximum cumulative percentile to display taxonomic breakdown (<= 1)
+        $sortby,    # Sort by what? either "counts" or "name"
+        ) = @_;
+
+    # Initialize variables
+    my $minprop = 1 - $maxprop;
+    my $total = 0;
+    my %valhash;
+    # Sort input by either counts or names
+    my $running_total = 0;
+    my @sortkey;
+    if ($sortby eq "counts") {
+        @sortkey = sort {$inhref->{$b} <=> $inhref->{$a}} keys %$inhref;
+    }  elsif ($sortby eq "name") {
+        @sortkey = sort {$a cmp $b} keys %$inhref;
+    }
+    # Add up total
+    foreach my $key (@sortkey) {
+        $total += $inhref->{$key};
+    }
+    # Add up cumulative totals
+    my $index = 0;
+    my $last_index;
+    my @labels_arr;     # Array of text labels
+    my @pc_arr;         # Array of percentages
+    my @cumul_pc_arr;   # Array of cumulative percentages
+    my @counts_arr;     # Array of raw counts
+    my $other_count = 0;
+    for (my $i=0; $i <= $#sortkey; $i++) {
+        $valhash{$sortkey[$i]}{"raw"} = $inhref->{$sortkey[$i]};
+        $running_total += $valhash{$sortkey[$i]}{"raw"}; # Update cumulative total
+        $valhash{$sortkey[$i]}{"cumul"}  = $running_total;
+        # Convert values to fractions of total
+        $valhash{$sortkey[$i]}{"pc"} = $valhash{$sortkey[$i]}{"raw"} / $total;
+        $valhash{$sortkey[$i]}{"cumul_pc"} = $valhash{$sortkey[$i]}{"cumul"} / $total;
+        my $leftover = 1;
+        $leftover = 1 - $valhash{$sortkey[$i-1]}{"cumul_pc"} if $i > 0; # Some gymnastics
+        unless ($leftover < $minprop) {
+            push @labels_arr, $sortkey[$i];
+            push @pc_arr, $valhash{$sortkey[$i]}{"pc"};
+            push @cumul_pc_arr, $valhash{$sortkey[$i]}{"cumul_pc"};
+            push @counts_arr, $valhash{$sortkey[$i]}{"raw"};
+        } else {
+            # If there are taxa below minimum cumulative count, add counts to group "other"
+            $other_count += $valhash{$sortkey[$i]}{"raw"};
+        }
+    }
+    # Add last value for "Other" if it is defined
+    if ($other_count > 0) {
+        push @labels_arr, "Other taxa (below threshold)";
+        push @cumul_pc_arr, 1;
+        push @pc_arr, 1 - $#cumul_pc_arr;
+        push @counts_arr, $other_count;
+    }
+    # Output is a hash of array references - this is necessary to preserve sort order
+    my %outhash = ("labels" => \@labels_arr,
+                   "cumul_pc" => \@cumul_pc_arr,
+                   "pc" => \@pc_arr,
+                   "counts" => \@counts_arr);
+
+    return (\%outhash);
+}
+
 sub csv2barchart {
     # Read input
     my ($infile,        # Input CSV file
@@ -50,67 +160,26 @@ sub csv2barchart {
     # Set preferences
     my $maxprop = 0.8;              # Maximum cumulative percentile to display taxonomic breakdown
     my $minprop = 1 - $maxprop;
-    
+
     # SVG plot preferences
     my $orientation = "v";          # Horizontal (h) or vertical (v) alignment of figure long axis
     my $box_proportion = 0.10;      # Proportion of figure viewbox occupied by bar vs. text
     my $viewBox_longaxis = 300;     # Long dimension of the viewbox (parallel to main axis)
     my $viewBox_shortaxis = 800;    # Short dimension of the viewbox (perpendicular to main axis)
     my $margin = 5;
-    
-    # Initialize variables
-    my $total = 0;
-    my %valhash;
-    
+
     # Get input
-    my $fhin;
-    open($fhin, "<", $infile) or die ("Cannot open $infile for reading: $!");
-    while (<$fhin>){
-        chomp;
-        my @line;
-        if (defined $delim && $delim eq "tab") {
-            @line = split /\t/; # TSV formatted input
-        } else { 
-            @line = split /,/; # CSV formatted input by default 
-        }
-        $valhash{$line[0]}{"raw"} = $line[1];
-        $total += $line[1];
-    }
-    close($fhin);
-    
-    # Calculate cumulative total
-    my $running_total;
-    my @sortkey = sort {$valhash{$b}{"raw"} <=> $valhash{$a}{"raw"}} keys %valhash;
-    my $index = 0;
-    my $last_index;
-    my @labels_arr;     # Array of text labels
-    my @x1_arr;         # Array of values for right side of bars
-    my @counts_arr;     # Array of counts
-    my $other_count = 0;
-    for (my $i=0; $i <= $#sortkey; $i++) {
-        $running_total += $valhash{$sortkey[$i]}{"raw"}; # Update cumulative total
-        $valhash{$sortkey[$i]}{"cumul"}  = $running_total;
-        # Convert values to fractions of total
-        $valhash{$sortkey[$i]}{"pc"} = $valhash{$sortkey[$i]}{"raw"} / $total;
-        $valhash{$sortkey[$i]}{"cumul_pc"} = $valhash{$sortkey[$i]}{"cumul"} / $total;
-        my $leftover = 1;
-        $leftover = 1 - $valhash{$sortkey[$i-1]}{"cumul_pc"} if $i > 0; # Some gymnastics
-        unless ($leftover < $minprop) {
-            push @labels_arr, $sortkey[$i];
-            push @x1_arr, $valhash{$sortkey[$i]}{"cumul_pc"};
-            push @counts_arr, $valhash{$sortkey[$i]}{"raw"};
-        } else {
-            # If there are taxa below minimum cumulative count, add counts to group "other"
-            $other_count += $valhash{$sortkey[$i]}{"raw"};
-        }
-    }
-    # Add last value for "Other" if it is defined
-    if ($other_count > 0) {
-        push @labels_arr, "Other taxa (below threshold)";
-        push @x1_arr, 1;
-        push @counts_arr, $other_count;
-    }
-    
+    my $dl = defined $delim && $delim eq "tab" ? "\t" : ",";
+    my $csv_href = csv2hash ($infile, $dl);
+
+    # Calculate cumulative percentages of input sorted by counts
+    my $cumul_href = counthash_cumul_sum ($csv_href, $maxprop, "counts");
+
+    # Dereference output into arrays for plotting
+    my @labels_arr = @{$cumul_href->{"labels"}};     # Array of text labels
+    my @x1_arr = @{$cumul_href->{"cumul_pc"}};         # Array of values for right side of bars
+    my @counts_arr = @{$cumul_href->{"counts"}};     # Array of counts
+
     # Generate array of values for left side of bars
     my @x0_arr = @x1_arr;
     pop @x0_arr;
@@ -118,12 +187,12 @@ sub csv2barchart {
     my @widths_arr;
     my @y0_arr = (0) x scalar @x0_arr;
     my @y1_arr = (1) x scalar @x1_arr;
-    
+
     # SVG plot parameters
     my @boxval = (0, 1, 0, 1);
     my $viewBox;
     my @box;
-    
+
     if ($orientation eq "h") { # for horizontal bars
         $viewBox = "0 0 $viewBox_longaxis $viewBox_shortaxis"; # x y width height
         @box = ($margin,
@@ -140,7 +209,7 @@ sub csv2barchart {
                 $viewBox_longaxis - $margin
                 ); # left right bottom top coordinates
     }
-    
+
     # Convert to coordinates
     my ($x0_rescale_aref, $y0_rescale_aref, $x1_rescale_aref, $y1_rescale_aref);
     if ($orientation eq "h") {
@@ -152,7 +221,7 @@ sub csv2barchart {
         ($x0_rescale_aref, $y0_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y0_arr, \@x1_arr);
         ($x1_rescale_aref, $y1_rescale_aref) = val2coord ($viewBox, \@box, \@boxval, \@y1_arr, \@x0_arr);
     }
-    
+
     # Create rectangle values
     my %rect_vals;
     for (my $i=0; $i <= $#labels_arr; $i++) {
@@ -163,10 +232,10 @@ sub csv2barchart {
         $rect_vals{$i}{"height"} = abs($y0_rescale_aref->[$i] - $y1_rescale_aref->[$i]);
         $rect_vals{$i}{"counts"} = $counts_arr[$i];
     }
-    
+
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my $style_base = "fill-opacity:0.5;stroke:rgb(0,0,0);stroke-width:1;"; # Style for histogram bars
-    
+
     print $fh $svg_open;
     foreach my $rect (sort {$a <=> $b} keys %rect_vals) {
         my @bar_colors;
@@ -228,14 +297,14 @@ sub csv2barchart {
 
 sub do_histogram_plots { # operates on global vars
     my ($infile) = @_;
-    
+
     # SVG and Plot parameters for histograms
     my $viewBox = "0 0 240 240";         # Viewbox parameter for SVG header - x y width height
-    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n"; 
+    my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
-                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX - 
+                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX -
     my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
-    
+
     # Plot histogram
     my $infile_out = "$infile.svg";       # Append .svg to get output file name
     my %histo_hash;                             # Define hash to hold data
@@ -496,7 +565,7 @@ sub val2coord { # VALUE TO COORD SPACE
     my $vheight = $vtop - $vbottom;
     my @xcoords =  map {$cleft + ($_ - $vleft ) * ($cwidth / $vwidth)} @xvals;
     my @ycoords = map {$vb_height - $cbottom - ($_ * ($cheight / $vheight))} @yvals;
-    return (\@xcoords, \@ycoords); 
+    return (\@xcoords, \@ycoords);
 }
 
 sub rect_params { # COORD SPACE
@@ -532,7 +601,7 @@ sub do_phylog_tree { # Global vars
     close(IN);
     my $treefile_out = "$infile.svg"; # Append .svg suffix to infile name for output
     my $treestr = join "", @treearr; # Concatenate all lines of Newick file into a single string
-    
+
     draw_tree($treestr, $treefile_out);
 
 }
@@ -544,21 +613,21 @@ sub draw_tree {
 
     # Parse Newick file to get tree node info
     my ($nodes_href, $taxa_href) = newick2tables ($treestr);
-    
+
     #dump_node_data($nodes_href); # diagnostics
-    #dump_taxon_data($taxa_href); # diagnostics 
-    
+    #dump_taxon_data($taxa_href); # diagnostics
+
     # SVG and Plot parameters for tree
     my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 400);
     # Count number of taxa to calculate image height
     my $num_taxa = scalar (keys %$taxa_href);
     if ($num_taxa > 10) {   # Make image larger if number of taxa is large
-        $vb_height = 40*$num_taxa; 
+        $vb_height = 40*$num_taxa;
     }
     my $viewBox = join " ", ($vb_x, $vb_y, $vb_width, $vb_height); # Viewbox parameter for SVG header
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my $linestyle = "stroke:rgb(0,0,0);stroke-width:1"; # Style for drawing lines
-    
+
     # Find the highest cumulative branchlength, to scale the brlen parameters for plotting
     # Find also the length of longest taxon name to scale font size for legibility
     my @brlens;
@@ -577,11 +646,11 @@ sub draw_tree {
         $fontsize = 4;
     }
     my $textwidth = $fontsize/2 * $textlength;
-    
+
     # Adjust proportion of plot taken up by tree branches according to the space occupied by tree
     my $treewidth = $vb_width - $textwidth;
     my $br_scalefactor = $treewidth/max(@brlens);
-    
+
     # Draw SVG and write to file
     open(my $fh, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     print $fh $svg_open;
@@ -636,7 +705,7 @@ sub draw_node {
         $sf,        # branch length scale factor
         $style,     # SVG line style
         $handle     # File handle for print
-        ) = @_; 
+        ) = @_;
     my @param_names = qw (vpos leftdesc_vpos rightdesc_vpos cumul_brlen brlen);
     my @params;
     foreach my $pname (@param_names) {
@@ -677,11 +746,11 @@ sub newick2tables {
     my ($treestr) = @_;
     # Split tree into array of elements
     my @treesplit = split /(?=[\(\,\)])/, $treestr;
-    
+
     # Hashes to hold parameters parsed from Newick tree
     my %nodes;
-    my %taxa;    
-    
+    my %taxa;
+
     # State variables and initialize
     my ($parent, $currtax);
     my ($currnode, $nodecount, $taxcount) = (0, 0, 0);
@@ -693,7 +762,7 @@ sub newick2tables {
     $nodes{"0"}{"rightdesc"} = 1;
     $nodes{"0"}{"brlen"} = 0;
     $nodes{"0"}{"cumul_brlen"} = 0;
-    
+
     foreach my $line (@treesplit) {
         #print STDERR "$line\n";
         if ($line =~ m/^\($/) { # Lone open paren
@@ -714,10 +783,10 @@ sub newick2tables {
         #print STDERR join "\t", ($nodecount, $currnode, $parent);
         #print STDERR "\n";
     }
-    
+
     sum_cumul_brlen(\%nodes, \%taxa);      # Sum cumulative branchlengths (this can only be done after reading tree in)
     find_vertical_pos(\%nodes, \%taxa);    # Calculate vertical positions for node in plot - following Intermediate style
-    
+
     return (\%nodes, \%taxa);
 }
 
@@ -819,10 +888,10 @@ sub climbdown_node {
     # Updated state variables
     return ($cn, # $currnode
             $par # $parent
-            ); 
+            );
 }
 
-sub increment_node { 
+sub increment_node {
     my ($nc, $cn, $par, $nodes_href) = @_;
     $nc++;           # Increment node counter
     $par = $cn;    # Record parent node
@@ -838,7 +907,7 @@ sub increment_node {
     return ($nc, # nodecount
             $cn, # $currnode
             $par # $parent
-            ); 
+            );
 }
 
 sub increment_taxon {
@@ -857,5 +926,5 @@ sub increment_taxon {
     }
     # Updated state variables
     return ($tc # $taxcount
-            ); 
+            );
 }
