@@ -768,8 +768,8 @@ sub bbmap_fast_filter_parse {
         push @mapratio_csv, "Unmapped,".$1-$SSU_ratio;
         push @mapratio_csv, "Mapped,".$SSU_ratio;
     } elsif ($SEmode == 0) {
-        $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
-        $mapped_half = $ssu_f_reads + $ssu_r_reads - $ssu_pairs;
+        my $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
+        my $mapped_half = $ssu_f_reads + $ssu_r_reads - $ssu_pairs;
         push @mapratio_csv, "Unmapped,".$unmapped_seg;
         push @mapratio_csv, "Mapped pair,".$ssu_pairs;
         push @mapratio_csv, "Mapped single,".$mapped_half;
@@ -1554,8 +1554,8 @@ sub write_report_html {
         $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
     }
     if ($skip_spades + $skip_emirge == 2)  {
-        $suppress_flags("SUPPRESS_IF_NO_TREE") = 1;
-        $suppress_end_flags("SUPPRESS_IF_NO_TREE_END") = 1;
+        $suppress_flags{"SUPPRESS_IF_NO_TREE"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_NO_TREE_END"} = 1;
     }
     if ($SEmode == 1) {
         $suppress_flags{"SUPPRESS_IF_SE_READS"} = 1;
