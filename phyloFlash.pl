@@ -1544,7 +1544,7 @@ sub write_report_html_new {
             # Turn writing back on if optional section is finished
             $write_flag = 1 if (defined $suppress_end_flags{$flag});
         }
-        print OUT $line."\n" if ($write_flag == 1);
+        print $fh_out $line."\n" if ($write_flag == 1);
     }
     close($fh_out);
     close($fh_in);
@@ -2103,7 +2103,7 @@ write_csv();
 
 run_plotscript_SVG() if ($html_flag);
 #write_report_html()  if ($html_flag);
-write_report_html(
+write_report_html_new(
     $version,
     $libraryNAME,
     $id,
