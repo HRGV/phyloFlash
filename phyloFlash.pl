@@ -311,7 +311,7 @@ sub process_required_tools {
         awk => "awk",
         cat => "cat",
         plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R",
-	plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
+        plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
     );
     if ($skip_spades == 0) {
         require_tools(spades => "spades.py");
@@ -330,10 +330,10 @@ sub parse_cmdline {
                'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
                'dbhome=s' => \$DBHOME,
-	       'interleaved' => \$interleaved,
+               'interleaved' => \$interleaved,
                'readlength=i' => \$readlength,
                'readlimit=i' => \$readlimit,
-	       'amplimit=i' => \$amplimit,
+               'amplimit=i' => \$amplimit,
                'maxinsert=i' => \$maxinsert,
                'id=i' => \$id,
                'clusterid=i' => \$clusterid,
@@ -1468,6 +1468,110 @@ sub generate_treemap_data_rows {
   return @output;
 }
 
+sub write_report_html_new {
+    # Get input parameters
+    my ($version,
+        $libraryNAME,
+        $id,
+        $readsf_full,
+        $readnr,
+        $SSU_ratio,
+        $SSU_ratio_pc,
+        $SSU_total_pairs,
+        $skip_spades,
+        $skip_emirge,
+        $SEmode,
+        $treemap_flag,
+        ) = @_;
+    # Location of template file
+    my $template = "$FindBin::RealBin/phyloFlash_report_template.html",
+    msg ("Generating HTML-formatted report and graphics ... ");
+    my %flags;  # Hash to store substitution flags in template
+    # Hash parameters that are compulsory
+    %flags = (
+        "VERSION" => $version,
+        "LIBNAME" => $libraryNAME,
+        "ID" => $id,
+        "READSF_FULL" => $readsf_full,
+        "READNR" => $readnr,
+        "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$libraryNAME.".idhistogram.svg\" />\n",
+        #MAPRATIOPIE
+        "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n",
+        "SSU_RATIO" => $SSU_ratio, # Not in report?
+        "SSU_RATIO_PC" => $SSU_ratio_pc,
+        "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
+    );
+
+    # Define suppress flags (which turn off writing of report)
+    my %suppress_flags;
+    my %suppress_end_flags;
+
+    if ($skip_spades == 1) {
+        $suppress_flags{"SUPPRESS_IF_SKIP_SPADES"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_SKIP_SPADES_END"} = 1;
+    }
+    if ($skip_emirge == 1) {
+        $suppress_flags{"SUPPRESS_IF_SKIP_EMIRGE"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
+    }
+    if ($SEmode == 1) {
+        $suppress_flags{"SUPPRESS_IF_SE_READS"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_SE_READS_END"} = 1;
+    } elsif ($SEmode == 0) {
+        $suppress_flags{"SUPPRESS_IF_PE_READS"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_PE_READS_END"} = 1;
+    }
+    unless ($treemap_flag == 1) {
+        $suppress_flags{"SUPPRESS_IF_NO_TREEMAP"} = 1 ;
+        $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
+    }
+
+    # Open template and process output
+    my ($fh_in, $fh_out);
+    open_or_die(\$fh_in, "<", $template);
+    open_or_die(\$fh_out, ">", "$libraryNAME.phyloFlash.newreport.html");
+    my $write_flag = 1;
+    while (my $line = <$fh_in>) {
+        chomp $line;
+        if ($line =~ m/<!--(.+)-->/) {
+            my $flag = $1;
+            if (defined $flags{$flag}) {
+                my $replace = $flags{$flag};
+                $line =~ s/<!--$flag-->/$replace/;
+            }
+            # Turn off writing if option not specified
+            $write_flag = 0 if (defined $suppress_flags{$flag});
+            # Turn writing back on if optional section is finished
+            $write_flag = 1 if (defined $suppress_end_flags{$flag});
+        }
+        print OUT $line."\n" if ($write_flag == 1);
+    }
+    close($fh_out);
+    close($fh_in);
+
+# Generate tables to be substituted
+# READ_MAPPING_NTU_TABLE
+
+#
+# ASSEMBLED_SSU_TABLE
+# ASSEMBLYRATIOPIE
+# ASSEM_RATIO
+# UNASSEMBLED_READS_TABLE
+# SEQUENCES_TREE
+#
+# EMIRGE_TABLE
+# INS_USED
+#
+# INSERTHISTOGRAM
+# INS_ME
+# INS_STD
+# READSR_FULL
+# "READNR_PAIRS" => $readnr_pairs,
+#
+# TREEMAPDATAROWS
+
+}
+
 sub write_report_html {
     # Generate HTML-formatted report file -- lots of blocks of verbatim HTML
     # in this section
@@ -1998,7 +2102,18 @@ print_report();
 write_csv();
 
 run_plotscript_SVG() if ($html_flag);
-write_report_html()  if ($html_flag);
+#write_report_html()  if ($html_flag);
+write_report_html(
+    $version,
+    $libraryNAME,
+    $id,
+    $readsf_full,
+    $readnr,
+    $SSU_ratio,
+    $SSU_ratio_pc,
+    $SSU_total_pairs,
+    $skip_spades, $skip_emirge, $SEmode, $treemap_flag # Flags
+    ) if $html_flag;
 #clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<!--
+LIBNAME - library name
+PFNAMEVER - phyloFlash name and version
+
+-->
+<html>
+<head>
+<title>phyloFlash results summary for library <!--LIBNAME--></title>
+
+<script language="javascript" type="text/javascript">
+// adapted from http://www.cssnewbie.com/example/showhide-content/
+function showHide(shID) {
+  if (document.getElementById(shID)) {
+    if (document.getElementById(shID).style.display == 'none') {
+      document.getElementById(shID).style.display = 'block';
+    }
+    else {
+      document.getElementById(shID).style.display = 'none';
+    }
+  }
+}
+</script>
+
+<!--SUPPRESS_IF_NO_TREEMAP-->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+google.charts.load('current', {'packages':['treemap']});
+google.charts.setOnLoadCallback(drawChart);
+function drawChart() {
+  var data = new google.visualization.DataTable();
+  data.addColumn('string','ID');
+  data.addColumn('string','Parent');
+  data.addColumn('number','NumReads');
+  data.addRows([
+<!--TREEMAPDATAROWS-->
+  ]);
+
+tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
+
+  tree.draw(data, {
+    minColor: '#009688',
+    midColor: '#f7f7f7',
+    maxColor: '#ee8100',
+    highlightOnMouseOver: true,
+    minHighlightColor: '#ee8100',
+    midHighlightColor: '#f7f7f7',
+    maxHighlightColor: '#009688',
+    maxPostDepth: 2,
+    headerHeight: 15,
+    fontColor: 'black',
+    showScale: false,
+    generateTooltip: showFullTooltip
+  });
+
+  function showFullTooltip(row,size,value) {
+    return '<div style="background:white; padding:10px; border-style:none">' +
+    '<b>' + data.getValue(row, 0) + '</b><br>' +
+    'Total reads: ' + size + '</div>';
+  }
+
+}
+</script>
+<!--SUPPRESS_IF_NO_TREEMAP_END-->
+
+<style type="text/css">
+  body {
+    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;}
+
+  th {
+    background-color: #dee;
+    padding: .5em .5em .5em .5em;
+    font-weight: bold;}
+  td {
+    padding: 0em .5em 0em .5em;}
+
+  table.slimTable th {
+    padding: 0em .5em 0em .5em;
+    font-weight: normal;
+    text-align: right;}
+
+  .withHoverText {
+    text-decoration: none;
+    border-bottom: 1px grey dotted;}
+
+  .more { display: none; }
+  a.showLink { text-decoration: none; }
+  a.showLink:link { color: grey; }
+  a.showLink:visited { color: grey; }
+  a.showLink:hover { color: white;
+    background-color: grey; }
+
+  .suppress {
+    display: none; }
+
+  .fullwidth {
+    max-width: 1600px;
+    width: 100%;
+    margin: 0;
+    padding: 0px;
+    border: 0px solid grey; }
+  .col1, .col2, .col3 {
+    display: inline-block;
+    vertical-align: top;
+    padding: 0px;
+    margin: 0;
+    border: 0px solid grey; }
+  .col1 { width:20%; }
+  .col2 { width:20%; }
+  .col3 { width:50%; }
+  .tooltip .tooltiptext {
+    position: relative;
+    display: inline-block;
+    visibility: hidden;
+    width: 200px;
+    margin-left: -200px;
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    text-align: left;
+    padding: 5px;
+    font-size:12px;
+    position: absolute;
+    z-index: 1; }
+  .tooltip:hover .tooltiptext {
+    visibility:visible; }
+</style>
+</head>
+<body>
+
+<h3><a href="https://github.com/HRGV/phyloFlash"><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+<p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
+
+<h1>Library name: <!--LIBNAME--></h1>
+
+<h2>Graphical Summary</h2>
+<div class="fullwidth">
+  <div class="col1">
+    <div class="tooltip"><!--IDHISTOGRAM--><span class="tooltiptext">Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</span></div>
+<!--SUPPRESS_IF_SE_READS-->
+    <div class="tooltip"><!--INSERTHISTOGRAM--><span class="tooltiptext">Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</span></div>
+<!--SUPPRESS_IF_SE_READS_END-->
+  </div>
+  <div class="col2">
+    <div class="tooltip"><!--MAPRATIOPIE--><span class="tooltiptext">Proportion of reads mapped to SSU rRNA database. Typically < 1% for metagenomes, ca. 20% for metatranscriptomes without rRNA depletion or poly-A selection.</span></div>
+<!--SUPPRESS_IF_SKIP_SPADES-->
+    <div class="tooltip"><!--ASSEMBLYRATIOPIE--><span class="tooltiptext">Proportion of reads assembled to full-length sequences. High proportion unassembled suggest either assembly failure or high diversity of organisms with low coverage.</span></div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+  </div>
+  <div class="col3">
+    <!--TAXONSUMMARYBAR-->
+  </div>
+</div>
+
+<h2>Parameters</h2>
+
+<h3>Input files</h3>
+<table class="slimTable">
+  <tr>
+    <th>Forward read file</th>
+    <td><!--READSF_FULL--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Reverse read file</th>
+    <td><!--READSR_FULL--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+</table>
+
+<h3>Mapping parameters</h3>
+<table class="slimTable">
+  <tr>
+    <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
+    <td><!--ID-->%</td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Input PE-reads</th>
+    <td><!--READNR_PAIRS--></td>
+  </tr>
+  <tr>
+    <th>Mapped SSU read pairs</th>
+    <td><!--SSU_TOTAL_PAIRS--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+<!--SUPPRESS_IF_PE_READS-->
+  <tr>
+    <th>Input SE-reads</th>
+    <td><!--READNR--></td>
+  </tr>
+  <tr>
+    <th>Mapped SSU SE-reads</th>
+    <td><!--SSU_TOTAL_PAIRS--></td>
+  </tr>
+<!--SUPPRESS_IF_PE_READS_END-->
+  <tr>
+    <th><span class="withHoverText" title="Fraction of library mapping to SSU references">Mapping ratio</span></th>
+    <td><!--SSU_RATIO_PC-->%</td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES-->
+  <tr>
+    <th><span class="withHoverText" title="Fraction of extracted sequences assembled">Fraction assembled</span></th>
+    <td><!--ASSEM_RATIO--></td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Detected median insert size</th>
+    <td><!--INS_ME--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+  <tr>
+    <th>Used insert size</th>
+    <td><!--INS_USED--></td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Insert size standard deviation</th>
+    <td><!--INS_STD--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+</table>
+
+<h3>Output files</h3>
+<table class="slimTable">
+  <tr>
+    <th>PhyloFlash report (plaintext)</th>
+    <td><!--LIBNAME-->.phyloFlash</td>
+  </tr>
+  <tr>
+    <th>PhyloFlash report (HTML)</th>
+    <td><!--LIBNAME-->.phyloFlash.html</td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Insert size histogram (plaintext)</th>
+    <td><!--LIBNAME-->.inserthistogram</td>
+  </tr>
+  <tr>
+    <th>Insert size histogram (graphics)</th>
+    <td><!--LIBNAME-->.inserthistogram.svg</td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Mapping identity histogram (plaintext)</th>
+    <td><!--LIBNAME-->.idhistogram</td>
+  </tr>
+  <tr>
+    <th>Mapping identity histogram (graphics)</th>
+    <td><!--LIBNAME-->.idhistogram.svg</td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES-->
+  <tr>
+    <th>Tree of recovered SSU sequences (Newick)</th>
+    <td><!--LIBNAME-->.SSU.collection.fasta.tree</td>
+  </tr>
+  <tr>
+    <th>Tree of recovered SSU sequences (graphics)</th>
+    <td><!--LIBNAME-->.SSU.collection.fasta.tree.svg</td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+</table>
+
+<h2>Results</h2>
+<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
+<div id="taxa" class="more">
+<!--READ_MAPPING_NTU_TABLE-->
+</div>
+
+<!--SUPPRESS_IF_SKIP_SPADES-->
+<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
+<div id="spades" class="more">
+<table>
+<!--ASSEMBLED_SSU_TABLE-->
+</table>
+</div>
+
+<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
+<div id="unassemtaxa" class="more">
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences. Only displaying taxa with > 3 reads mapped.</p>
+<table>
+<!--UNASSEMBLED_READS_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU reconstruction based taxa</a></h3>
+<div id="emirge" class="more">
+<table>
+<!--EMIRGE_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+
+<!--SUPPRESS_IF_SKIP_SPADES-->
+<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Combined tree of sequences</a></h3>
+<div id="tree" class="more">
+<!--SEQUENCES_TREE-->
+</div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+
+<!--SUPPRESS_IF_NO_TREEMAP-->
+<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
+  <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
+  <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
+  <div id="chart_div" style="width: 900px; height: 500px;"></div>
+  <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
+<!--SUPPRESS_IF_NO_TREEMAP_END-->
+
+<h4>Please cite...</h4>
+<p>List of citations including dependencies</p>
+</body>
+</html>
