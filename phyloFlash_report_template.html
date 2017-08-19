@@ -265,8 +265,16 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
+<p>Approximate overview of taxonomic composition of ALL reads, based on mapping to SSU rRNA database.
+<p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
 <div id="taxa" class="more">
+  <table>
+    <tr>
+      <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
+      <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
+    </tr>
 <!--READ_MAPPING_NTU_TABLE-->
+  </table>
 </div>
 
 <!--SUPPRESS_IF_SKIP_SPADES-->
@@ -289,7 +297,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
-<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences. Only displaying taxa with > 3 reads mapped.</p>
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences.</p>
+<p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
 <table>
   <tr>
     <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>

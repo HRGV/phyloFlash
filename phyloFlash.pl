@@ -1473,7 +1473,9 @@ sub write_report_html_new {
         $ins_me,$ins_std,$ins_used,
         $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
         $skip_spades, $skip_emirge, $treemap_flag,
+        $taxon_report_lvl,
         $mapstats_href,
+        $taxa_summary_href,
         $taxa_unassem_summary_href,
         $ssuassem_results_sorted_aref,
         $ssurecon_results_sorted_aref,
@@ -1495,6 +1497,7 @@ sub write_report_html_new {
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
+        "TAX_REPORT_LVL" => $taxon_report_lvl,
     );
 
     # Define suppress flags (which turn off writing of report)
@@ -1521,6 +1524,19 @@ sub write_report_html_new {
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
 
+    # Table of taxonomic affiliations
+    my @table_db_map;
+    my @taxkeys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
+    foreach my $key (@taxkeys) {
+        if ($taxa_summary_href->{$key} > 3) { # Only display those with at least three reads mapping
+            push @table_db_map, "  <tr>\n";   # Start HTML table row
+            push @table_db_map, "    <td>".$key."</td>\n"; # Taxon name
+            push @table_db_map, "    <td>".$taxa_summary_href->{$key}."</td>\n"; # Count
+            push @table_db_map, "  </tr>\n";
+        }
+    }
+    $flags{"READ_MAPPING_NTU_TABLE"} = join "", @table_db_map;
+
     # Data rows for Treemap
     if ($treemap_flag == 1) {
         my @treemap_output_array = generate_treemap_data_rows(); # TO DO - scope this fn
@@ -1538,7 +1554,7 @@ sub write_report_html_new {
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
         #$flags{"ASSEMBLYRATIOPIE"};
-        $flags{"ASSEM_RATIO"} = $mapstats->{"assem_ratio"};
+        $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio"};
         $flags{"SEQUENCES_TREE"} = "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
 
         # Table of assembled SSU sequences
@@ -1616,9 +1632,6 @@ sub write_report_html_new {
     }
     close($fh_out);
     close($fh_in);
-
-# Generate tables to be substituted
-# READ_MAPPING_NTU_TABLE
 
 }
 
@@ -2161,7 +2174,9 @@ write_report_html_new(
     $ins_me,$ins_std,$ins_used,
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
     $skip_spades, $skip_emirge, $treemap_flag, # flags
-    \%ssu_sam_mapstats, # mapstats_href
+    $taxon_report_lvl,
+    \%ssu_sam_mapstats, # $mapstats_href
+    $taxa_summary_href,
     $taxa_unassem_summary_href,
     \@ssuassem_results_sorted, # ssuassem_results_sorted_aref
     \@ssurecon_results_sorted, # ssurecon_results_sorted_aref
