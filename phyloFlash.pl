@@ -222,6 +222,8 @@ my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
 
 my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 
+my %outfiles;           # Hash to keep track of output files
+
 # variables for report generation
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
@@ -447,6 +449,12 @@ sub parse_cmdline {
     # check surplus arguments
     err("Command line contains extra words:", @ARGV)
         if ($ARGV[0]);
+
+    # populate hash to keep track of output files
+    my $outfiles_href = initialize_infiles_hash($libraryNAME,$readsf);
+    %outfiles = %$outfiles_href;
+    # use hash to keep track of output file description, filename,
+    # whether it should be deleted at cleanup, and if file was actually created
 }
 
 sub print_report {
@@ -454,7 +462,8 @@ sub print_report {
 
     msg("writing final files...");
     my $fh;
-    open_or_die(\$fh, '>', $libraryNAME.'.phyloFlash');
+    open_or_die(\$fh, '>', $outfiles{"report"}{"filename"});
+    $outfiles{"report"}{"made"} = 1;
 
     print {$fh} qq ~
 $version - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)
@@ -587,7 +596,8 @@ sub write_csv {
         "NTU Chao1 richness estimate",$chao1
     ));
 
-    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.report.csv");
+    open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
+    $outfiles{"report_csv"}{"made"} = 1;
     while ($#report > 0) {
         print {$fh} shift(@report).",".shift(@report).$crlf;
     }
