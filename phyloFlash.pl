@@ -1030,15 +1030,15 @@ sub bbmap_spades_out {
     msg("mapping extracted SSU reads back on assembled SSU sequences");
     my $args = ""; # Check whether running in PE or SE mode
     if ($SEmode == 0) {
-    if ($interleaved == 1) {
-        $args =
-        "  interleaved=t "
-        . "pairlen=$maxinsert ";
-    } else {
-        $args =
-        "  in2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert ";
-    }
+        if ($interleaved == 1) {
+            $args =
+            "  interleaved=t "
+            . "pairlen=$maxinsert ";
+        } else {
+            $args =
+            "  in2=$libraryNAME.$readsf.SSU.2.fq "
+            . "pairlen=$maxinsert ";
+        }
     }
     run_prog("bbmap",
          "  fast=t "
@@ -1662,6 +1662,8 @@ readsam();
 if ($skip_spades == 0) {
     spades_run();
     spades_parse();
+    bbmap_spades_out();
+    taxonomy_spades_unmapped();
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
@@ -1670,8 +1672,6 @@ if ($skip_emirge == 0) {
 }
 # If at least one of either SPAdes or Emirge is activated, parse results
 if ($skip_spades + $skip_emirge < 2) {
-    bbmap_spades_out();
-    taxonomy_spades_unmapped();
     vsearch_best_match();
     vsearch_parse();
     vsearch_cluster();
