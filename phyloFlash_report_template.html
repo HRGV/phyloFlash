@@ -1,9 +1,4 @@
 <!DOCTYPE html>
-<!--
-LIBNAME - library name
-PFNAMEVER - phyloFlash name and version
-
--->
 <html>
 <head>
 <title>phyloFlash results summary for library <!--LIBNAME--></title>
@@ -133,6 +128,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h1>Library name: <!--LIBNAME--></h1>
 
 <h2>Graphical Summary</h2>
+<p>Mouseover on panels to expand details.</p>
 <div class="fullwidth">
   <div class="col1">
     <div class="tooltip"><!--IDHISTOGRAM--><span class="tooltiptext">Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</span></div>
@@ -242,6 +238,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <th>Insert size histogram (graphics)</th>
     <td><!--LIBNAME-->.inserthistogram.svg</td>
   </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
 <!--SUPPRESS_IF_SE_READS-->
   <tr>
     <th>Mapping identity histogram (plaintext)</th>
@@ -251,6 +248,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <th>Mapping identity histogram (graphics)</th>
     <td><!--LIBNAME-->.idhistogram.svg</td>
   </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
 <!--SUPPRESS_IF_SKIP_SPADES-->
   <tr>
     <th>Tree of recovered SSU sequences (Newick)</th>

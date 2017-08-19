@@ -780,7 +780,6 @@ sub bbmap_fast_filter_parse {
     return (\@output_array,$skip_assembly_flag);
 }
 
-
 sub readsam {
     # Read SAM file into memory
 
@@ -1464,7 +1463,7 @@ sub generate_treemap_data_rows {
   return @output;
 }
 
-sub write_report_html_new {
+sub write_report_html {
     # Get input parameters
     my ($version,
         $libraryNAME, $id, $SEmode,
@@ -1635,486 +1634,6 @@ sub write_report_html_new {
 
 }
 
-sub write_report_html {
-    # Generate HTML-formatted report file -- lots of blocks of verbatim HTML
-    # in this section
-    msg("Generating HTML-formatted report and graphics...");
-
-    my $fh;
-    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.html");
-
-    print {$fh} <<ENDHTML;
-<!DOCTYPE html>
-<html>
-<head>
-ENDHTML
-
-print {$fh} "  <title>phyloFlash results summary for library ".$libraryNAME."</title>\n";
-
-print {$fh} <<ENDHTML;
-  <script language="javascript" type="text/javascript">
-  // adapted from http://www.cssnewbie.com/example/showhide-content/
-  function showHide(shID) {
-    if (document.getElementById(shID)) {
-      if (document.getElementById(shID).style.display == 'none') {
-        document.getElementById(shID).style.display = 'block';
-      }
-      else {
-        document.getElementById(shID).style.display = 'none';
-      }
-    }
-  }
-  </script>
-ENDHTML
-
-if ($treemap_flag == 1) { # Script for interactive treemap if flag is on
-print {$fh} <<ENDHTML;
-  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-  <script type="text/javascript">
-  google.charts.load('current', {'packages':['treemap']});
-  google.charts.setOnLoadCallback(drawChart);
-  function drawChart() {
-    var data = new google.visualization.DataTable();
-    data.addColumn('string','ID');
-    data.addColumn('string','Parent');
-    data.addColumn('number','NumReads');
-    data.addRows([
-ENDHTML
-my @output_array = generate_treemap_data_rows();
-while (scalar @output_array > 0) {
-  print {$fh} shift @output_array;
-}
-print {$fh} <<ENDHTML;
-    ]);
-
-    tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
-
-    tree.draw(data, {
-      minColor: '#009688',
-      midColor: '#f7f7f7',
-      maxColor: '#ee8100',
-      highlightOnMouseOver: true,
-      minHighlightColor: '#ee8100',
-      midHighlightColor: '#f7f7f7',
-      maxHighlightColor: '#009688',
-      maxPostDepth: 2,
-      headerHeight: 15,
-      fontColor: 'black',
-      showScale: false,
-      generateTooltip: showFullTooltip
-    });
-
-    function showFullTooltip(row,size,value) {
-      return '<div style="background:white; padding:10px; border-style:none">' +
-      '<b>' + data.getValue(row, 0) + '</b><br>' +
-      'Total reads: ' + size + '</div>';
-    }
-
-  }
-</script>
-ENDHTML
-}
-
-print {$fh} <<ENDHTML;
-  <style type="text/css">
-    body {
-      font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;}
-
-    th {
-      background-color: #dee;
-      padding: .5em .5em .5em .5em;
-      font-weight: bold;}
-    td {
-      padding: 0em .5em 0em .5em;}
-
-    table.slimTable th {
-      padding: 0em .5em 0em .5em;
-      font-weight: normal;
-      text-align: right;}
-
-    .withHoverText {
-      text-decoration: none;
-      border-bottom: 1px grey dotted;}
-
-    .more {
-      display: none;}
-    a.showLink {
-      text-decoration: none;}
-    a.showLink:link {
-      color: grey;}
-    a.showLink:visited {
-      color: grey;}
-    a.showLink:hover {
-      color: white;
-      background-color: grey;}
-
-  </style>
-</head>
-<body>
-
-<h3><a href="https://github.com/HRGV/phyloFlash">
-ENDHTML
-print {$fh} $version; # Print phyloFlash name and version number
-print {$fh} <<ENDHTML;
- </a> by <a href="mailto:hgruber\@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
- <p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
-ENDHTML
-
-print {$fh} "<h1>Library name: ".$libraryNAME."</h1>\n";
-
-print {$fh} <<ENDHTML;
-<h2>Parameters</h2>
-
-<h3>Input files</h3>
-<table class="slimTable">
-  <tr>
-    <th>Forward read file</th>
-ENDHTML
-
-print {$fh} "    <td>".$readsf_full."</td>\n";
-
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th>Reverse read file</th>
-ENDHTML
-
-print {$fh} "    <td>".$readsr_full."</td>\n";
-
-print {$fh} <<ENDHTML;
-  </tr>
-</table>
-
-<h3>Mapping parameters</h3>
-<table class="slimTable">
-  <tr>
-    <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
-ENDHTML
-
-print {$fh} "    <td>".$id."\%</td>\n";
-if ($SEmode == 0) {
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th>Input PE-reads</th>
-ENDHTML
-
-print {$fh} "    <td>".$readnr_pairs."</td>\n";
-
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th>Mapped SSU read pairs</th>
-ENDHTML
-
-print {$fh} "    <td>".$SSU_total_pairs."</td>\n";
-} else
-{
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th>Input SE-reads</th>
-ENDHTML
-
-print {$fh} "    <td>".$readnr."</td>\n";
-
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th>Mapped SSU SE-reads</th>
-ENDHTML
-
-print {$fh} "    <td>".$SSU_total_pairs."</td>\n";
-}
-print {$fh} <<ENDHTML;
-  </tr>
-  <tr>
-    <th><span class="withHoverText" title="Fraction of library mapping to SSU references">Mapping ratio</span></th>
-ENDHTML
-
-print {$fh} "    <td>".$SSU_ratio_pc."\%</td>\n";
-print {$fh} <<ENDHTML;
-  </tr>
-ENDHTML
-
-if (defined $ssu_sam_mapstats{"assem_ratio"}) {
-print {$fh} <<ENDHTML;
-  <tr>
-    <th><span class="withHoverText" title="Fraction of extracted sequences assembled">Fraction assembled</span></th>
-ENDHTML
-    print {$fh} "    <td>".$ssu_sam_mapstats{"assem_ratio"}."</td>\n";
-    print {$fh} <<ENDHTML;
-  </tr>
-ENDHTML
-}
-
-if ($SEmode==0) { # Only print insert size information if in paired-end mode
-print {$fh} <<ENDHTML;
-  <tr>
-    <th>Detected median insert size</th>
-ENDHTML
-
-print {$fh} "    <td>".$ins_me."</td>\n";
-print {$fh} <<ENDHTML;
-  </tr>
-ENDHTML
-
-if ($skip_emirge == 0) {
-print {$fh} <<ENDHTML;
-  <tr>
-    <th>Used insert size</th>
-ENDHTML
-
-print {$fh} "     <td>".$ins_used."</td>\n";
-print {$fh} <<ENDHTML;
-  </tr>
-ENDHTML
-}
-
-print {$fh} <<ENDHTML;
-  <tr>
-    <th>Insert size standard deviation</th>
-ENDHTML
-
-print {$fh} "    <td>".$ins_std."</td>\n";
-print {$fh} <<ENDHTML;
-  </tr>
-ENDHTML
-}
-print {$fh} <<ENDHTML;
-</table>
-ENDHTML
-
-if ($SEmode==0) { # Only display insert size histogram if in paired-end mode
-print {$fh} <<ENDHTML;
-<h3><a href="#" id="histo-show" class="showLink" onclick="showHide('histo');return false;" title="Click to expand">Insert size histogram</a></h3>
-<div id="histo" class="more">
-<p>Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</p>
-ENDHTML
-
-print {$fh} "<embed width=240 height=240 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
-print {$fh} <<ENDHTML;
-</div>
-ENDHTML
-}
-
-print {$fh} <<ENDHTML;
-
-<h3><a href="#" id="idhisto-show" class="showLink" onclick="showHide('idhisto');return false;" title="Click to expand">Mapping identity histogram</a></h3>
-<div id="idhisto" class="more">
-<p>Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</p>
-ENDHTML
-
-print {$fh} "<embed width=240 height=240 src=\"".$libraryNAME.".idhistogram.svg\" />\n";
-print {$fh} <<ENDHTML;
-</div>
-
-<h3>Output files</h3>
-<table class="slimTable">
-ENDHTML
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>PhyloFlash report (plaintext)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".phyloFlash</td>\n";
-print {$fh} "  </tr>\n";
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>PhyloFlash report (HTML)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".phyloFlash.html</td>\n";
-print {$fh} "  </tr>\n";
-
-if ($SEmode==0) { # Only dislpay insert size information if in paired-end mode
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Insert size histogram (plaintext)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".inserthistogram</td>\n";
-print {$fh} "  </tr>\n";
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Insert size histogram (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".inserthistogram.svg</td>\n";
-print {$fh} "  </tr>\n";
-}
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Mapping identity histogram (plaintext)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".idhistogram</td>\n";
-print {$fh} "  </tr>\n";
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Mapping identity histogram (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".idhistogram.svg</td>\n";
-print {$fh} "  </tr>\n";
-
-if ($skip_spades + $skip_emirge < 2) {
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Tree of recovered SSU sequences (Newick)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree</td>\n";
-print {$fh} "  </tr>\n";
-
-print {$fh} "  <tr>\n";
-print {$fh} "    <th>Tree of recovered SSU sequences (graphics)</th>\n";
-print {$fh} "    <td>".$libraryNAME.".SSU.collection.fasta.tree.svg</td>\n";
-print {$fh} "  </tr>\n";
-
-}
-
-print {$fh} <<ENDHTML;
-</table>
-
-<h2>Results</h2>
-ENDHTML
-
-print {$fh} <<ENDHTML;
-<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
-<div id="taxa" class="more">
-ENDHTML
-print {$fh} "<p>Approximate overview of taxonomic composition, by mapping reads to database sequences and summarizing their taxonomy strings to taxon level $taxon_report_lvl.</p>\n";
-print {$fh} "<embed width=500 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n";
-print {$fh} "</div>\n";
-
-if ($skip_spades == 0) {
-## write list of assembled SSU sequences
-print {$fh} <<ENDHTML;
-<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
-<div id="spades" class="more">
-<table>
-  <tr>
-    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
-    <th><span class="withHoverText" title="Read coverage of assembled SSU sequence, from mapping">read_cov</span></th>
-    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">coverage</span></th>
-    <th><span class="withHoverText" title="Closest hit in SSU reference database">dbHit</span></th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th><span class="withHoverText" title="Length of pairwise alignment between assembled SSU sequence and reference">alnlen</span></th>
-    <th>evalue</th>
-  </tr>
-ENDHTML
-
-foreach (@ssuassem_results_sorted) {
-    my @split_entry = @$_;
-    my @get_genbank = split (/\./,$split_entry[2]);
-        # Parse the database entry number of the reference sequence to get Genbank accession
-    print {$fh} "  <tr>\n";
-    print {$fh} "    <td>".$split_entry[0]."</td>\n";
-    print {$fh} "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-    print {$fh} "    <td>".$split_entry[1]."</td>\n";
-    print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
-    #	print {$fh} "    <td>".$split_entry[2]."</td>\n";
-    print {$fh} "    <td>".$split_entry[3]."</td>\n";
-    print {$fh} "    <td>".$split_entry[4]."</td>\n";
-    print {$fh} "    <td>".$split_entry[5]."</td>\n";
-    print {$fh} "    <td>".$split_entry[6]."</td>\n";
-    print {$fh} "  </tr>\n";
-}
-
-## write table of taxonomic affiliations for unassembled reads
-print {$fh} <<ENDHTML;
-</table>
-</div>
-<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
-<div id="unassemtaxa" class="more">
-<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences. Only displaying taxa with > 3 reads mapped.</p>
-<table>
-  <tr>
-    <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
-    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
-  </tr>
-ENDHTML
-
-## write list of higher taxa found
-my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
-foreach my $uatax (@taxsort) {
-    if (${$taxa_unassem_summary_href}{$uatax} > 3) { # Only display those with at least three reads mapping
-        # For each of these higher taxa
-        print {$fh} "  <tr>\n";
-        # print name of taxon
-        print {$fh} "    <td>".$uatax."</td>\n";
-        # print no . of reads mapping
-        print {$fh} "    <td>".${$taxa_unassem_summary_href}{$uatax}."</td>\n";
-        print {$fh} "  </tr>\n";
-    }
-}
-
-print {$fh} <<ENDHTML;
-</table>
-</div>
-ENDHTML
-
-}
-
-if ($skip_emirge == 0) {
-## write list of reconstructed SSU sequences
-print {$fh} <<ENDHTML;
-</table>
-</div>
-
-<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU reconstruction based taxa</a></h3>
-<div id="emirge" class="more">
-<table>
-  <tr>
-    <th>OTU</th>
-    <th>ratio</th>
-    <th>dbHit</th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th>alnlen</th>
-    <th>evalue</th>
-  </tr>
-ENDHTML
-
-foreach (@ssurecon_results_sorted) {
-    print {$fh} "  <tr>\n";
-    my @split_entry = @$_;
-    my $test = $split_entry[2];
-    my @get_genbank = split (/\./,$test);
-    print {$fh} "    <td>".$split_entry[0]."</td>\n";
-    print {$fh} "    <td>".$split_entry[1]."</td>\n";
-    print {$fh} "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
-#	print {$fh} "    <td>".$split_entry[2]."</td>\n";
-    print {$fh} "    <td>".$split_entry[3]."</td>\n";
-    print {$fh} "    <td>".$split_entry[4]."</td>\n";
-    print {$fh} "    <td>".$split_entry[5]."</td>\n";
-    print {$fh} "    <td>".$split_entry[6]."</td>\n";
-    print {$fh} "  </tr>\n";
-}
-}
-
-if ($skip_spades + $skip_emirge < 2) {
-print {$fh} <<ENDHTML;
-</table>
-</div>
-<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Combined tree of sequences</a></h3>
-<div id="tree" class="more">
-ENDHTML
-
-print {$fh} "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
-}
-
-print {$fh} <<ENDHTML;
-</div>
-ENDHTML
-
-if ($treemap_flag == 1) { # Display interactive treemap if flag is on
-print {$fh}<<ENDHTML;
-<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
-    <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
-    <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
-    <div id="chart_div" style="width: 900px; height: 500px;"></div>
-    <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
-ENDHTML
-}
-
-print {$fh} <<ENDHTML;
-<h4>Please cite...</h4>
-<p>List of citations including dependencies</p>
-</body>
-</html>
-ENDHTML
-
-close($fh);
-}
-
 ######################### MAIN ###########################
 welcome();
 parse_cmdline();
@@ -2159,14 +1678,10 @@ if ($skip_spades + $skip_emirge < 2) {
     mafft_run();
 }
 
-$runtime = $timer->minutes;
+$runtime = $timer->minutes; # Log run time
 
-print_report();
-write_csv();
-
-run_plotscript_SVG() if $html_flag;
-#write_report_html()  if ($html_flag);
-write_report_html_new(
+# Capture output parameters for reports
+my @report_inputs = (
     $version,
     $libraryNAME, $id, $SEmode,
     $readsf_full,$readsr_full,
@@ -2175,12 +1690,21 @@ write_report_html_new(
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
     $skip_spades, $skip_emirge, $treemap_flag, # flags
     $taxon_report_lvl,
-    \%ssu_sam_mapstats, # $mapstats_href
-    $taxa_summary_href,
-    $taxa_unassem_summary_href,
-    \@ssuassem_results_sorted, # ssuassem_results_sorted_aref
-    \@ssurecon_results_sorted, # ssurecon_results_sorted_aref
-    ) if $html_flag;
+    \%ssu_sam_mapstats,
+    $taxa_summary_href, $taxa_unassem_summary_href,
+    \@ssuassem_results_sorted, \@ssurecon_results_sorted,
+    );
+# Print report file and CSV output
+print_report();
+write_csv();
+
+# SVG formatted graphics and HTML report
+if ($html_flag) {
+    run_plotscript_SVG();
+    write_report_html(@report_inputs);
+}
+
+# Clean up temporary files
 #clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
