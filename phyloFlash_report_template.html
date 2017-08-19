@@ -273,6 +273,16 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
 <div id="spades" class="more">
 <table>
+  <tr>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Read coverage of assembled SSU sequence, from mapping">read_cov</span></th>
+    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">coverage</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">dbHit</span></th>
+    <th>taxonomy</th>
+    <th>\%id</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between assembled SSU sequence and reference">alnlen</span></th>
+    <th>evalue</th>
+  </tr>
 <!--ASSEMBLED_SSU_TABLE-->
 </table>
 </div>
@@ -281,6 +291,10 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <div id="unassemtaxa" class="more">
 <p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences. Only displaying taxa with > 3 reads mapped.</p>
 <table>
+  <tr>
+    <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
+    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
+  </tr>
 <!--UNASSEMBLED_READS_TABLE-->
 </table>
 </div>
@@ -290,6 +304,15 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU reconstruction based taxa</a></h3>
 <div id="emirge" class="more">
 <table>
+  <tr>
+    <th>OTU</th>
+    <th>ratio</th>
+    <th>dbHit</th>
+    <th>taxonomy</th>
+    <th>\%id</th>
+    <th>alnlen</th>
+    <th>evalue</th>
+  </tr>
 <!--EMIRGE_TABLE-->
 </table>
 </div>

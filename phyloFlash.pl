@@ -1129,10 +1129,6 @@ sub taxonomy_spades_unmapped {
         keys %{$out_href};
 
     close($fh);
-    #foreach my $key (keys %{$cov_href}) {
-    #    print STDERR join "\t", ($key, ${$cov_href}{$key});
-    #    print STDERR "\n";
-    #}
 
     # Summarize taxonomy
     $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
@@ -1471,17 +1467,16 @@ sub generate_treemap_data_rows {
 sub write_report_html_new {
     # Get input parameters
     my ($version,
-        $libraryNAME,
-        $id,
-        $readsf_full,
-        $readnr,
-        $SSU_ratio,
-        $SSU_ratio_pc,
-        $SSU_total_pairs,
-        $skip_spades,
-        $skip_emirge,
-        $SEmode,
-        $treemap_flag,
+        $libraryNAME, $id, $SEmode,
+        $readsf_full,$readsr_full,
+        $readnr,$readnr_pairs,
+        $ins_me,$ins_std,$ins_used,
+        $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
+        $skip_spades, $skip_emirge, $treemap_flag,
+        $mapstats_href,
+        $taxa_unassem_summary_href,
+        $ssuassem_results_sorted_aref,
+        $ssurecon_results_sorted_aref,
         ) = @_;
     # Location of template file
     my $template = "$FindBin::RealBin/phyloFlash_report_template.html",
@@ -1526,6 +1521,79 @@ sub write_report_html_new {
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
 
+    # Data rows for Treemap
+    if ($treemap_flag == 1) {
+        my @treemap_output_array = generate_treemap_data_rows(); # TO DO - scope this fn
+        $flags{"TREEMAPDATAROWS"} = join "", @treemap_output_array;
+    }
+
+    # Params defined only for PE reads
+    if ($SEmode == 0) {
+        $flags{"INSERTHISTOGRAM"} = "<embed width=240 height=240 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
+        $flags{"INS_ME"} = $ins_me;
+        $flags{"INS_STD"} = $ins_std;
+        $flags{"READSR_FULL"} = $readsr_full;
+        $flags{"READNR_PAIRS"} = $readnr_pairs;
+    }
+    # Params defined only for assembled (SPAdes) reads
+    if ($skip_spades == 0) {
+        #$flags{"ASSEMBLYRATIOPIE"};
+        $flags{"ASSEM_RATIO"} = $mapstats->{"assem_ratio"};
+        $flags{"SEQUENCES_TREE"} = "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
+
+        # Table of assembled SSU sequences
+        my @table_assem_seq;
+        foreach (@$ssuassem_results_sorted_aref) {
+            my @split_entry = @$_;
+            # Parse the database entry number of the reference sequence to get Genbank accession
+            my @get_genbank = split (/\./,$split_entry[2]);
+            push @table_assem_seq, "  <tr>\n";
+            push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
+            push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
+            push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
+            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
+            push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
+            push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
+            push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
+            push @table_assem_seq, "    <td>".$split_entry[6]."</td>\n";
+            push @table_assem_seq, "  </tr>\n";
+        }
+        $flags{"ASSEMBLED_SSU_TABLE"} = join "", @table_assem_seq;
+
+        # Table of unassembled SSU reads affiliations
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        my @table_unassem_lines;
+        foreach my $uatax (@taxsort) {
+            if (${$taxa_unassem_summary_href}{$uatax} > 3) { # Only display those with at least three reads mapping
+                push @table_unassem_lines, "  <tr>\n";                  # Start HTML table row
+                push @table_unassem_lines, "    <td>".$uatax."</td>\n"; # Name of taxon
+                push @table_unassem_lines, "    <td>".${$taxa_unassem_summary_href}{$uatax}."</td>\n";
+                push @table_unassem_lines, "  </tr>\n";
+            }
+        } # Push into flags hash
+        $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
+    }
+    # Params defined only for reconstructed (EMIRGE) reads
+    if ($skip_emirge == 0) {
+        $flags {"INS_USED"} = $ins_used;
+        my @table_recon_seq;
+        foreach (@ssurecon_results_sorted) {
+            push @table_recon_seq, "  <tr>\n";
+            my @split_entry = @$_;
+            my $test = $split_entry[2];
+            my @get_genbank = split (/\./,$test);
+            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
+            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
+            push @table_recon_seq, "  </tr>\n";
+        }
+        $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
+    }
+
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
@@ -1551,24 +1619,6 @@ sub write_report_html_new {
 
 # Generate tables to be substituted
 # READ_MAPPING_NTU_TABLE
-
-#
-# ASSEMBLED_SSU_TABLE
-# ASSEMBLYRATIOPIE
-# ASSEM_RATIO
-# UNASSEMBLED_READS_TABLE
-# SEQUENCES_TREE
-#
-# EMIRGE_TABLE
-# INS_USED
-#
-# INSERTHISTOGRAM
-# INS_ME
-# INS_STD
-# READSR_FULL
-# "READNR_PAIRS" => $readnr_pairs,
-#
-# TREEMAPDATAROWS
 
 }
 
@@ -2101,18 +2151,20 @@ $runtime = $timer->minutes;
 print_report();
 write_csv();
 
-run_plotscript_SVG() if ($html_flag);
+run_plotscript_SVG() if $html_flag;
 #write_report_html()  if ($html_flag);
 write_report_html_new(
     $version,
-    $libraryNAME,
-    $id,
-    $readsf_full,
-    $readnr,
-    $SSU_ratio,
-    $SSU_ratio_pc,
-    $SSU_total_pairs,
-    $skip_spades, $skip_emirge, $SEmode, $treemap_flag # Flags
+    $libraryNAME, $id, $SEmode,
+    $readsf_full,$readsr_full,
+    $readnr,$readnr_pairs,
+    $ins_me,$ins_std,$ins_used,
+    $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
+    $skip_spades, $skip_emirge, $treemap_flag, # flags
+    \%ssu_sam_mapstats, # mapstats_href
+    $taxa_unassem_summary_href,
+    \@ssuassem_results_sorted, # ssuassem_results_sorted_aref
+    \@ssurecon_results_sorted, # ssurecon_results_sorted_aref
     ) if $html_flag;
 #clean_up();
 
