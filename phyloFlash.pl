@@ -179,7 +179,6 @@ use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
 use Cwd;
-use FindBin;
 
 # change these to match your installation
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
@@ -256,7 +255,6 @@ my $chao1 = 0;
 my @xtons = (0,0,0);  # singleton, doubleton and tripleton count
 
 my $runtime;
-
 
 # display welcome message incl. version
 sub welcome {
@@ -749,8 +747,8 @@ sub bbmap_fast_filter_parse {
 
     # calculating mapping ratio
     $readnr_pairs = $readnr;
-    if ($SEmode == 0) {
-        $readnr_pairs /= 2;
+        if ($SEmode == 0) {
+            $readnr_pairs /= 2;
     }
 
     # Total read pairs with at least one partner mapping
@@ -762,7 +760,26 @@ sub bbmap_fast_filter_parse {
     };
 
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
-    $SSU_ratio_pc = $SSU_ratio * 100;
+    $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
+
+    # Ratios of mapped vs unmapped to report
+    my @mapratio_csv;
+    if ($SEmode == 1) { # TO DO: Add numerical values to text labels
+        push @mapratio_csv, "Unmapped,".$1-$SSU_ratio;
+        push @mapratio_csv, "Mapped,".$SSU_ratio;
+    } elsif ($SEmode == 0) {
+        $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
+        $mapped_half = $ssu_f_reads + $ssu_r_reads - $ssu_pairs;
+        push @mapratio_csv, "Unmapped,".$unmapped_seg;
+        push @mapratio_csv, "Mapped pair,".$ssu_pairs;
+        push @mapratio_csv, "Mapped single,".$mapped_half;
+    }
+
+    # CSV file to draw piechart
+    my $fh_csv;
+    open_or_die (\$fh_csv, ">", "$libraryNAME.mapratio.csv");
+    print $fh_csv join ("\n", @mapratio_csv);
+    close($fh_csv);
 
     msg("mapping rate: $SSU_ratio_pc%");
 
@@ -1139,6 +1156,17 @@ sub taxonomy_spades_unmapped {
         $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
     }
     ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
+    ${$stats_href}{"assem_ratio_pc"} = sprintf ("%.3f", ${$stats_href}{"assem_ratio"} * 100) ;
+
+    # Write CSV of reads assembled for piechart
+    my $ssu_unassem = $ssu_tot_map - $assem_tot_map;
+    my @assemratio_csv;
+    push @assemratio_csv, "Unassembled,".$ssu_unassem;
+    push @assemratio_csv, "Assembled,".$assem_tot_map;
+    my $fh_csv;
+    open_or_die (\$fh_csv, ">", "$libraryNAME.assemratio.csv");
+    print $fh_csv join ("\n", @assemratio_csv);
+    close($fh_csv);
 
     msg ("done ... ");
 }
@@ -1388,6 +1416,23 @@ sub run_plotscript_SVG {
          "tmp.$libraryNAME.plotscript.out",
          "&1");
 
+    # Piechart of proportion mapped
+    run_prog("plotscript_SVG",
+         "--pie $libraryNAME.mapratio.csv "
+         ."--title=\"Reads mapped\" ",
+         #. "$decimalcomma ",
+         "tmp.$libraryNAME.plotscript.out",
+         "&1");
+
+    # Piechart of proportion assembled, if SPAdes run
+    unless ($skip_spades == 1) {
+        run_prog("plotscript_SVG",
+             "--pie $libraryNAME.assemratio.csv "
+             ."--title=\"Reads mapped\" ",
+             #. "$decimalcomma ",
+             "tmp.$libraryNAME.plotscript.out",
+             "&1");
+    }
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
         run_prog("plotscript_SVG",
@@ -1488,7 +1533,7 @@ sub write_report_html {
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
         "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$libraryNAME.".idhistogram.svg\" />\n",
-        #MAPRATIOPIE
+        "MAPRATIOPIE" => "<embed width=240 height=240 src=\"".$libraryNAME.".mapratio.csv.svg\" />\n",
         "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n",
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
@@ -1553,8 +1598,8 @@ sub write_report_html {
     }
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
-        #$flags{"ASSEMBLYRATIOPIE"};
-        $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio"};
+        $flags{"ASSEMBLYRATIOPIE"} = "<embed width=240 height=240 src=\"".$libraryNAME.".assemratio.csv.svg\" />\n";
+        $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
         $flags{"SEQUENCES_TREE"} = "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
 
         # Table of assembled SSU sequences
