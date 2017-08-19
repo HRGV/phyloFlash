@@ -355,8 +355,8 @@ sub parse_cmdline {
 
     # verify tools present
     if ($check_env == 1) {
-      process_required_tools();
-      check_environment(); # will die on failure
+        process_required_tools();
+        check_environment(); # will die on failure
     }
 
     # verify database present
@@ -1609,7 +1609,7 @@ sub write_report_html {
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
-    open_or_die(\$fh_out, ">", "$libraryNAME.phyloFlash.newreport.html");
+    open_or_die(\$fh_out, ">", "$libraryNAME.phyloFlash.html");
     my $write_flag = 1;
     while (my $line = <$fh_in>) {
         chomp $line;
