@@ -131,9 +131,9 @@ Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 Use decimal comma instead of decimal point to fix locale problems
 (default: off)
 
-=item -skip_emirge
+=item -emirge
 
-Turn off EMIRGE reconstruction of SSU sequences
+Turn on EMIRGE reconstruction of SSU sequences
 
 =item -skip_spades
 
@@ -210,7 +210,7 @@ my $html_flag   = 0;            # generate HTML output? (default = 0, off)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
-my $skip_emirge = 0;            # Flag - skip Emirge step? (default = 0, no)
+my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
@@ -268,9 +268,9 @@ sub welcome {
 sub check_dbhome {
     my $dbhome = shift;
     foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
-	     $vsearch_db.".fasta") {
-	return "${dbhome}/$_"
-	    unless -r "${dbhome}/$_"
+         $vsearch_db.".fasta") {
+    return "${dbhome}/$_"
+        unless -r "${dbhome}/$_"
     }
     return "";
 }
@@ -282,16 +282,16 @@ sub find_dbhome {
     my @dbdirs;
 
     foreach (@dbhome_dirs) {
-	push(@dirs, get_subdirs($_));
+        push(@dirs, get_subdirs($_));
     }
     foreach (@dirs) {
-	if (check_dbhome($_) eq "") {
-	    push(@dbdirs, $_);
-	}
+        if (check_dbhome($_) eq "") {
+            push(@dbdirs, $_);
+        }
     }
     if (scalar @dbdirs > 0) {
-	@dbdirs = version_sort(@dbdirs);
-	return $dbdirs[0];
+        @dbdirs = version_sort(@dbdirs);
+        return $dbdirs[0];
     }
 
     return "";
@@ -326,6 +326,7 @@ sub process_required_tools {
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
+    my $emirge = 0;
     GetOptions('read1=s' => \$readsf_full,
                'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
@@ -342,7 +343,7 @@ sub parse_cmdline {
                'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
-               'skip_emirge' => \$skip_emirge,
+               'emirge' => \$emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
                'check_env' => \$check_env,
@@ -350,7 +351,7 @@ sub parse_cmdline {
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
         or pod2usage(2);
-
+    $skip_emirge = 0 if $emirge == 1;
 
     # verify tools present
     if ($check_env == 1) {
@@ -358,21 +359,19 @@ sub parse_cmdline {
       check_environment(); # will die on failure
     }
 
-
     # verify database present
     if (defined($DBHOME)) {
-	if (my $file = check_dbhome($DBHOME)) {
-	    pod2usage("\nBroken dbhome directory: missing file \"$file\"")
-	}
+        if (my $file = check_dbhome($DBHOME)) {
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+        }
     } else {
-	$DBHOME = find_dbhome();
-	pod2usage("Failed to find suitable DBHOME. (Searched \""
-		  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-		  ."You can build a reference database using phyloflash_makedb.pl\n")
-	    if ($DBHOME eq "");
+        $DBHOME = find_dbhome();
+        pod2usage("Failed to find suitable DBHOME. (Searched \""
+                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
+                  ."You can build a reference database using phyloflash_makedb.pl\n")
+            if ($DBHOME eq "");
     }
     msg("Using dbhome '$DBHOME'");
-
 
     # verify valid lib name
     pod2usage("Please specify output file basename with -lib")
@@ -385,7 +384,6 @@ sub parse_cmdline {
 
     msg("working on library $libraryNAME");
 
-
     # verify read files
     pod2usage("\nPlease specify input forward read file with -read1")
         if !defined($readsf_full);
@@ -397,7 +395,7 @@ sub parse_cmdline {
     if ($readsf_full =~ m/.*\/(.+)/) {
       $readsf = $1;
     } else {
-	$readsf = $readsf_full;
+        $readsf = $readsf_full;
     }
 
     if (defined($readsr_full)) {
@@ -411,7 +409,7 @@ sub parse_cmdline {
         } else { $readsr = $readsr_full; }
 
      } elsif ( $interleaved == 1 ){
-	msg("Using interleaved read data");
+    msg("Using interleaved read data");
 
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
@@ -422,14 +420,13 @@ sub parse_cmdline {
     msg("Forward reads $readsf_full");
     if ($SEmode == 0)  {
         if (defined($readsr_full)) {
-	    msg("Reverse reads $readsr_full");
-	} else{
-	    msg("Reverse reads from interleaved read file $readsf_full");
-	}
+        msg("Reverse reads $readsr_full");
+    } else{
+        msg("Reverse reads from interleaved read file $readsf_full");
+    }
     } else {
         msg("Running in single ended mode");
     }
-
 
     # check lengths
     pod2usage("\nReadlength must be within 50...500")
@@ -658,15 +655,15 @@ sub bbmap_fast_filter_sam_run {
 
     my $args = "";
     if ($SEmode == 0) {
-	if ($interleaved == 1) {
-	    $args =
-	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert interleaved=t";
-	} else {
-	    $args =
-	    "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert in2=$readsr_full";
-	}
+    if ($interleaved == 1) {
+        $args =
+        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+        . "pairlen=$maxinsert interleaved=t";
+    } else {
+        $args =
+        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
+        . "pairlen=$maxinsert in2=$readsr_full";
+    }
     }
     run_prog("bbmap",
              "  fast=t "
@@ -676,7 +673,7 @@ sub bbmap_fast_filter_sam_run {
              . "po=f "
              . "outputunmapped=f "
              . "path=$DBHOME "
-	     . "out=$libraryNAME.$readsf.SSU.sam " # Also skip SAM header?
+         . "out=$libraryNAME.$readsf.SSU.sam " # Also skip SAM header?
              . "outm=$libraryNAME.$readsf.SSU.1.fq "
              . "build=1 "
              . "in=$readsf_full "
@@ -996,8 +993,8 @@ sub spades_parse {
     close($fh);
 
     if (scalar keys %ssus == 0) {
-	msg("no contig in spades assembly found to contain rRNA");
-	return;
+        msg("no contig in spades assembly found to contain rRNA");
+        return;
     }
 
     open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
@@ -1033,15 +1030,15 @@ sub bbmap_spades_out {
     msg("mapping extracted SSU reads back on assembled SSU sequences");
     my $args = ""; # Check whether running in PE or SE mode
     if ($SEmode == 0) {
-	if ($interleaved == 1) {
-	    $args =
-	    "  interleaved=t "
-	    . "pairlen=$maxinsert ";
-	} else {
-	    $args =
-	    "  in2=$libraryNAME.$readsf.SSU.2.fq "
-	    . "pairlen=$maxinsert ";
-	}
+    if ($interleaved == 1) {
+        $args =
+        "  interleaved=t "
+        . "pairlen=$maxinsert ";
+    } else {
+        $args =
+        "  in2=$libraryNAME.$readsf.SSU.2.fq "
+        . "pairlen=$maxinsert ";
+    }
     }
     run_prog("bbmap",
          "  fast=t "
@@ -1566,7 +1563,7 @@ sub write_report_html {
             push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
             push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
             push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";	# Link to Genbank entry using accession no.
+            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";    # Link to Genbank entry using accession no.
             push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
             push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
             push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
