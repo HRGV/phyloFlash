@@ -1497,7 +1497,7 @@ sub write_report_html_new {
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
-        "TAX_REPORT_LVL" => $taxon_report_lvl,
+        "TAXON_REPORT_LVL" => $taxon_report_lvl,
     );
 
     # Define suppress flags (which turn off writing of report)
