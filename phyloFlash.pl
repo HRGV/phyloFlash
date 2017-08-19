@@ -1508,6 +1508,10 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_SKIP_EMIRGE"} = 1;
         $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
     }
+    if ($skip_spades + $skip_emirge == 2)  {
+        $suppress_flags("SUPPRESS_IF_NO_TREE") = 1;
+        $suppress_end_flags("SUPPRESS_IF_NO_TREE_END") = 1;
+    }
     if ($SEmode == 1) {
         $suppress_flags{"SUPPRESS_IF_SE_READS"} = 1;
         $suppress_end_flags{"SUPPRESS_IF_SE_READS_END"} = 1;
@@ -1619,7 +1623,7 @@ sub write_report_html {
                 my $replace = $flags{$flag};
                 $line =~ s/<!--$flag-->/$replace/;
             }
-            # Turn off writing if option not specified
+            # Turn off writing if option was not specified
             $write_flag = 0 if (defined $suppress_flags{$flag});
             # Turn writing back on if optional section is finished
             $write_flag = 1 if (defined $suppress_end_flags{$flag});
@@ -1628,7 +1632,6 @@ sub write_report_html {
     }
     close($fh_out);
     close($fh_in);
-
 }
 
 ######################### MAIN ###########################
