@@ -114,10 +114,10 @@ sub hash2pie {
     my @colors_arr = @{$cumul_href->{"color"}} if defined $cumul_href->{"color"}; # Array of colors, if defined
 
     # SVG plot preferences
-    my $viewBox_width = 150;     # width
-    my $viewBox_height = 150;    # height
-    my $margin = 35;
-    my $font_size = 10;
+    my $viewBox_width = 240;     # width
+    my $viewBox_height = 240;    # height
+    my $margin = 50;
+    my $font_size = 12;
 
     # Take shorter dimension, and calculate the pie diameter and circumference
     my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;

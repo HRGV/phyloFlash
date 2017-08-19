@@ -112,7 +112,8 @@ Maximum insert size allowed for paired end read mapping. Must be within
 
 =item -html
 
-Also generate output in HTML format.
+Generate output in HTML format. (Default: on)
+Turn off with -nohtml
 
 =item -treemap
 
@@ -205,7 +206,7 @@ my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
 
-my $html_flag   = 0;            # generate HTML output? (default = 0, off)
+my $html_flag   = 1;            # generate HTML output? (default = 1, on)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
@@ -337,7 +338,7 @@ sub parse_cmdline {
                'id=i' => \$id,
                'clusterid=i' => \$clusterid,
                'CPUs=i' => \$cpus,
-               'html' => \$html_flag,
+               'html!' => \$html_flag,
                'treemap' => \$treemap_flag,
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
@@ -765,7 +766,8 @@ sub bbmap_fast_filter_parse {
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
-        push @mapratio_csv, "Unmapped,".$1-$SSU_ratio;
+        my $unmapped = 1-$SSU_ratio;
+        push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio;
     } elsif ($SEmode == 0) {
         my $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
