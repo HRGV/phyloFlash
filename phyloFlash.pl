@@ -603,14 +603,16 @@ sub write_csv {
     }
     close($fh);
 
-    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.NTUabundance.csv");
+    open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
+    $outfiles{"ntu_csv"}{"made"} = 1;
     print $fh "NTU,reads\n";
     foreach my $arr ( @taxa_from_hitmaps_sorted ) {
         print {$fh} join(",",csv_escape(@$arr)).$crlf;
     }
     close($fh);
 
-    open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.taxonsummary.csv");
+    open_or_die(\$fh, ">", $outfiles{"taxa_csv"}{"filename"});
+    $outfiles{"taxa_csv"}{"made"} = 1;
     # Sort results descending
     my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
     foreach my $key (@keys) {
@@ -620,7 +622,8 @@ sub write_csv {
     close($fh);
 
     if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
-      open_or_die(\$fh, ">", "$libraryNAME.phyloFlash.extractedSSUclassifications.csv");
+      open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
+      $outfiles{"full_len_class"}{"made"}++;
       print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
       if ($skip_spades == 0) {
         foreach my $arr (@ssuassem_results_sorted) {
@@ -630,7 +633,8 @@ sub write_csv {
             print {$fh} join(",",csv_escape(@out)).$crlf;
         }
         my $fh2;
-        open_or_die (\$fh2, ">", "$libraryNAME.phyloFlash.unassembled.NTUabundance.csv");
+        open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
+        $outfiles{"unassem_csv"}{"made"}++;
         print $fh2 "NTU,reads\n";
         foreach my $arr ( @taxa_from_hitmaps_unassem_sorted ) {
             print {$fh2} join (",",csv_escape(@$arr)).$crlf;
@@ -664,36 +668,40 @@ sub bbmap_fast_filter_sam_run {
 
     my $args = "";
     if ($SEmode == 0) {
-    if ($interleaved == 1) {
-        $args =
-        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert interleaved=t";
-    } else {
-        $args =
-        "  outm2=$libraryNAME.$readsf.SSU.2.fq "
-        . "pairlen=$maxinsert in2=$readsr_full";
-    }
+        if ($interleaved == 1) {
+            $args =
+            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
+            . " pairlen=$maxinsert interleaved=t";
+        } else {
+            $args =
+            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
+            . " pairlen=$maxinsert in2=$readsr_full";
+        }
+        $outfiles{"reads_mapped_r"}{"made"}++;
     }
     run_prog("bbmap",
-             "  fast=t "
-             . "minidentity=$minID "
-             . "-Xmx20g reads=$readlimit "
-             . "threads=$cpus "
-             . "po=f "
-             . "outputunmapped=f "
-             . "path=$DBHOME "
-         . "out=$libraryNAME.$readsf.SSU.sam " # Also skip SAM header?
-             . "outm=$libraryNAME.$readsf.SSU.1.fq "
-             . "build=1 "
-             . "in=$readsf_full "
-             . "bhist=tmp.$libraryNAME.basecompositionhistogram "
-             . "ihist=$libraryNAME.inserthistogram "
-             . "idhist=$libraryNAME.idhistogram "
-             . "scafstats=$libraryNAME.hitstats "
+             "  fast=t"
+             . " minidentity=$minID"
+             . " -Xmx20g reads=$readlimit"
+             . " threads=$cpus"
+             . " po=f"
+             . " outputunmapped=f"
+             . " path=$DBHOME"
+             . " out=".$outfiles{"sam_map"}{"filename"} # Also skip SAM header?
+             . " outm=".$outfiles{"reads_mapped_f"}{"filename"}
+             . " build=1"
+             . " in=$readsf_full"
+             . " bhist=tmp.$libraryNAME.basecompositionhistogram"
+             . " ihist=".$outfiles{"inserthistogram"}{"filename"}
+             . " idhist=".$outfiles{"idhistogram"}{"filename"}
+             . " scafstats=".$outfiles{"hitstats"}{"filename"}
              . $args,
              undef,
              "$libraryNAME.bbmap.out");
-
+    # Record which files were created
+    foreach my $madekey (qw(sam_map reads_mapped_f inserthistogram idhistogram hitstats)) {
+        $outfiles{$madekey}{"made"}++;
+    }
     msg("done...");
 }
 
@@ -789,17 +797,18 @@ sub bbmap_fast_filter_parse {
 
     # CSV file to draw piechart
     my $fh_csv;
-    open_or_die (\$fh_csv, ">", "$libraryNAME.mapratio.csv");
+    open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
+    $outfiles{"mapratio_csv"}{"made"}++
     print $fh_csv join ("\n", @mapratio_csv);
-    close($fh_csv);
+    close ($fh_csv);
 
     msg("mapping rate: $SSU_ratio_pc%");
 
     my $skip_assembly_flag;
     if ($SSU_total_pairs * 2 * $readlength < 1800) {
-      msg("WARNING: mapping coverage lower than 1x,\n
-      reconstruction with SPADES and Emirge disabled.");
-      $skip_assembly_flag = 1;
+        msg("WARNING: mapping coverage lower than 1x,\n
+        reconstruction with SPADES and Emirge disabled.");
+        $skip_assembly_flag = 1;
     }
 
     my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
@@ -810,7 +819,7 @@ sub readsam {
     # Read SAM file into memory
 
     # Input params
-    my $infile = "$libraryNAME.$readsf.SSU.sam";    # Input SAM filename
+    my $infile = $outfiles{"sam_map"}{"filename"};  # Input is SAM from first mapping step
     my $href = \%ssu_sam;                           # Reference to hash to store SAM data
     my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
 
@@ -939,16 +948,18 @@ sub spades_run {
       $args = '--sc ';
     }
     if ($SEmode == 1) {
-        $args = $args."-s $libraryNAME.$readsf.SSU.1.fq";
+        $args = $args."-s ".$outfiles{"reads_mapped_f"}{"filename"};
     } else {
-        $args = $args."-1 $libraryNAME.$readsf.SSU.1.fq -2 $libraryNAME.$readsf.SSU.2.fq";
+        $args = $args."-1 ".$outfiles{"reads_mapped_f"}{"filename"}
+                ." -2 ".$outfiles{"reads_mapped_r"}{"filename"};
     }
 
     run_prog("spades",
              "-o $libraryNAME.spades -t $cpus -m 20 -k $kmer "
              . $args,
-             "$libraryNAME.spades.out","&1"
+             $outfiles{"spades_log"}{"filename"},"&1"
          );
+    $outfiles{"spades_log"}{"made"}++;
 
     msg("done...");
 }
@@ -978,8 +989,9 @@ sub spades_parse {
                  $b_args.
                  "--kingdom $_ --gene ssu --threads $cpus " .
                  "$libraryNAME.spades/scaffolds.fasta",
-                 "$libraryNAME.scaffolds.$_.gff",
-                 "$libraryNAME.barrnap.out");
+                 $outfiles{"gff_".$_}{"filename"};
+                 $outfiles{"barrnap_log"}{"filename"});
+        $outfiles{"gff_".$_}{"made"}++;
     }
 
     # now merge multi-hits on the same scaffold-and-strand by picking
@@ -990,9 +1002,9 @@ sub spades_parse {
     my $fh;
     open_or_die(\$fh, "-|",
                 "grep -hE '16S_rRNA\|18S_rRNA' ".
-                "$libraryNAME.scaffolds.bac.gff ".
-                "$libraryNAME.scaffolds.arch.gff ".
-                "$libraryNAME.scaffolds.euk.gff");
+                $outfiles{"gff_bac"}{"filename"}." ".
+                $outfiles{"gff_arch"}{"filename"}." ".
+                $outfiles{"gff_euk"}{"filename"});
     while (my $row = <$fh>) {
         my @cols    = split("\t", $row);
         # gff format:
@@ -1043,13 +1055,13 @@ sub spades_parse {
 
     # extract rrna fragments from spades scaffolds accoding to gff
     run_prog("fastaFromBed",
-             "  -fi $libraryNAME.spades/scaffolds.fasta "
-             . "-bed tmp.$libraryNAME.scaffolds.final.gff "
-             . "-fo $libraryNAME.spades_rRNAs.final.fasta "
-             . "-s -name",
+             "  -fi $libraryNAME.spades/scaffolds.fasta"
+             . " -bed tmp.$libraryNAME.scaffolds.final.gff"
+             . " -fo ".$outfiles{"spades_fasta"}{"filename"}
+             . " -s -name",
              "tmp.$libraryNAME.fastaFromBed.out",
              "&1");
-
+    $outfiles{"spades_fasta"}{"made"}++;
     msg("done...");
 }
 
@@ -1065,31 +1077,33 @@ sub bbmap_spades_out {
             . "pairlen=$maxinsert ";
         } else {
             $args =
-            "  in2=$libraryNAME.$readsf.SSU.2.fq "
-            . "pairlen=$maxinsert ";
+            "  in2=".$outfiles{"reads_mapped_r"}{"filename"}
+            . " pairlen=$maxinsert ";
         }
     }
     run_prog("bbmap",
-         "  fast=t "
-         . "minidentity=0.98 "
-         . "-Xmx20g "
-         . "threads=$cpus "
-         . "po=f "
-         . "outputunmapped=t " # This is important
-         . "ref=$libraryNAME.spades_rRNAs.final.fasta "
-         . "nodisk "
-         . "in=$libraryNAME.$readsf.SSU.1.fq "
-         . "out=$libraryNAME.$readsf.SSU_assem.sam " # Also skip SAM header?
+         "  fast=t"
+         . " minidentity=0.98"
+         . " -Xmx20g"
+         . " threads=$cpus"
+         . " po=f"
+         . " outputunmapped=t" # This is important
+         . " ref=".$outfiles{"spades_fasta"}{"filename"}
+         . " nodisk"
+         . " in=".$outfiles{"reads_mapped_f"}{"filename"}
+         . " out=".$outfiles{"sam_remap"}{"filename"} # Also skip SAM header?
          . $args,
          undef,
-         "$libraryNAME.remap.bbmap.out");
+         $outfiles{"bbmap_remap_log"}{"filename"});
+    $outfiles{"sam_remap"}{"made"}++;
+    $outfiles{"bbmap_remap_log"}{"made"}++;
     msg("done...");
 }
 
 sub taxonomy_spades_unmapped {
     # Filter output of mapping to SPAdes assembled SSU sequences
     # Report taxonomy of "leftover" sequences
-    my $in = "$libraryNAME.$readsf.SSU_assem.sam";  # mapping of extracted reads vs assembled SSU seq
+    my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq
     my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
     my $stats_href = \%ssu_sam_mapstats;
     my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
@@ -1176,7 +1190,8 @@ sub taxonomy_spades_unmapped {
     push @assemratio_csv, "Unassembled,".$ssu_unassem;
     push @assemratio_csv, "Assembled,".$assem_tot_map;
     my $fh_csv;
-    open_or_die (\$fh_csv, ">", "$libraryNAME.assemratio.csv");
+    open_or_die (\$fh_csv, ">", $outfiles{"assemratio_csv"}{"filename"});
+    $outfiles{"assemratio_csv"}{"made"}++;
     print $fh_csv join ("\n", @assemratio_csv);
     close($fh_csv);
 
@@ -1218,13 +1233,14 @@ sub emirge_run {
             msg("Warning: More than $amplimit SSU reads - using Emirge Amplicon");
         }
 
-        $args = "  -1 $libraryNAME.$readsf.SSU.1.fq "
-                . "-2 $libraryNAME.$readsf.SSU.2.fq "
-                . "-i $ins_used -s $ins_std ";
+        $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}
+                . " -2 ".$outfiles{"reads_mapped_r"}{"filename"}
+                . " -i $ins_used -s $ins_std ";
     } else {
         msg("reads > 151 bp - running in single end mode");
         run_prog("cat",
-                 "$libraryNAME.$readsf.SSU.1.fq $libraryNAME.$readsf.SSU.2.fq",
+                 $outfiles{"reads_mapped_f"}{"filename"}." ".
+                 $outfiles{"reads_mapped_r"}{"filename"},
                  "tmp.$libraryNAME.SSU_all.fq");
         # ename the reads with a running number to make emirge happy
         # using awk for speed, these files can be huge
@@ -1242,9 +1258,10 @@ sub emirge_run {
              . $args
              . " -f ${DBHOME}/${emirge_db}.fasta"
              . " -b ${DBHOME}/${emirge_db}.bt "
-             . " -l $readlength -a $cpus --phred33 ",
-             , "$libraryNAME.emirge.out", "&1");
-
+             . " -l $readlength -a $cpus --phred33 "
+             , $outfiles{"emirge_log"}{"filename"}
+             , "&1");
+    $outfiles{"emirge_log"}{"made"}++;
     msg("done...");
 }
 
@@ -1258,7 +1275,8 @@ sub emirge_parse {
     my $fh_in;
     my $fh_out;
     open_or_die(\$fh_in, "<","tmp.$libraryNAME.emirge.result.fasta");
-    open_or_die(\$fh_out, ">", "$libraryNAME.emirge.final.fasta");
+    open_or_die(\$fh_out, ">", $outfiles{"emirge_fasta"}{"filename"});
+    $outfiles{"emirge_fasta"}{"made"}++;
     while (<$fh_in>) {
         chomp;
         if ($_ =~ />(\d*)\|.*NormPrior=([\d.]*)/ ) {
@@ -1280,34 +1298,40 @@ sub vsearch_best_match {
     # join emirge and spades hits into one file
     # (vsearch takes a while to load, one run saves us time)
     if ($skip_spades == 1 && $skip_emirge == 0) {
-      run_prog("cat",
-               "   $libraryNAME.emirge.final.fasta",
-               "$libraryNAME.all.final.fasta");
+        run_prog("cat",
+                 "   ".$outfiles{"emirge_fasta"}{"filename"},
+                 $outfiles{"all_final_fasta"}{"filename"});
+        $outfiles{"all_final_fasta"}{"made"}++;
     }
     elsif ($skip_emirge == 1 && $skip_spades == 0){
-      run_prog("cat",
-               "   $libraryNAME.spades_rRNAs.final.fasta",
-               "$libraryNAME.all.final.fasta");
+        run_prog("cat",
+                 "   ".$outfiles{"spades_fasta"}{"filename"},
+                 $outfiles{"all_final_fasta"}{"filename"};
+        $outfiles{"all_final_fasta"}{"made"}++;
     }
     elsif ($skip_emirge == 0 && $skip_spades == 0){
-      run_prog("cat",
-             "   $libraryNAME.emirge.final.fasta"
-             . " $libraryNAME.spades_rRNAs.final.fasta",
-             "$libraryNAME.all.final.fasta");
+        run_prog("cat",
+                 "   ".$outfiles{"emirge_fasta"}{"filename"}
+                 ." ".$outfiles{"spades_fasta"}{"filename"},
+                 $outfiles{"all_final_fasta"}{"filename"});
+        $outfiles{"all_final_fasta"}{"made"}++;
     }
 
-    if (-s "$libraryNAME.all.final.fasta") {
+    if (-s $outfiles{"all_final_fasta"}{"filename"}) {
        run_prog("vsearch",
-             "-usearch_global $libraryNAME.all.final.fasta "
-             . "-db ${DBHOME}/${vsearch_db}.fasta "
-             . "-id 0.7 "
-             . "-userout $libraryNAME.all.vsearch.csv "
-             . "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids "
-             . "-threads $cpus --strand plus --notrunclabels "
-             . "-notmatched $libraryNAME.all.final.phyloFlash.notmatched.fa "
-             . "-dbmatched $libraryNAME.all.final.phyloFlash.dbhits.fa ",
+             "-usearch_global .$outfiles{"all_final_fasta"}{"filename"}
+             . " -db ${DBHOME}/${vsearch_db}.fasta"
+             . " -id 0.7"
+             . " -userout ".$outfiles{"vsearch_csv"}{"filename"}
+             . " -userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids"
+             . " -threads $cpus --strand plus --notrunclabels"
+             . " -notmatched ".$outfiles{"notmatched_fasta"}{"filename"}
+             . " -dbmatched ".$outfiles{"dbhits_all_fasta"}{"filename"},
              "tmp.$libraryNAME.all.vsearch.out",
              "&1");
+        $outfiles{"vsearch_csv"}{"made"}++;
+        $outfiles{"dbhits_all_fasta"}{"made"}++;
+        $outfiles{"notmatched_fasta"}{"made"}++;
 
        # query, target: labels
        # id: "100* matching colums / (alignment length - terminal gaps)"
@@ -1326,7 +1350,7 @@ sub vsearch_parse {
 
     # Parse the output from Vsearch and store in the hash %SSU_assembly
     my $fh;
-    open_or_die(\$fh, "<", "$libraryNAME.all.vsearch.csv");
+    open_or_die(\$fh, "<", $outfiles{"vsearch_csv"}{"filename"});
     while (<$fh>) {
         chomp;
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
@@ -1357,14 +1381,15 @@ sub vsearch_cluster {
     my $clusterid = 97;
     msg("clustering DB matches at $clusterid%");
     run_prog("vsearch",
-             "  --cluster_fast $libraryNAME.all.final.phyloFlash.dbhits.fa "
-             . "-id ".($clusterid/100)." "
-             . "-centroids $libraryNAME.all.dbhits.NR97.fa "
-             . "-notrunclabels "
-             . "--threads $cpus ",
+             "  --cluster_fast ".$outfiles{"dbhits_all_fasta"}{"filename"}
+             . " -id ".($clusterid/100)
+             . " -centroids ".$outfiles{"dhbits_nr97_fasta"}{"filename"}
+             . " -notrunclabels"
+             . " --threads $cpus",
              "tmp.$libraryNAME.clusterdbhits.out",
              "&1");
-
+    $outfiles{"dbhits_all_fasta"}{"made"}++;
+    $outfiles{"dhbits_nr97_fasta"}{"made"}++;
     msg("done...");
 }
 
@@ -1373,32 +1398,37 @@ sub mafft_run {
 
     if ($skip_spades == 0 && $skip_emirge == 1) {
         run_prog("cat",
-                 "$libraryNAME.all.dbhits.NR97.fa "
-                 . "$libraryNAME.spades_rRNAs.final.fasta ",
-                 "$libraryNAME.SSU.collection.fasta");
+                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
+                 . " ".$outfiles{"spades_fasta"}{"filename"},
+                 $outfiles{"ssu_coll_fasta"}{"filename"});
+        $outfiles{"ssu_coll_fasta"}{"made"}++;
 
     } elsif ($skip_spades == 1 && $skip_emirge == 0) {
         run_prog("cat",
-                 "$libraryNAME.all.dbhits.NR97.fa "
-                 . "$libraryNAME.emirge.final.fasta ",
-                 "$libraryNAME.SSU.collection.fasta");
+                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
+                 ." ".$outfiles{"emirge_fasta"}{"filename"},
+                 $outfiles{"ssu_coll_fasta"}{"filename"});
+         $outfiles{"ssu_coll_fasta"}{"made"}++;
 
     } elsif ($skip_spades == 0 && $skip_emirge == 0) {
         run_prog("cat",
-                 "$libraryNAME.all.dbhits.NR97.fa "
-                 . "$libraryNAME.spades_rRNAs.final.fasta "
-                 . "$libraryNAME.emirge.final.fasta ",
-                 "$libraryNAME.SSU.collection.fasta");
+                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
+                 ." ".$outfiles{"spades_fasta"}{"filename"}
+                 ." ".$outfiles{"emirge_fasta"}{"filename"},
+                 $outfiles{"ssu_coll_fasta"}{"filename"});
+         $outfiles{"ssu_coll_fasta"}{"made"}++;
     }
 
     run_prog("mafft",
-             "--treeout $libraryNAME.SSU.collection.fasta ",
-             "$libraryNAME.SSU.collection.alignment.fasta",
+             "--treeout ".$outfiles{"ssu_coll_fasta"}{"filename"},
+             $outfiles{"ssu_coll_aln_fasta"}{"filename"},
              "tmp.$libraryNAME.SSU.collection.alignment.mafftout");
+    $outfiles{"ssu_coll_aln_fasta"}{"made"}++;
+    $outfiles{"ssu_coll_tree"}{"made"}++;
 
     # fix missing ; at and of MaFFT newick tree
     my $fh;
-    open_or_die(\$fh, ">>", "$libraryNAME.SSU.collection.fasta.tree");
+    open_or_die(\$fh, ">>", $outfiles{"ssu_coll_tree"}{"filename"});
     print {$fh} ";";
     close($fh);
 
@@ -1422,54 +1452,60 @@ sub run_plotscript_SVG {
     msg ("generating histogram and tree graphics in SVG format");
     # Plot mapping ID histogram
     run_prog("plotscript_SVG",
-         "--hist $libraryNAME.idhistogram "
-         ."--title=\"Mapping identity (%)\" ",
+         " --hist ".$outfiles{"idhistogram"}{"filename"}
+         ." --title=\"Mapping identity (%)\" ",
          #. "$decimalcomma ",
          "tmp.$libraryNAME.plotscript.out",
          "&1");
+    $outfiles{"idhistogram_svg"}{"made"}++;
 
     # Piechart of proportion mapped
     run_prog("plotscript_SVG",
-         "--pie $libraryNAME.mapratio.csv "
-         ."--title=\"Reads mapped\" ",
+         " --pie ".$outfiles{"mapratio_csv"}{"filename"}
+         ." --title=\"Reads mapped\" ",
          #. "$decimalcomma ",
          "tmp.$libraryNAME.plotscript.out",
          "&1");
+    $outfiles{"mapratio_svg"}{"made"}++;
 
     # Piechart of proportion assembled, if SPAdes run
     unless ($skip_spades == 1) {
         run_prog("plotscript_SVG",
-             "--pie $libraryNAME.assemratio.csv "
-             ."--title=\"Reads mapped\" ",
+             "--pie ".$outfiles{"assemratio_csv"}{"filename"}
+             ." --title=\"Reads mapped\" ",
              #. "$decimalcomma ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
+        $outfiles{"assemratio_svg"}{"made"}++;
     }
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
         run_prog("plotscript_SVG",
-                 "--hist $libraryNAME.inserthistogram "
-                 ."--title=\"Insert size (bp)\" ",
+                 "--hist ".$outfiles{"inserthistogram"}{"filename"}
+                 ." --title=\"Insert size (bp)\" ",
                  #. "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
+        $outfiles{"inserthistogram_svg"}{"made"}++;
     }
 
     # Plot tree if spades/emirge unless both skipped
     unless ($skip_spades + $skip_emirge == 2) {
         run_prog("plotscript_SVG",
-                 "--tree $libraryNAME.SSU.collection.fasta.tree ",
+                 "--tree ".$outfiles{"ssu_coll_tree"}{"filename"},
                  #. "$decimalcomma ",
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
+        $outfiles{"ssu_coll_tree_svg"}{"made"}++;
     }
 
     # Generate barplot of taxonomy at level XX
     run_prog("plotscript_SVG",
-             "--bar $libraryNAME.phyloFlash.taxonsummary.csv "
-             ."--title=\"Taxonomic summary from mapping to database\" ",
+             "--bar ".$outfiles{"taxa_csv"}{"filename"}
+             ." --title=\"Taxonomic summary from mapping to database\" ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
+    $outfiles{"taxa_csv_svg"}{"made"}++;
 }
 
 sub generate_treemap_data_rows {
@@ -1544,9 +1580,9 @@ sub write_report_html {
         "ID" => $id,
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
-        "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$libraryNAME.".idhistogram.svg\" />\n",
-        "MAPRATIOPIE" => "<embed width=240 height=240 src=\"".$libraryNAME.".mapratio.csv.svg\" />\n",
-        "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$libraryNAME.".phyloFlash.taxonsummary.csv.svg\" />\n",
+        "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$outfiles{"idhistogram_svg"}{"filename"}."\" />\n",
+        "MAPRATIOPIE" => "<embed width=240 height=240 src=\"".$outfiles{"mapratio_svg"}{"filename"}."\" />\n",
+        "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$outfiles{"taxa_csv_svg"}{"filename"}."\" />\n",
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
@@ -1602,7 +1638,7 @@ sub write_report_html {
 
     # Params defined only for PE reads
     if ($SEmode == 0) {
-        $flags{"INSERTHISTOGRAM"} = "<embed width=240 height=240 src=\"".$libraryNAME.".inserthistogram.svg\" />\n";
+        $flags{"INSERTHISTOGRAM"} = "<embed width=240 height=240 src=\"".$outfiles{"inserthistogram_svg"}{"filename"}."\" />\n";
         $flags{"INS_ME"} = $ins_me;
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
@@ -1610,9 +1646,9 @@ sub write_report_html {
     }
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
-        $flags{"ASSEMBLYRATIOPIE"} = "<embed width=240 height=240 src=\"".$libraryNAME.".assemratio.csv.svg\" />\n";
+        $flags{"ASSEMBLYRATIOPIE"} = "<embed width=240 height=240 src=\"".$outfiles{"assemratio_svg"}{"filename"}."\" />\n";
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"SEQUENCES_TREE"} = "<embed src=\"".$libraryNAME.".SSU.collection.fasta.tree.svg\" width=1200px />\n";
+        $flags{"SEQUENCES_TREE"} = "<embed src=\"".$outfiles{"ssu_coll_tree_svg"}{"filename"}."\" width=1200px />\n";
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
@@ -1670,7 +1706,8 @@ sub write_report_html {
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
-    open_or_die(\$fh_out, ">", "$libraryNAME.phyloFlash.html");
+    open_or_die(\$fh_out, ">", $outfiles{"report_html"}{"filename"});
+    $outfiles{"report_html"}{"made"}++;
     my $write_flag = 1;
     while (my $line = <$fh_in>) {
         chomp $line;
@@ -1703,7 +1740,7 @@ bbmap_fast_filter_sam_run();
 ## Replaced: bbmap_hitstats_parse();
 
 # Parse statistics from BBmap initial mapping
-my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($libraryNAME.".bbmap.out", $SEmode);
+my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
@@ -1739,10 +1776,8 @@ $runtime = $timer->minutes; # Log run time
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version,
-    $libraryNAME, $id, $SEmode,
-    $readsf_full,$readsr_full,
-    $readnr,$readnr_pairs,
+    $version, $libraryNAME, $id, $SEmode,
+    $readsf_full, $readsr_full, $readnr, $readnr_pairs,
     $ins_me,$ins_std,$ins_used,
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
     $skip_spades, $skip_emirge, $treemap_flag, # flags

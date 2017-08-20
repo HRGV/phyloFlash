@@ -754,6 +754,13 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.phyloFlash.taxonsummary.csv",
         intable     => 1,
       },
+      "taxa_csv_svg",
+      {
+        description => "SVG graphic of taxonomic composition from initial read mapping",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.taxonsummary.csv.svg",
+        intable     => 1,
+      },
       "vsearch_csv",
       {
         description => "CSV file of Vsearch output",
