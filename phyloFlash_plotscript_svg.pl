@@ -116,8 +116,8 @@ sub hash2pie {
     # SVG plot preferences
     my $viewBox_width = 240;     # width
     my $viewBox_height = 240;    # height
-    my $margin = 50;
-    my $font_size = 12;
+    my $margin = 60;
+    my $font_size = 14;
 
     # Take shorter dimension, and calculate the pie diameter and circumference
     my $diam = $viewBox_width < $viewBox_height ? $viewBox_width : $viewBox_height;
@@ -155,7 +155,7 @@ sub hash2pie {
         print $fh "<text ".
                   "style=\"fill:black;font-size:$font_size;text-anchor:middle;font-weight:bold;\" ".
                   "x=\"".($viewBox_width / 2)."\" ".
-                  "y=\"$font_size\" ".
+                  "y=\"18\" ".
                   ">".
                   $title.
                   "</text>\n";
@@ -508,7 +508,7 @@ sub do_histogram_plots {
         print $histo_fh "<text ".
                         "style=\"fill:black;font-size:14;text-anchor:middle;font-weight:bold;\" ".
                         "x=\"".($viewBox_arr[2]/2)."\" ".
-                        "y=\"28\" ".
+                        "y=\"18\" ".
                         ">".
                         $title.
                         "</text>\n";
