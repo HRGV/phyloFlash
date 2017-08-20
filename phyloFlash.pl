@@ -1617,6 +1617,19 @@ sub write_report_html {
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
 
+    # Table of output files produced
+    my @table_outfiles;
+    my @fileskeys = sort {$outfiles{$a}{"filename"} cmp $outfiles{$b}{"filename"}} keys %outfiles;
+    foreach my key (@fileskeys) {
+        if ($outfiles{$key}{"made"} && $outfiles{$key}{"intable"} == 1) {
+            push @table_outfiles, "  <tr>\n";
+            push @table_outfiles, "    <th>".$outfiles{$key}{"description"}."</th>\n";
+            push @table_outfiles, "    <th>".$outfiles{$key}{"filename"}."</th>\n";
+            push @table_outfiles, "  </tr>\n";
+        }
+    }
+    $flags{"OUTPUT_FILES_TABLE"} = join "", @table_outfiles;
+
     # Table of taxonomic affiliations
     my @table_db_map;
     my @taxkeys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
