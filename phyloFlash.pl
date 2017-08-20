@@ -105,7 +105,7 @@ Default: 70
 Identity threshold for clustering with vsearch in %.
 Must be within 50..100. Default: 97
 
-=item -taxlimit I<N>
+=item -taxlevel I<N>
 
 Level in the taxonomy string to summarize read counts per taxon.
 Numeric and 1-based (i.e. "1" corresponds to "Domain").
@@ -202,7 +202,7 @@ my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 my $version       = 'phyloFlash v3.0 beta 1';       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
-my $progcmd       = join " ", ($prorgname, @ARGV) ; # How the script was called
+my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
 
 # configuration variables / defaults
 my $DBHOME      = undef;
