@@ -258,10 +258,12 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_SE_READS_END-->
 </table>
 
-<h3>Output files</h3>
-<table class="slimTable">
+<h3><a href="#" id="outfiles-show" class="showLink" onclick="showHide('outfiles');return false;">Output files</a></h3>
+<div id="outfiles" class="more">
+  <table class="slimTable">
 <!--OUTPUT_FILES_TABLE-->
-</table>
+  </table>
+</div>
 
 <h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>

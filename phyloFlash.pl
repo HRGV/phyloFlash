@@ -1447,7 +1447,7 @@ sub clean_up {
     system ("rm tmp.$libraryNAME.* -r");
 
     # Remove files that are earmarked for destruction
-    # Change earmarking in PhyloFlash.pm 
+    # Change earmarking in PhyloFlash.pm
     foreach my $key (keys %outfiles) {
         if ($outfiles{$key}{"discard"} == 1) {
             system ("rm -r ".$outfiles{$key}{"filename"});
@@ -1629,11 +1629,11 @@ sub write_report_html {
     # Table of output files produced
     my @table_outfiles;
     my @fileskeys = sort {$outfiles{$a}{"filename"} cmp $outfiles{$b}{"filename"}} keys %outfiles;
-    foreach my key (@fileskeys) {
+    foreach my $key (@fileskeys) {
         if ($outfiles{$key}{"made"} && $outfiles{$key}{"intable"} == 1) {
             push @table_outfiles, "  <tr>\n";
             push @table_outfiles, "    <th>".$outfiles{$key}{"description"}."</th>\n";
-            push @table_outfiles, "    <th>".$outfiles{$key}{"filename"}."</th>\n";
+            push @table_outfiles, "    <td>".$outfiles{$key}{"filename"}."</td>\n";
             push @table_outfiles, "  </tr>\n";
         }
     }
