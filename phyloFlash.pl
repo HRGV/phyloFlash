@@ -153,6 +153,11 @@ Turn off SPAdes assembly of SSU sequences
 
 Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
 
+=item -zip
+
+Compress output into a tar.gz archive file
+Default: Off ("-nozip")
+
 =back
 
 =head1 COPYRIGHT AND LICENSE
@@ -222,6 +227,7 @@ my $decimalcomma= 0;            # Decimal separator (default = .)
 my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
+my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
@@ -357,6 +363,7 @@ sub parse_cmdline {
                'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
+               'zip' => \$zip,
                'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -1457,10 +1464,25 @@ sub clean_up {
     system ("rm tmp.$libraryNAME.* -r");
 
     # Remove files that are earmarked for destruction
-    # Change earmarking in PhyloFlash.pm
+    # (Change earmarking in PhyloFlash.pm)
     foreach my $key (keys %outfiles) {
         if ($outfiles{$key}{"discard"} == 1) {
             system ("rm -r ".$outfiles{$key}{"filename"});
+        }
+    }
+
+    # Compress output into tar.gz archive if requested
+    if ($zip == 1) {
+        my @filelist;
+        my $tarfile = $libraryNAME.".tar.gz";
+        msg ("Compressing results into tar.gz archive $tarfile");
+        foreach my $key (keys %outfiles) {
+            if ($outfiles{$key}{"made"}==1 && $outfiles{$key}{"discard"} ==0) {
+                push @filelist, $key;
+            }
+            my $to_tar = join " ", @filelist;
+            system ("tar -czf $tarfile $to_tar");
+            system ("rm -r $to_tar");
         }
     }
 
