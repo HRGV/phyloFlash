@@ -817,11 +817,11 @@ sub draw_tree {
     #dump_taxon_data($taxa_href); # diagnostics
 
     # SVG and Plot parameters for tree
-    my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 400);
+    my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 200);
     # Count number of taxa to calculate image height
     my $num_taxa = scalar (keys %$taxa_href);
     if ($num_taxa > 10) {   # Make image larger if number of taxa is large
-        $vb_height = 40*$num_taxa;
+        $vb_height = 30*$num_taxa;
     }
     my $viewBox = join " ", ($vb_x, $vb_y, $vb_width, $vb_height); # Viewbox parameter for SVG header
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
@@ -838,13 +838,13 @@ sub draw_tree {
     # Scale font size by the length of the longest taxon label
     my $textlength = max (@namelens);
     my $fontsize;
-    if ($textlength < 150) { # If label is shorter than 150 chars, scale to max 8
+    if ($textlength < 150) { # If label is shorter than 150 chars, scale to max 10
                              # 150 chars at font size 4 will have width roughly 300
-        $fontsize = 8 - 4 * $textlength / 150;
-    } else { # Minimum font size is 4, else illegible
-        $fontsize = 4;
+        $fontsize = 10 - 6 * $textlength / 150;
+    } else { # Minimum font size is 6, else illegible
+        $fontsize = 6;
     }
-    my $textwidth = $fontsize/2 * $textlength;
+    my $textwidth = 1.1 * $fontsize/2 * $textlength;
 
     # Adjust proportion of plot taken up by tree branches according to the space occupied by tree
     my $treewidth = $vb_width - $textwidth;
@@ -854,10 +854,10 @@ sub draw_tree {
     open(my $fh, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     print $fh $svg_open;
     foreach my $key (keys %{$nodes_href}) {
-        draw_node($key,$nodes_href, $br_scalefactor, $linestyle, $fh);
+        draw_node($key,$nodes_href, $br_scalefactor, $vb_height, $linestyle, $fh);
     }
     foreach my $key (keys %{$taxa_href}) {
-        draw_taxon($key,$taxa_href, $br_scalefactor, $linestyle, $fontsize, $fh);
+        draw_taxon($key,$taxa_href, $br_scalefactor, $vb_height, $linestyle, $fontsize, $fh);
     }
     print $fh "</svg>\n";
     close($fh);
@@ -867,6 +867,7 @@ sub draw_taxon {
     my ($taxonID,   # Taxon ID to draw
         $href,      # Hash reference for taxa hash
         $sf,        # Scaling factor for branch lengths to fit plot
+        $vb_height, # Height of plot
         $style,     # SVG line style
         $fontsize,  # Font size
         $handle,    # File handle for writing
@@ -877,7 +878,10 @@ sub draw_taxon {
         push @params, ${$href}{$taxonID}{$pname};
     }
     my ($vpos, $cumul_brlen, $brlen, $name) = @params;
+    # Rescale branch lengths by scaling factor
     ($cumul_brlen, $brlen) = map {$_ * $sf} ($cumul_brlen, $brlen);
+    # Rescale vertical position by viewbox height ($vpos is expressed as percentage)
+    $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
@@ -902,6 +906,7 @@ sub draw_node {
     my ($nodeID,    # Target node to draw
         $href,      # Node hash
         $sf,        # branch length scale factor
+        $vb_height, # Height of plot
         $style,     # SVG line style
         $handle     # File handle for print
         ) = @_;
@@ -913,6 +918,8 @@ sub draw_node {
     my($vpos,$leftdesc_vpos,$rightdesc_vpos,$cumul_brlen,$brlen) = @params;
     # Rescale branch lengths
     ($cumul_brlen,$brlen) = map {$_ * $sf} ($cumul_brlen, $brlen);
+    # Rescale vertical position ($vpos is expressed as percentage)
+    ($vpos,$leftdesc_vpos,$rightdesc_vpos) = map {$_ * $vb_height / 100} ($vpos,$leftdesc_vpos,$rightdesc_vpos);
     my $prenode = $cumul_brlen - $brlen;
     # Grouping tag
     print $handle "<g id=\"$nodeID\" style=\"$style\">\n";
