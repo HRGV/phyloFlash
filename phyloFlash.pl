@@ -105,6 +105,12 @@ Default: 70
 Identity threshold for clustering with vsearch in %.
 Must be within 50..100. Default: 97
 
+=item -taxlimit I<N>
+
+Level in the taxonomy string to summarize read counts per taxon.
+Numeric and 1-based (i.e. "1" corresponds to "Domain").
+Default: 4 ("Order")
+
 =item -maxinsert I<N>
 
 Maximum insert size allowed for paired end read mapping. Must be within
@@ -112,8 +118,9 @@ Maximum insert size allowed for paired end read mapping. Must be within
 
 =item -html
 
-Generate output in HTML format. (Default: on)
-Turn off with -nohtml
+Generate output in HTML format.
+Default: On.
+(Turn off with "-nohtml")
 
 =item -treemap
 
@@ -122,6 +129,7 @@ report. This uses Google Visualization API, which requires an internet
 connection, requires that you agree to their terms of service (see
 https://developers.google.com/chart/terms), and is not open source,
 although it is free to use.
+Default: Off ("-notreemap")
 
 =item -crlf
 
@@ -129,12 +137,13 @@ Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
 
 =item -decimalcomma
 
-Use decimal comma instead of decimal point to fix locale problems
-(default: off)
+Use decimal comma instead of decimal point to fix locale problems.
+Default: Off
 
 =item -emirge
 
 Turn on EMIRGE reconstruction of SSU sequences
+Default: Off ("-noemirge")
 
 =item -skip_spades
 
@@ -339,12 +348,13 @@ sub parse_cmdline {
                'maxinsert=i' => \$maxinsert,
                'id=i' => \$id,
                'clusterid=i' => \$clusterid,
+               'taxlevel=i' => \$taxon_report_lvl,
                'CPUs=i' => \$cpus,
                'html!' => \$html_flag,
-               'treemap' => \$treemap_flag,
+               'treemap!' => \$treemap_flag,
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
-               'emirge' => \$emirge,
+               'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
                'check_env' => \$check_env,
@@ -655,7 +665,7 @@ sub bbmap_fast_filter_sam_run {
     #         lib.$readsf.SSU.{1,2}.fq
     #         lib.bbmap.out
     #         lib.inserthistogram
-    # tmp:    tmp.lib.basecompositionhistogram
+    # tmp:    tmp.$libraryNAME.basecompositionhistogram
     msg("filtering reads with SSU db using minimal identity of $id%");
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
