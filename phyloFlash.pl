@@ -1012,6 +1012,7 @@ sub spades_parse {
                  $outfiles{"gff_".$_}{"filename"},
                  $outfiles{"barrnap_log"}{"filename"});
         $outfiles{"gff_".$_}{"made"}++;
+        $outfiles{"barrnap_log"}{"made"}++;
     }
 
     # now merge multi-hits on the same scaffold-and-strand by picking
@@ -1808,6 +1809,8 @@ bbmap_fast_filter_sam_run();
 
 # Parse statistics from BBmap initial mapping
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+$outfiles{"bbmap_log"}{"made"}++; # Log creation of bbmap log file
+
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
