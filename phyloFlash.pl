@@ -960,7 +960,7 @@ sub spades_run {
     }
     msg ("kmers for SPAdes are ".$kmer);
 
-    my $args;
+    my $args = "";
     if ($sc == 1) {
       $args = '--sc ';
     }
@@ -1466,7 +1466,7 @@ sub clean_up {
     # Remove files that are earmarked for destruction
     # (Change earmarking in PhyloFlash.pm)
     foreach my $key (keys %outfiles) {
-        if ($outfiles{$key}{"discard"} == 1) {
+        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
             system ("rm -r ".$outfiles{$key}{"filename"});
         }
     }
@@ -1474,16 +1474,16 @@ sub clean_up {
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
-        my $tarfile = $libraryNAME.".tar.gz";
+        my $tarfile = $libraryNAME.".phyloFlash.tar.gz";
         msg ("Compressing results into tar.gz archive $tarfile");
         foreach my $key (keys %outfiles) {
-            if ($outfiles{$key}{"made"}==1 && $outfiles{$key}{"discard"} ==0) {
-                push @filelist, $key;
+            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
+                push @filelist, $outfiles{$key}{"filename"};
             }
-            my $to_tar = join " ", @filelist;
-            system ("tar -czf $tarfile $to_tar");
-            system ("rm -r $to_tar");
         }
+        my $to_tar = join " ", @filelist;
+        system ("tar -czf $tarfile $to_tar");
+        system ("rm -r $to_tar");
     }
 
     msg("done...");
