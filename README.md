@@ -15,7 +15,7 @@ Quick-start
 ```bash
 # Download phyloFlash
 wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
-tar -xzf vXXX-beta6.tar.gz
+tar -xzf vXXX.tar.gz
 
 # Check for dependencies
 cd phyloFlash-XXX
