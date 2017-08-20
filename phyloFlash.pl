@@ -1445,6 +1445,15 @@ sub clean_up {
         system ("rm ./$libraryNAME.emirge -r");
     }
     system ("rm tmp.$libraryNAME.* -r");
+
+    # Remove files that are earmarked for destruction
+    # Change earmarking in PhyloFlash.pm 
+    foreach my $key (keys %outfiles) {
+        if ($outfiles{$key}{"discard"} == 1) {
+            system ("rm -r ".$outfiles{$key}{"filename"});
+        }
+    }
+
     msg("done...");
 }
 
