@@ -798,7 +798,7 @@ sub bbmap_fast_filter_parse {
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
-    $outfiles{"mapratio_csv"}{"made"}++
+    $outfiles{"mapratio_csv"}{"made"}++;
     print $fh_csv join ("\n", @mapratio_csv);
     close ($fh_csv);
 
@@ -989,7 +989,7 @@ sub spades_parse {
                  $b_args.
                  "--kingdom $_ --gene ssu --threads $cpus " .
                  "$libraryNAME.spades/scaffolds.fasta",
-                 $outfiles{"gff_".$_}{"filename"};
+                 $outfiles{"gff_".$_}{"filename"},
                  $outfiles{"barrnap_log"}{"filename"});
         $outfiles{"gff_".$_}{"made"}++;
     }
@@ -1306,7 +1306,7 @@ sub vsearch_best_match {
     elsif ($skip_emirge == 1 && $skip_spades == 0){
         run_prog("cat",
                  "   ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"};
+                 $outfiles{"all_final_fasta"}{"filename"});
         $outfiles{"all_final_fasta"}{"made"}++;
     }
     elsif ($skip_emirge == 0 && $skip_spades == 0){
@@ -1319,7 +1319,7 @@ sub vsearch_best_match {
 
     if (-s $outfiles{"all_final_fasta"}{"filename"}) {
        run_prog("vsearch",
-             "-usearch_global .$outfiles{"all_final_fasta"}{"filename"}
+             "-usearch_global ".$outfiles{"all_final_fasta"}{"filename"}
              . " -db ${DBHOME}/${vsearch_db}.fasta"
              . " -id 0.7"
              . " -userout ".$outfiles{"vsearch_csv"}{"filename"}
@@ -1472,7 +1472,7 @@ sub run_plotscript_SVG {
     unless ($skip_spades == 1) {
         run_prog("plotscript_SVG",
              "--pie ".$outfiles{"assemratio_csv"}{"filename"}
-             ." --title=\"Reads mapped\" ",
+             ." --title=\"Reads assembled\" ",
              #. "$decimalcomma ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
@@ -1502,7 +1502,7 @@ sub run_plotscript_SVG {
     # Generate barplot of taxonomy at level XX
     run_prog("plotscript_SVG",
              "--bar ".$outfiles{"taxa_csv"}{"filename"}
-             ." --title=\"Taxonomic summary from mapping to database\" ",
+             ." --title=\"Taxonomic summary from reads mapped\" ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
     $outfiles{"taxa_csv_svg"}{"made"}++;
