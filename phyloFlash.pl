@@ -199,9 +199,10 @@ use Cwd;
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.0 beta 1';
-my $progname      = $FindBin::Script;
-my $cwd = getcwd;
+my $version       = 'phyloFlash v3.0 beta 1';       # Current phyloFlash version
+my $progname      = $FindBin::Script;               # Current script name
+my $cwd           = getcwd;                         # Current working folder
+my $progcmd       = join " ", ($prorgname, @ARGV) ; # How the script was called
 
 # configuration variables / defaults
 my $DBHOME      = undef;
@@ -484,6 +485,8 @@ sub print_report {
 
     print {$fh} qq ~
 $version - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)
+
+Command:\t$progcmd
 Library name:\t$libraryNAME
 ---
 Forward read file\t$readsf_full~;
@@ -1596,7 +1599,7 @@ sub generate_treemap_data_rows {
 
 sub write_report_html {
     # Get input parameters
-    my ($version,
+    my ($version,$progcmd,$cwd,
         $libraryNAME, $id, $SEmode,
         $readsf_full,$readsr_full,
         $readnr,$readnr_pairs,
@@ -1605,11 +1608,15 @@ sub write_report_html {
         $skip_spades, $skip_emirge, $treemap_flag,
         $taxon_report_lvl,
         $mapstats_href,
+        $outfiles_href,
+        $xtons_aref,$chao1,
         $taxa_summary_href,
         $taxa_unassem_summary_href,
         $ssuassem_results_sorted_aref,
         $ssurecon_results_sorted_aref,
         ) = @_;
+    my %outfiles = %$outfiles_href;
+    my @xtons = @$xtons_aref;
     # Location of template file
     my $template = "$FindBin::RealBin/phyloFlash_report_template.html",
     msg ("Generating HTML-formatted report and graphics ... ");
@@ -1618,6 +1625,8 @@ sub write_report_html {
     %flags = (
         "VERSION" => $version,
         "LIBNAME" => $libraryNAME,
+        "PROGCMD" => $progcmd,
+        "CWD" => $cwd,
         "ID" => $id,
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
@@ -1628,6 +1637,10 @@ sub write_report_html {
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
         "TAXON_REPORT_LVL" => $taxon_report_lvl,
+        "XTONS0" => $xtons[0],
+        "XTONS1" => $xtons[1],
+        "XTONS2" => $xtons[2],
+        "CHAO1" => $chao1,
     );
 
     # Define suppress flags (which turn off writing of report)
@@ -1830,16 +1843,17 @@ $runtime = $timer->minutes; # Log run time
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version, $libraryNAME, $id, $SEmode,
+    $version, $progcmd, $cwd, $libraryNAME, $id, $SEmode,
     $readsf_full, $readsr_full, $readnr, $readnr_pairs,
     $ins_me,$ins_std,$ins_used,
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
     $skip_spades, $skip_emirge, $treemap_flag, # flags
     $taxon_report_lvl,
-    \%ssu_sam_mapstats,
+    \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
     \@ssuassem_results_sorted, \@ssurecon_results_sorted,
     );
+
 # Print report file and CSV output
 print_report();
 write_csv();

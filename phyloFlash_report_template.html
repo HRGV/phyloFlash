@@ -188,7 +188,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <h2>Parameters</h2>
 
-<h3>Input files</h3>
+<h3>Input parameters</h3>
+Input command:<!--PROGCMD-->
 <table class="slimTable">
   <tr>
     <th>Forward read file</th>
@@ -200,14 +201,18 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <td><!--READSR_FULL--></td>
   </tr>
 <!--SUPPRESS_IF_SE_READS_END-->
-</table>
-
-<h3>Mapping parameters</h3>
-<table class="slimTable">
   <tr>
     <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
     <td><!--ID-->%</td>
   </tr>
+  <tr>
+    <th>Working folder</th>
+    <td><!--CWD--></td>
+  </tr>
+</table>
+
+<h3>Mapping statistics</h3>
+<table class="slimTable">
 <!--SUPPRESS_IF_SE_READS-->
   <tr>
     <th>Input PE-reads</th>
@@ -268,7 +273,25 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
-  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping to SSU rRNA database.
+  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping to SSU rRNA database.</p>
+  <table>
+    <tr>
+      <th>NTUs observed once</th>
+      <td><!--XTONS0--></td>
+    </tr>
+    <tr>
+      <th>NTUs observed twice</th>
+      <td><!--XTONS1--></td>
+    </tr>
+    <tr>
+      <th>NTUs observed three or more times</th>
+      <td><!--XTONS2--></td>
+    </tr>
+    <tr>
+      <th>NTU Chao1 richness estimate</th>
+      <td><!--CHAO1--></td>
+    </tr>
+  </table>
   <p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
   <table>
     <tr>
