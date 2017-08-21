@@ -1515,7 +1515,7 @@ sub nhmmer_model_pos {
     # Parse nhmmer output
     my %hash;
     my $fh_tbl;
-    open_or_die(\$fh_tbl,"<",$outfiles{"nhmmer_tblout"}{"filename"})
+    open_or_die(\$fh_tbl,"<",$outfiles{"nhmmer_tblout"}{"filename"});
     while (<$fh_tbl>) {
         next if m/^#/;                  # Ignore comment lines
         my @spl = split /\s+/, $_;      # Split on whitespace
@@ -1554,7 +1554,7 @@ sub nhmmer_model_pos {
     my %prok_pos;
     my %euk_pos;
     foreach my $readname (keys %hash) {
-        if ($hash{$readname}{"type"} eq "euk") {
+        if (defined $hash{$readname}{"type"} && $hash{$readname}{"type"} eq "euk") {
             $euk_pos{$hash{$readname}{"pos"}}++;
         } else {
             $prok_pos{$hash{$readname}{"pos"}}++;
@@ -1562,19 +1562,17 @@ sub nhmmer_model_pos {
     }
     # Write result to prokaryote histogram
     my $fh_prok;
-    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"}) {
-        foreach my $key (sort {$a <=> $b} keys %prok_pos) {
-            print $fh_prok $key."\t". $prok_pos{$key}."\n";
-        }
+    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
+    foreach my $key (sort {$a <=> $b} keys %prok_pos) {
+        print $fh_prok $key."\t". $prok_pos{$key}."\n";
     }
     close($fh_prok);
     $outfiles{"nhmmer_prok_histogram"}{"made"}++;
     # Write results for eukaryote histogram
     my $fh_euk;
-    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"}) {
-        foreach my $key (sort {$a <=> $b} keys %euk_pos) {
-            print $fh_euk $key."\t". $euk_pos{$key}."\n";
-        }
+    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
+    foreach my $key (sort {$a <=> $b} keys %euk_pos) {
+        print $fh_euk $key."\t". $euk_pos{$key}."\n";
     }
     close($fh_euk);
     $outfiles{"nhmmer_euk_histogram"}{"made"}++;
