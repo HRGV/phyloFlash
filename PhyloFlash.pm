@@ -930,6 +930,49 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.phyloFlash.tar.gz",
         intable     => 0,
       },
+      "readsf_subsample",
+      {
+        description => "Subsample of the forward SSU reads for running nhmmer",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.readsf.subsample.fasta",
+        intable     => 0,
+      },
+      "nhmmer_tblout",
+      {
+        description => "Tabular output from aligning SSU HMM models with nhmmer on sample of reads",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.nhmmer.tblout",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram",
+      {
+        description => "Histogram of alignment position counts against prokaryotic HMM models",
+        discard     => 0, # keep while testing
+        filename    => "$libraryNAME.nhmmer.prok.histogram",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against prokaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.prok.histogram.svg",
+        intable     => 0,
+      },
+      "nhmmer_euk_histogram",
+      {
+        description => "Histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram",
+        intable     => 0,
+      },
+      "nhummer_euk_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram.svg",
+        intable     => 0,
+      },
+      s
     );
     return (\%hash);
 }
