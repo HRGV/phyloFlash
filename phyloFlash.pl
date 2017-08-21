@@ -158,6 +158,11 @@ Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
 Compress output into a tar.gz archive file
 Default: Off ("-nozip")
 
+=item -log
+
+Write status messages printed to STDERR also to a log file
+Default: Off ("-nolog")
+
 =back
 
 =head1 COPYRIGHT AND LICENSE
@@ -228,6 +233,7 @@ my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
+my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
@@ -362,7 +368,8 @@ sub parse_cmdline {
                'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
                'sc' => \$sc,
-               'zip' => \$zip,
+               'zip!' => \$zip,
+               'log!' => \$save_log,
                'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -1476,7 +1483,7 @@ sub clean_up {
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
-        my $tarfile = $libraryNAME.".phyloFlash.tar.gz";
+        my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
         msg ("Compressing results into tar.gz archive $tarfile");
         foreach my $key (keys %outfiles) {
             if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
@@ -1835,6 +1842,15 @@ sub write_report_html {
     close($fh_in);
 }
 
+sub write_logfile {
+    # This should always be run last
+    msg("Saving log to file");
+    my $fh;
+    open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
+    print $fh join "\n", @PhyloFlash::msg_log;
+    close($fh);
+}
+
 ######################### MAIN ###########################
 welcome();
 parse_cmdline();
@@ -1907,9 +1923,11 @@ if ($html_flag) {
 }
 
 # Clean up temporary files
-#clean_up();
+clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
+
+write_logfile() if ($save_log == 1);

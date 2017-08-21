@@ -32,6 +32,7 @@ our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   get_cpus
   msg
+  @msg_log
   err
   version_sort
   file_is_newer
@@ -78,10 +79,12 @@ sub get_cpus {
 Logs a message to STDERR with time stamp prefix.
 
 =cut
+our @msg_log; # Global var to store log
 sub msg {
     my $t = localtime;
     my $line = wrap ("[".$t->hms."] ", "           ",
                      join "\n", @_);
+    push @msg_log, $line;
     print STDERR $line."\n";
 }
 
@@ -928,6 +931,20 @@ sub initialize_infiles_hash {
         discard     => 0,
         filename    => "$libraryNAME.all.final.fasta",
         intable     => 1,
+      },
+      "phyloFlash_log",
+      {
+        description => "phyloFlash log file",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.log",
+        intable     => 0,
+      },
+      "phyloFlash_archive",
+      {
+        description => "tar.gz archive of phyloFlash results",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.tar.gz",
+        intable     => 0,
       },
     );
     return (\%hash);
