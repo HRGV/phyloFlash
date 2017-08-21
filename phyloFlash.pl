@@ -1632,9 +1632,6 @@ sub write_report_html {
         "ID" => $id,
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
-        "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$outfiles{"idhistogram_svg"}{"filename"}."\" />\n",
-        "MAPRATIOPIE" => "<embed width=240 height=240 src=\"".$outfiles{"mapratio_svg"}{"filename"}."\" />\n",
-        "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$outfiles{"taxa_csv_svg"}{"filename"}."\" />\n",
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
@@ -1672,6 +1669,29 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_NO_TREEMAP"} = 1 ;
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
+    
+    # Slurp in the SVG plots to embed in HTML file
+    { # Curly braces to keep redefined input record separator local
+        my $fh_slurp;
+        open_or_die(\$fh_slurp, "<", $outfiles{"idhistogram_svg"}{"filename"});
+        local $/ = undef;
+        $flags{"IDHISTOGRAM"} = <$fh_slurp>;
+        close($fh_slurp);
+    }
+    {
+        my $fh_slurp;
+        open_or_die(\$fh_slurp, "<", $outfiles{"mapratio_svg"}{"filename"});
+        local $/ = undef;
+        $flags{"MAPRATIOPIE"} = <$fh_slurp>;
+        close($fh_slurp);
+    }
+    {
+        my $fh_slurp;
+        open_or_die(\$fh_slurp, "<", $outfiles{"taxa_csv_svg"}{"filename"});
+        local $/ = undef;
+        $flags{"TAXONSUMMARYBAR"} = <$fh_slurp>;
+        close($fh_slurp);
+    }
 
     # Table of output files produced
     my @table_outfiles;
@@ -1707,18 +1727,37 @@ sub write_report_html {
 
     # Params defined only for PE reads
     if ($SEmode == 0) {
-        $flags{"INSERTHISTOGRAM"} = "<embed width=240 height=240 src=\"".$outfiles{"inserthistogram_svg"}{"filename"}."\" />\n";
         $flags{"INS_ME"} = $ins_me;
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
         $flags{"READNR_PAIRS"} = $readnr_pairs;
+             { # Slurp in histogram SVG to embed into HTML
+                my $fh_slurp;
+                open_or_die(\$fh_slurp, "<", $outfiles{"inserthistogram_svg"}{"filename"});
+                local $/ = undef;
+                $flags{"INSERTHISTOGRAM"} = <$fh_slurp>;
+                close($fh_slurp);
+            }
     }
+    
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
-        $flags{"ASSEMBLYRATIOPIE"} = "<embed width=240 height=240 src=\"".$outfiles{"assemratio_svg"}{"filename"}."\" />\n";
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"SEQUENCES_TREE"} = "<embed src=\"".$outfiles{"ssu_coll_tree_svg"}{"filename"}."\" width=1200px />\n";
-
+        { # Slurp in graphics to embed in HTML file
+            my $fh_slurp;
+            open_or_die(\$fh_slurp, "<", $outfiles{"assemratio_svg"}{"filename"});
+            local $/ = undef;
+            $flags{"ASSEMBLYRATIOPIE"} = <$fh_slurp>;
+            close($fh_slurp);
+        }
+        { 
+            my $fh_slurp;
+            open_or_die(\$fh_slurp, "<", $outfiles{"ssu_coll_tree_svg"}{"filename"});
+            local $/ = undef;
+            $flags{"SEQUENCES_TREE"} = <$fh_slurp>;
+            close($fh_slurp);
+        }
+        
         # Table of assembled SSU sequences
         my @table_assem_seq;
         foreach (@$ssuassem_results_sorted_aref) {
@@ -1751,6 +1790,7 @@ sub write_report_html {
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
     }
+    
     # Params defined only for reconstructed (EMIRGE) reads
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
