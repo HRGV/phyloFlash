@@ -813,9 +813,10 @@ sub bbmap_fast_filter_parse {
         push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio;
     } elsif ($SEmode == 0) {
-        my $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
-        my $mapped_half = $ssu_f_reads + $ssu_r_reads - $ssu_pairs;
-        push @mapratio_csv, "Unmapped,".$unmapped_seg;
+        my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
+        my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
+        my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
+        push @mapratio_csv, "Unmapped pair,".$unmapped_pairs;
         push @mapratio_csv, "Mapped pair,".$ssu_pairs;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
