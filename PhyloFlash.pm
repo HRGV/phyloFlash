@@ -58,17 +58,17 @@ or reported by F<sysctl> (Darwin/OSX)
 =cut
 sub get_cpus {
     if ($Config{"osname"} eq "linux") {
-	open(my $fh, "<", "/proc/cpuinfo") or return 1;
-	return scalar (map /^processor/, <$fh>)
+        open(my $fh, "<", "/proc/cpuinfo") or return 1;
+        return scalar (map /^processor/, <$fh>)
     }
     elsif ($Config{"osname"} eq "darwin") {
-	can_run("sysctl") or return 1;
-	my $ncpu = `sysctl -n hw.ncpu`;
-	chomp($ncpu);
-	return $ncpu;
+        can_run("sysctl") or return 1;
+        my $ncpu = `sysctl -n hw.ncpu`;
+        chomp($ncpu);
+        return $ncpu;
     }
     else {
-	return 1;
+        return 1;
     }
 }
 

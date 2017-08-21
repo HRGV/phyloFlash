@@ -181,8 +181,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 =cut
 
-use strict;
-use warnings;
 
 use FindBin;
 use lib $FindBin::RealBin;
