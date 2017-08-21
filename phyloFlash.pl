@@ -980,8 +980,12 @@ sub spades_run {
                 ." -2 ".$outfiles{"reads_mapped_r"}{"filename"};
     }
 
+    # Limit number of SPAdes processors to 24 - if run on a server with all 64
+    # processors SPAdes will exceed max memory and crash
+    my $cpus_spades = $cpus > 24 ? 24 : $cpus; 
+
     run_prog("spades",
-             "-o $libraryNAME.spades -t $cpus -m 20 -k $kmer "
+             "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
              . $args,
              $outfiles{"spades_log"}{"filename"},"&1"
          );
