@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!--This is a template file for phyloFlash v3.0 report output.
+    Comment tags in all-uppercase are flags to the write_report_html
+    function in phyloFlash.pl to substitute field values for a
+    given phyloFlash run. -->
 <html>
 <head>
 <title>phyloFlash results summary for library <!--LIBNAME--></title>
@@ -60,49 +64,65 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <style type="text/css">
   body {
-    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;}
+    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;
+    max-width:1200px;
+    margin:auto;
+  }
 
+  /*Tabular output*/
   th {
     background-color: #dee;
-    padding: .5em .5em .5em .5em;
-    font-weight: bold;}
+    padding: .5em;
+    font-weight: bold;
+  }
   td {
-    padding: 0em .5em 0em .5em;}
-
+    padding: 0em .5em 0em .5em;
+  }
   table.slimTable th {
     padding: 0em .5em 0em .5em;
     font-weight: normal;
-    text-align: right;}
+    text-align: right;
+  }
 
   .withHoverText {
     text-decoration: none;
-    border-bottom: 1px grey dotted;}
+    border-bottom: 1px grey dotted;
+  }
 
+  /*Show/hide on click*/
   .more { display: none; }
   a.showLink { text-decoration: none; }
   a.showLink:link { color: grey; }
   a.showLink:visited { color: grey; }
   a.showLink:hover { color: white;
-    background-color: grey; }
+    background-color: grey;
+  }
 
-  .suppress {
-    display: none; }
-
+  /*Format code snippets*/
+  .code {
+    font-family:monospace;
+  }
+  
+  /*Arrangement of graphical summary*/
   .fullwidth {
-    max-width: 1600px;
+    max-width: 1200px;
     width: 100%;
-    margin: 0;
+    margin: auto;
     padding: 0px;
-    border: 0px solid grey; }
+    border: 0px solid grey;
+  }
   .col1, .col2, .col3 {
     display: inline-block;
     vertical-align: top;
     padding: 0px;
     margin: 0;
-    border: 0px solid grey; }
+    border: 0px solid grey;
+  }
   .col1 { width:20%; }
   .col2 { width:20%; }
   .col3 { width:50%; }
+  
+  /*Tooltip text for graphical summary*/
   .tooltip .tooltiptext {
     position: relative;
     display: inline-block;
@@ -115,9 +135,11 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     padding: 5px;
     font-size:12px;
     position: absolute;
-    z-index: 1; }
+    z-index: 1;
+  }
   .tooltip:hover .tooltiptext {
-    visibility:visible; }
+    visibility:visible;
+  }
 </style>
 </head>
 <body>
@@ -161,7 +183,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
       <path id="path3023" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 442.68429,27.382875 c 1.89325,-2.244902 3.82167,-4.075947 5.78533,-5.493325 1.97294,-1.463143 4.04108,-2.572123 6.20442,-3.326836 2.16323,-0.754536 4.44462,-1.150144 6.84418,-1.186825 2.40884,-0.08255 5.03708,0.166631 7.8847,0.747634 4.77654,0.974625 8.54933,2.413994 11.31826,4.318595 2.81473,1.913993 4.85584,4.220119 6.12326,6.918569 1.32257,2.661992 1.97741,5.66604 1.96452,9.012143 0.0328,3.355684 -0.34427,6.962439 -1.13137,10.820411 l -10.13499,49.671894 -12.46964,-2.544289 9.643,-47.260632 c 0.64655,-3.169039 1.00682,-5.989895 1.08084,-8.46257 0.11981,-2.463223 -0.21208,-4.58809 -0.99569,-6.374602 -0.77436,-1.832388 -2.09228,-3.345165 -3.95377,-4.538333 -1.85226,-1.238946 -4.38582,-2.186543 -7.6008,-2.842506 -2.93947,-0.599747 -5.71111,-0.615062 -8.31487,-0.04615 -2.55796,0.578518 -4.88339,1.658897 -6.97631,3.241134 -2.04705,1.591647 -3.81098,3.67162 -5.2918,6.239869 -1.48088,2.568337 -2.57272,5.574815 -3.27553,9.019424 l -8.96827,43.953769 -12.40075,-2.530236 20.86035,-102.237261 12.40077,2.530169 -5.42594,26.592738 c -0.30927,1.51574 -0.64152,3.026712 -0.99666,4.532938 -0.3552,1.506315 -0.70996,2.893094 -1.06416,4.160268 -0.30839,1.276669 -0.57917,2.369582 -0.81257,3.278782 -0.22426,0.863189 -0.39175,1.450944 -0.5032,1.763068 l 0.20661,0.04244" />
     </g>
   </g>
-</svg><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+</svg><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a></h3>
+<h3>High throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
 <p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
 
 <h1>Library name: <!--LIBNAME--></h1>
@@ -211,6 +234,10 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
   <tr>
     <th>Working folder</th>
     <td><!--CWD--></td>
+  </tr>
+  <tr>
+    <th>Database used</th>
+    <td><!--DBHOME--></td>
   </tr>
 </table>
 
@@ -276,8 +303,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
-  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping to SSU rRNA database.</p>
-  <table>
+  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping hits to SILVA SSU rRNA database using BBmap.</p>
+  <table class="slimTable">
     <tr>
       <th>NTUs observed once</th>
       <td><!--XTONS0--></td>
@@ -291,7 +318,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
       <td><!--XTONS2--></td>
     </tr>
     <tr>
-      <th><span class="withHoverText" title="Statistical index of alpha diversity in sample, from Chao 1984">NTU Chao1 richness estimate</th>
+      <th><span class="withHoverText" title="Statistical index of alpha diversity in sample, from Chao 1984">NTU Chao1 richness estimate</span></th>
       <td><!--CHAO1--></td>
     </tr>
   </table>
@@ -306,8 +333,9 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 
 <!--SUPPRESS_IF_SKIP_SPADES-->
-<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
+<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU rRNA assembly-based taxa</a></h3>
 <div id="spades" class="more">
+<p>Full-length SSU rRNA sequences assembled by SPAdes, matched to SILVA database with Vsearch.</p>
 <table>
   <tr>
     <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
@@ -325,7 +353,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
-<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences.</p>
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences, based on mapping hits to SILVA SSU rRNA database with BBmap.</p>
 <p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
 <table>
   <tr>
@@ -338,8 +366,9 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_SKIP_SPADES_END-->
 
 <!--SUPPRESS_IF_SKIP_EMIRGE-->
-<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU reconstruction based taxa</a></h3>
+<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
 <div id="emirge" class="more">
+<p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
 <table>
   <tr>
     <th>OTU</th>

@@ -1600,7 +1600,7 @@ sub generate_treemap_data_rows {
 
 sub write_report_html {
     # Get input parameters
-    my ($version,$progcmd,$cwd,
+    my ($version,$progcmd,$cwd,$DBHOME,
         $libraryNAME, $id, $SEmode,
         $readsf_full,$readsr_full,
         $readnr,$readnr_pairs,
@@ -1628,6 +1628,7 @@ sub write_report_html {
         "LIBNAME" => $libraryNAME,
         "PROGCMD" => $progcmd,
         "CWD" => $cwd,
+        "DBHOME" => $DBHOME,
         "ID" => $id,
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
@@ -1846,7 +1847,7 @@ $runtime = $timer->minutes; # Log run time
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version, $progcmd, $cwd, $libraryNAME, $id, $SEmode,
+    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,
     $readsf_full, $readsr_full, $readnr, $readnr_pairs,
     $ins_me,$ins_std,$ins_used,
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
