@@ -618,27 +618,11 @@ returns the runtime of the timer in minuts
     }
 }
 
-=back
+=item initialize_infiles_hash ($libraryNAME, $readsf)
 
-=head1 COPYRIGHT AND LICENSE
+Initialize a hash of the output filenames, descriptions, and flags when given
+library name and name of read files. Returns hash reference.
 
-Copyright (C) 2015 Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-                   Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-
-LICENCE
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.
-If not, see L<http://www.gnu.org/licenses/>.
 =cut
 
 sub initialize_infiles_hash {
@@ -946,8 +930,75 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.phyloFlash.tar.gz",
         intable     => 0,
       },
+      "readsf_subsample",
+      {
+        description => "Subsample of the forward SSU reads for running nhmmer",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.readsf.subsample.fasta",
+        intable     => 0,
+      },
+      "nhmmer_tblout",
+      {
+        description => "Tabular output from aligning SSU HMM models with nhmmer on sample of reads",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.nhmmer.tblout",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram",
+      {
+        description => "Histogram of alignment position counts against prokaryotic HMM models",
+        discard     => 0, # keep while testing
+        filename    => "$libraryNAME.nhmmer.prok.histogram",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against prokaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.prok.histogram.svg",
+        intable     => 0,
+      },
+      "nhmmer_euk_histogram",
+      {
+        description => "Histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram",
+        intable     => 0,
+      },
+      "nhummer_euk_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram.svg",
+        intable     => 0,
+      },
+      s
     );
     return (\%hash);
 }
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2015 Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                   Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+
+LICENCE
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.
+If not, see L<http://www.gnu.org/licenses/>.
+
+=cut
 
 1; # keep require happy

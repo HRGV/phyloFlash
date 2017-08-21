@@ -323,6 +323,7 @@ sub process_required_tools {
   # binaries needed by phyloFlash
     require_tools(
         bbmap => "bbmap.sh",
+        reformat => "reformat.sh",
         barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
         vsearch => "vsearch",
         mafft => "mafft",
@@ -341,6 +342,17 @@ sub process_required_tools {
         require_tools(emirge => "emirge.py",
                       emirge_amp => "emirge_amplicon.py",
                       emirge_rename_fasta => "emirge_rename_fasta.py");
+    }
+    # Check operating system to decide which nhmmer to use
+    my $opsys = $^O;
+    msg ("Current operating system $opsys");
+    if ($opsys eq "darwin") {
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/darwin/nhmmer");
+    } elsif ($opsys eq "linux") {
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/linux/nhmmer");
+    } else {
+        msg ("Could not determine operating system, assuming linux");
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/linux/nhmmer");
     }
 }
 
@@ -982,7 +994,7 @@ sub spades_run {
 
     # Limit number of SPAdes processors to 24 - if run on a server with all 64
     # processors SPAdes will exceed max memory and crash
-    my $cpus_spades = $cpus > 24 ? 24 : $cpus; 
+    my $cpus_spades = $cpus > 24 ? 24 : $cpus;
 
     run_prog("spades",
              "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
@@ -1466,6 +1478,110 @@ sub mafft_run {
     msg("done...");
 }
 
+sub nhmmer_model_pos {
+    # Use nhmmer to find how evenly the SSU reads are distributed across the
+    # length of the gene. Cannot use mapping position from SAM file because
+    # SSU reads in DB are of different lengths and some are fragments.
+    # Use the HMM models and nhmmer binary packaged (conveniently) with barrnap-HGV
+    msg ("subsampling SSU reads and running nhmmer to check coverage evenness across gene");
+
+    # Inputs
+    # File containing HMM models for archaea, bacteria, and eukaryotes SSU
+    my $hmm = "$FindBin::RealBin/barrnap-HGV/db/ssu/ssu_ABE.hmm";
+    my $sam = $outfiles{"sam_map"}{"filename"}; # SAM file of mapping
+    my $subsample = $outfiles{"readsf_subsample"}{"filename"};
+    my $samplelimit = 10000; # Take sample of max this number of reads
+
+    # Subsample reads with reformat.sh
+    my @reformat_args = ("in=$sam","out=$subsample","srt=$samplelimit");
+    run_prog ("reformat",
+              join (" ", @reformat_args),
+              undef,
+              "tmp.$libraryNAME.reformat.out"
+              );
+    $outfiles{"readsf_subsample"}{"made"}++;
+
+    # Run nhmmer
+    my @nhmmer_args = ("--cpu $cpus",
+                       "--tblout", $outfiles{"nhmmer_tblout"}{"filename"},
+                       $hmm, $subsample);
+    run_prog ("nhmmer",
+              join (" ", @nhmmer_args),
+              "/dev/null", # Discard human-readable output
+              undef
+              );
+    $outfiles{"nhmmer_tblout"}{"made"}++;
+
+    # Parse nhmmer output
+    my %hash;
+    my $fh_tbl;
+    open_or_die(\$fh_tbl,"<",$outfiles{"nhmmer_tblout"}{"filename"})
+    while (<$fh_tbl>) {
+        next if m/^#/;                  # Ignore comment lines
+        my @spl = split /\s+/, $_;      # Split on whitespace
+        my ($readname,                  # Name of read from Fasta file
+            $pos,                       # Position of alignment on model
+            $score                      # HMMer score
+            ) = ($spl[0], $spl[4], $spl[13]);
+        # Figure out model type
+        my $type;
+        if ($spl[2] eq "18S_rRNA") {
+            $type = "euk";
+        } elsif ($spl[2] eq "16S rRNA") {
+            if ($spl[3] eq "RF01959") {
+                $type = "arc";
+            } elsif ($spl[3] eq "RF00177") {
+                $type = "bac";
+            }
+        }
+        if (defined $hash{$readname}) {
+            if ($hash{$readname}{"score"} < $score) {
+                # Update recorded values if new hit for same read has better score
+                $hash{$readname}{"score"} = $score;
+                $hash{$readname}{"pos"} = $pos;
+                $hash{$readname}{"type"} = $type;
+            }
+        } else {
+            # Record values if read not yet hashed
+            $hash{$readname}{"score"} = $score;
+            $hash{$readname}{"pos"} = $pos;
+            $hash{$readname}{"type"} = $type;
+        }
+    }
+    close($fh_tbl);
+
+    # Count number of hits to make histogram
+    my %prok_pos;
+    my %euk_pos;
+    foreach my $readname (keys %hash) {
+        if ($hash{$readname}{"type"} eq "euk") {
+            $euk_pos{$hash{$readname}{"pos"}}++;
+        } else {
+            $prok_pos{$hash{$readname}{"pos"}}++;
+        }
+    }
+    # Write result to prokaryote histogram
+    my $fh_prok;
+    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"}) {
+        foreach my $key (sort {$a <=> $b} keys %prok_pos) {
+            print $fh_prok $key."\t". $prok_pos{$key}."\n";
+        }
+    }
+    close($fh_prok);
+    $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+    # Write results for eukaryote histogram
+    my $fh_euk;
+    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"}) {
+        foreach my $key (sort {$a <=> $b} keys %euk_pos) {
+            print $fh_euk $key."\t". $euk_pos{$key}."\n";
+        }
+    }
+    close($fh_euk);
+    $outfiles{"nhmmer_euk_histogram"}{"made"}++;
+
+    msg ("done");
+}
+
 sub clean_up {
     # cleanup of intermediate files and folders
     msg("cleaning temp files...");
@@ -1547,7 +1663,7 @@ sub run_plotscript_SVG {
         if (defined $decimalcomma) {
             push @inshist_args, "--decimalcomma";
         }
-        
+
         run_prog("plotscript_SVG",
                  join (" ", @inshist_args),
                  "tmp.$libraryNAME.plotscript.out",
@@ -1690,7 +1806,7 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_NO_TREEMAP"} = 1 ;
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
-    
+
     # Slurp in the SVG plots to embed in HTML file
     { # Curly braces to keep redefined input record separator local
         my $fh_slurp;
@@ -1760,7 +1876,7 @@ sub write_report_html {
                 close($fh_slurp);
             }
     }
-    
+
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
@@ -1771,14 +1887,14 @@ sub write_report_html {
             $flags{"ASSEMBLYRATIOPIE"} = <$fh_slurp>;
             close($fh_slurp);
         }
-        { 
+        {
             my $fh_slurp;
             open_or_die(\$fh_slurp, "<", $outfiles{"ssu_coll_tree_svg"}{"filename"});
             local $/ = undef;
             $flags{"SEQUENCES_TREE"} = <$fh_slurp>;
             close($fh_slurp);
         }
-        
+
         # Table of assembled SSU sequences
         my @table_assem_seq;
         foreach (@$ssuassem_results_sorted_aref) {
@@ -1811,7 +1927,7 @@ sub write_report_html {
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
     }
-    
+
     # Params defined only for reconstructed (EMIRGE) reads
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
@@ -1892,6 +2008,10 @@ if (defined $skipflag && $skipflag == 1) {
 
 # Parse sam file
 readsam();
+
+# Find positional coverage along prok and euk SSU rRNA models using nhmmer
+# from a subsample of reads
+nhmmer_model_pos();
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
