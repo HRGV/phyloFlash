@@ -647,7 +647,7 @@ sub initialize_infiles_hash {
         description => "SVG graphic of mapping identity histogram",
         discard     => 0,
         filename    => "$libraryNAME.idhistogram.svg",
-        intable     => 1,
+        intable     => 0,
       },
       "gff_arch",
       {
@@ -738,7 +738,7 @@ sub initialize_infiles_hash {
         description => "SVG graphic of insert size histogram",
         discard     => 0,
         filename    => "$libraryNAME.inserthistogram.svg",
-        intable     => 1,
+        intable     => 0,
       },
       "dhbits_nr97_fasta",
       {
@@ -759,7 +759,7 @@ sub initialize_infiles_hash {
         description => "SVG graphic of taxonomic composition from initial read mapping",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.taxonsummary.csv.svg",
-        intable     => 1,
+        intable     => 0,
       },
       "vsearch_csv",
       {
