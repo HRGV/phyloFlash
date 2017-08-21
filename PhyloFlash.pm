@@ -788,7 +788,7 @@ sub initialize_infiles_hash {
       "mapratio_csv",
       {
         description => "Mapping ratio file in CSV format",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.mapratio.csv",
         intable     => 0,
       },
@@ -816,7 +816,7 @@ sub initialize_infiles_hash {
       "assemratio_csv",
       {
         description => "CSV file of ratio assembled to unassembled",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.assemratio.csv",
         intable     => 0,
       },
@@ -916,7 +916,7 @@ sub initialize_infiles_hash {
         description => "FASTA file of all full-length sequences and their closest database hits",
         discard     => 0,
         filename    => "$libraryNAME.SSU.collection.fasta",
-        intable     => 11,
+        intable     => 1,
       },
       "bbmap_remap_log",
       {
