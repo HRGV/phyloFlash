@@ -205,13 +205,13 @@ sub csv2hash {
     # CSV file to hash
     my ($infile, $delim) = @_;
     my %hash;
-    open (IN, "<", $infile) or die ("Cannot open file $infile for reading: $!");
-    while (<IN>) {
+    open (my $fhin, "<", $infile) or die ("Cannot open file $infile for reading: $!");
+    while (<$fhin>) {
         chomp;
         my @splitline = split "$delim";
         $hash{$splitline[0]} = $splitline[1];
     }
-    close(IN);
+    close($fhin);
     return (\%hash);
 }
 
@@ -671,8 +671,8 @@ sub read_hist {
     # keys - column 1
     # values - column 2 (no. observations)
     my ($file, $href) = @_;
-    open(IN, "<", $file) or die ("Cannot open $file: $!");
-    while (<IN>) {
+    open(my $fhin, "<", $file) or die ("Cannot open $file: $!");
+    while (<$fhin>) {
         chomp;
         unless (m/^#/) { # Skip comment lines
             my @splitline = split /\t/;
@@ -684,7 +684,7 @@ sub read_hist {
             $href->{$col1} = $col2 unless $col2 == 0; # Skip zeroes
         }
     }
-    close(IN);
+    close($fhin);
 }
 
 sub hist_min_max_n { # VALUE SPACE
@@ -799,17 +799,16 @@ sub rect_params { # COORD SPACE
 sub do_phylog_tree { # Global vars
     my ($infile) = @_;
     my @treearr; # Array to store lines of tree
-    open(IN, "<", $infile) or die ("Cannot open for reading $infile: $!");
-    while (<IN>) {
+    open(my $fhin, "<", $infile) or die ("Cannot open for reading $infile: $!");
+    while (<$fhin>) {
         chomp;
         push @treearr, $_;
     }
-    close(IN);
+    close($fhin);
     my $treefile_out = "$infile.svg"; # Append .svg suffix to infile name for output
     my $treestr = join "", @treearr; # Concatenate all lines of Newick file into a single string
 
     draw_tree($treestr, $treefile_out);
-
 }
 
 sub draw_tree {
