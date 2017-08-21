@@ -1506,10 +1506,15 @@ sub clean_up {
 sub run_plotscript_SVG {
     msg ("generating histogram and tree graphics in SVG format");
     # Plot mapping ID histogram
+    my @idhist_args = ( "--hist",
+                        $outfiles{"idhistogram"}{"filename"},
+                        " --title=\"Mapping identity (%)\" ",
+                      );
+    if (defined $decimalcomma) {
+        push @idhist_args, "--decimalcomma";
+    }
     run_prog("plotscript_SVG",
-         " --hist ".$outfiles{"idhistogram"}{"filename"}
-         ." --title=\"Mapping identity (%)\" ",
-         #. "$decimalcomma ",
+         join (" ", @idhist_args),
          "tmp.$libraryNAME.plotscript.out",
          "&1");
     $outfiles{"idhistogram_svg"}{"made"}++;
@@ -1535,10 +1540,16 @@ sub run_plotscript_SVG {
     }
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
+        my @inshist_args = ("--hist ",
+                            $outfiles{"inserthistogram"}{"filename"},
+                            " --title=\"Insert size (bp)\" ",
+                            );
+        if (defined $decimalcomma) {
+            push @inshist_args, "--decimalcomma";
+        }
+        
         run_prog("plotscript_SVG",
-                 "--hist ".$outfiles{"inserthistogram"}{"filename"}
-                 ." --title=\"Insert size (bp)\" ",
-                 #. "$decimalcomma ",
+                 join (" ", @inshist_args),
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
         $outfiles{"inserthistogram_svg"}{"made"}++;

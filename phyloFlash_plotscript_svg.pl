@@ -10,7 +10,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile, $title);
+my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma);
 my $pipemode;
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
@@ -19,6 +19,8 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
            "title=s" => \$title,            # Title for plot
+           "decimalcomma" => \$decimalcomma,# BBmap is locale-aware and may produce histogram files with decimal comma!
+                                            # Perl does not use locales unless requested so the other inputs should be safe
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
            ) or die ("$!");
 
@@ -674,7 +676,12 @@ sub read_hist {
         chomp;
         unless (m/^#/) { # Skip comment lines
             my @splitline = split /\t/;
-            $href->{$splitline[0]} = $splitline[1] unless $splitline[1] == 0; # Skip zeroes
+            my ($col1, $col2) = ($splitline[0], $splitline[1]);
+            if (defined $decimalcomma) {
+                $col1 =~ s/,/\./;
+                $col2 =~ s/,/\./;
+            }
+            $href->{$col1} = $col2 unless $col2 == 0; # Skip zeroes
         }
     }
     close(IN);
