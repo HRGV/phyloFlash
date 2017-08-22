@@ -1853,6 +1853,10 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_NO_TREEMAP"} = 1 ;
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
+    if ($poscov_flag == 0) {
+        $suppress_flags{"SUPPRESS_IF_NO_POSCOV"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_NO_POSCOV_END"} = 1;
+    }
 
     # Slurp in the SVG plots to embed in HTML file
     $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
