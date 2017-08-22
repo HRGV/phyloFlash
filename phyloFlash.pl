@@ -1928,14 +1928,14 @@ sub write_report_html {
     if ($poscov_flag == 1) {
         { # Slurp in graphics to embed in HTML file
             my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_prok_histogram_svg"});
+            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
             local $/ = undef;
             $flags{"POSCOVHIST_PROK"} = <$fh_slurp>;
             close($fh_slurp);
         }
         {
             my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_euk_histogram_svg"});
+            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
             local $/ = undef;
             $flags{"POSCOVHIST_EUK"} = <$fh_slurp>;
             close($fh_slurp);
