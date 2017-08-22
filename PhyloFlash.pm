@@ -38,6 +38,7 @@ our @EXPORT      = qw(
   file_is_newer
   get_subdirs
   open_or_die
+  slurpfile
   csv_escape
   require_tools
   check_environment
@@ -177,6 +178,25 @@ sub open_or_die {
 
     open($$fh, $mode, $fname)
         or err("Failed to $msg '$fname': $!");
+}
+
+=item slurpfile ($filename)
+
+Opens a file, slurps contents into string, and returns string.
+
+=cut
+
+sub slurpfile {
+    my ($file) = @_;
+    my $return;
+    {
+        my $fh_slurp;
+        open_or_die(\$fh_slurp, "<", $file);
+        local $/ = undef;
+        $return = <$fh_slurp>;
+        close($fh_slurp);
+    }
+    return ($return);
 }
 
 =item csv_escape ($var)
