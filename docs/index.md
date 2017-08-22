@@ -2,11 +2,11 @@
 layout: home
 ---
 
-<img src="phyloFlash_logo.png" alt="phyloFlash logo" style="width: 200px;"/>
+<img src="phyloFlash_logo.png" alt="phyloFlash logo" style="width: 200px; display: block; margin-left: auto; margin-right:auto;"/>
 
-phyloFlash is a pipeline to rapidly reconstruct the SSU rRNAs and explore phylogenetic composition of an illumina (meta)genomic dataset.
+**phyloFlash** is a pipeline to rapidly reconstruct the SSU rRNAs and explore phylogenetic composition of an illumina (meta)genomic dataset.
 
-This manual explains how to install and use phyloFlash.
+This manual explains how to install and use phyloFlash. Navigate from the menu bar above or the table of contents below.
 
 ## Quick-start
 

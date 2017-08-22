@@ -14,7 +14,7 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 title: phyloFlash
-email: your-email@example.com
+#email: your-email@example.com
 description: > # this means to ignore newlines until "baseurl:"
  phyloFlash is a pipeline to rapidly reconstruct the SSU rRNAs and explore the phylogenetic composition of an Illumina (meta)genomic dataset.
 #baseurl: /phyloFlash
