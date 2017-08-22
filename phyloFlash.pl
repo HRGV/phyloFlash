@@ -1855,27 +1855,9 @@ sub write_report_html {
     }
 
     # Slurp in the SVG plots to embed in HTML file
-    { # Curly braces to keep redefined input record separator local
-        my $fh_slurp;
-        open_or_die(\$fh_slurp, "<", $outfiles{"idhistogram_svg"}{"filename"});
-        local $/ = undef;
-        $flags{"IDHISTOGRAM"} = <$fh_slurp>;
-        close($fh_slurp);
-    }
-    {
-        my $fh_slurp;
-        open_or_die(\$fh_slurp, "<", $outfiles{"mapratio_svg"}{"filename"});
-        local $/ = undef;
-        $flags{"MAPRATIOPIE"} = <$fh_slurp>;
-        close($fh_slurp);
-    }
-    {
-        my $fh_slurp;
-        open_or_die(\$fh_slurp, "<", $outfiles{"taxa_csv_svg"}{"filename"});
-        local $/ = undef;
-        $flags{"TAXONSUMMARYBAR"} = <$fh_slurp>;
-        close($fh_slurp);
-    }
+    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
+    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"});
+    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"taxa_csv_svg"}{"filename"});
 
     # Table of output files produced
     my @table_outfiles;
@@ -1915,50 +1897,20 @@ sub write_report_html {
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
         $flags{"READNR_PAIRS"} = $readnr_pairs;
-             { # Slurp in histogram SVG to embed into HTML
-                my $fh_slurp;
-                open_or_die(\$fh_slurp, "<", $outfiles{"inserthistogram_svg"}{"filename"});
-                local $/ = undef;
-                $flags{"INSERTHISTOGRAM"} = <$fh_slurp>;
-                close($fh_slurp);
-            }
+        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"});
     }
 
-    # Params defined only if positional coverage calculated
+    # Slurp in positional coverage histograms, if defined
     if ($poscov_flag == 1) {
-        { # Slurp in graphics to embed in HTML file
-            my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
-            local $/ = undef;
-            $flags{"POSCOVHIST_PROK"} = <$fh_slurp>;
-            close($fh_slurp);
-        }
-        {
-            my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
-            local $/ = undef;
-            $flags{"POSCOVHIST_EUK"} = <$fh_slurp>;
-            close($fh_slurp);
-        }
+        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
+        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
     }
 
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        { # Slurp in graphics to embed in HTML file
-            my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"assemratio_svg"}{"filename"});
-            local $/ = undef;
-            $flags{"ASSEMBLYRATIOPIE"} = <$fh_slurp>;
-            close($fh_slurp);
-        }
-        {
-            my $fh_slurp;
-            open_or_die(\$fh_slurp, "<", $outfiles{"ssu_coll_tree_svg"}{"filename"});
-            local $/ = undef;
-            $flags{"SEQUENCES_TREE"} = <$fh_slurp>;
-            close($fh_slurp);
-        }
+        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"});
+        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"});
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
