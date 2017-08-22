@@ -972,7 +972,6 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.nhmmer.euk.histogram.svg",
         intable     => 0,
       },
-      s
     );
     return (\%hash);
 }
