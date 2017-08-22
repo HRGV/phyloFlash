@@ -965,7 +965,7 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.nhmmer.euk.histogram",
         intable     => 0,
       },
-      "nhummer_euk_histogram_svg",
+      "nhmmer_euk_histogram_svg",
       {
         description => "SVG graphic of histogram of alignment position counts against eukaryotic HMM model",
         discard     => 0,

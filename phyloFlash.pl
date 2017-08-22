@@ -147,7 +147,7 @@ Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
 
 Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
 the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
-coverage evenness. 
+coverage evenness.
 Default: Off ("-noposcov")
 
 =back
@@ -1638,7 +1638,7 @@ sub clean_up {
 }
 
 sub run_plotscript_SVG {
-    msg ("generating histogram and tree graphics in SVG format");
+    msg ("generating graphics for report in SVG format");
     # Plot mapping ID histogram
     my @idhist_args = ( "--hist",
                         $outfiles{"idhistogram"}{"filename"},
@@ -1672,6 +1672,7 @@ sub run_plotscript_SVG {
              "&1");
         $outfiles{"assemratio_svg"}{"made"}++;
     }
+    
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
         my @inshist_args = ("--hist ",
@@ -1687,6 +1688,32 @@ sub run_plotscript_SVG {
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
         $outfiles{"inserthistogram_svg"}{"made"}++;
+    }
+
+    # Plot positional coverage plots for 18S and 16S rRNA genes unless skipped
+    if ($poscov_flag == 1) {
+        # Eukaryotic gene model
+        my @args_euk = ("-hist",
+                        $outfiles{"nhmmer_euk_histogram"}{"filename"},
+                        "-height 150",
+                        "-width 400",
+                        "-title=\"Coverage on 18S model\"");
+        run_prog("plotscript_SVG",
+                 join (" ", @args_euk),
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
+        $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        # Prokaryotic gene model
+        my @args_prok = ("-hist",
+                         $outfiles{"nhmmer_prok_histogram"}{"filename"},
+                         "-height 150",
+                         "-width 400",
+                         "-title=\"Coverage on 16S model\"");
+        run_prog("plotscript_SVG",
+                 join (" ", @args_prok),
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
+        $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
     }
 
     # Plot tree if spades/emirge unless both skipped
@@ -1706,6 +1733,8 @@ sub run_plotscript_SVG {
              "tmp.$libraryNAME.plotscript.out",
              "&1");
     $outfiles{"taxa_csv_svg"}{"made"}++;
+
+    msg("done");
 }
 
 sub generate_treemap_data_rows {
