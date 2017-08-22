@@ -111,16 +111,16 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     padding: 0px;
     border: 0px solid grey;
   }
-  .col1, .col2, .col3 {
+  .col20pc, .col40pc, .col50pc {
     display: inline-block;
     vertical-align: top;
     padding: 0px;
     margin: 0;
     border: 0px solid grey;
   }
-  .col1 { width:20%; }
-  .col2 { width:20%; }
-  .col3 { width:50%; }
+  .col20pc { width:20%; }
+  .col40pc { width:40%; }
+  .col50pc { width:50%; }
 
   /*Tooltip text for graphical summary*/
   .tooltip .tooltiptext {
@@ -192,26 +192,26 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h2>Graphical Summary</h2>
 <p>Mouseover on panels to expand details.</p>
 <div class="fullwidth">
-  <div class="col1">
+  <div class="col20pc">
     <div class="tooltip"><!--IDHISTOGRAM--><span class="tooltiptext">Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</span></div>
 <!--SUPPRESS_IF_SE_READS-->
     <div class="tooltip"><!--INSERTHISTOGRAM--><span class="tooltiptext">Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</span></div>
 <!--SUPPRESS_IF_SE_READS_END-->
   </div>
-  <div class="col2">
+  <div class="col20pc">
     <div class="tooltip"><!--MAPRATIOPIE--><span class="tooltiptext">Proportion of reads mapped to SSU rRNA database. Typically < 1% for metagenomes, ca. 20% for metatranscriptomes without rRNA depletion or poly-A selection.</span></div>
 <!--SUPPRESS_IF_SKIP_SPADES-->
     <div class="tooltip"><!--ASSEMBLYRATIOPIE--><span class="tooltiptext">Proportion of reads assembled to full-length sequences. High proportion unassembled suggest either assembly failure or high diversity of organisms with low coverage.</span></div>
 <!--SUPPRESS_IF_SKIP_SPADES_END-->
   </div>
-  <div class="col3">
+  <div class="col50pc">
     <!--TAXONSUMMARYBAR-->
   </div>
 </div>
 <!--SUPPRESS_IF_NO_POSCOV-->
 <div class="fullwidth">
-  <div class="col3"><!--POSCOVHIST_EUK--></div>
-  <div class="col3"><!--POSCOVHIST_PROK--></div>
+  <div class="col40pc"><!--POSCOVHIST_EUK--></div>
+  <div class="col40pc"><!--POSCOVHIST_PROK--></div>
 </div>
 <!--SUPPRESS_IF_NO_POSCOV_END-->
 

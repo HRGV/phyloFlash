@@ -578,7 +578,7 @@ sub hash2barchart {
         print $fh "<text ".
                   "x=\"$x_text\" ".
                   "y=\"$y_text\" ".
-                  "style=\"$text_style"."text-anchor:left;\" ".
+                  "style=\"$text_style"."text-anchor:start;\" ".
                   ">".
                   $attr_text. # Attribute effects on mouseover
                   $rect_vals{$rect}{"label"}.
@@ -628,7 +628,7 @@ sub do_histogram_plots {
     print $histo_fh $svg_open;                  # Print SVG header
     if (defined $title) {                       # Print title if defined
         print $histo_fh "<text ".
-                        "style=\"fill:black;font-size:14;text-anchor:middle;font-weight:bold;\" ".
+                        "style=\"fill:black;font-size:14px;text-anchor:middle;font-weight:bold;\" ".
                         "x=\"".($viewBox_arr[2]/2)."\" ".
                         "y=\"18\" ".
                         ">".
@@ -1029,7 +1029,7 @@ sub draw_taxon {
     print $handle "\t<text ".
                   "x=\"$cumul_brlen\" ".
                   "y=\"$vpos\" ".
-                  "font-size=\"$fontsize\" ".
+                  "font-size=\"".$fontsize."px\" ".
                   ">";
     print $handle $name;
     print $handle "</text>\n";
