@@ -13,12 +13,15 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma);
 my $pipemode;
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
+my ($plotheight, $plotwidth);
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
            "title=s" => \$title,            # Title for plot
+           "height=i" => \$plotheight,      # Optional height for plot
+           "width=i" => \$plotwidth,        # Optional width for plot in pixels
            "decimalcomma" => \$decimalcomma,# BBmap is locale-aware and may produce histogram files with decimal comma!
                                             # Perl does not use locales unless requested so the other inputs should be safe
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
@@ -46,7 +49,13 @@ if (defined $pipemode) {
 } else {
     # Otherwise in "file" mode read and write to specified files
     if (defined $histofile) {
-        do_histogram_plots($histofile, $title);
+        if (defined $plotheight || defined $plotwidth) {
+            # If custom plot height and/or width specified
+            do_histogram_plots($histofile, $title, $plotwidth, $plotheight);
+        } else {
+            # Else use defaults (currently 240 x 240)
+            do_histogram_plots($histofile, $title);
+        }
     }
     if (defined $treefile) {
         do_phylog_tree($treefile);
@@ -489,14 +498,22 @@ sub hash2barchart {
 sub do_histogram_plots {
     my ($infile,    # Input filename
         $title,     # Optional title
+        $width,     # Optional SVG plot width - passed to viewBox
+        $height,    # Optional SVG plot height -passed to viewBox
         ) = @_;
 
+    $width = 240 if !defined $width; # Default values
+    $height = 240 if !defined $height;
     # SVG and Plot parameters for histograms
-    my @viewBox_arr = (0, 0, 240, 240);         # Viewbox parameter for SVG header - x y width height
+    my @viewBox_arr = (0, 0, $width, $height);         # Viewbox parameter for SVG header - x y width height
     my $viewBox = join " ", @viewBox_arr;
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
-    my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
-                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX -
+    # Bounding box coordinates for plot area
+    my @box_coords = (40,               # Left margin -  leave space for labels
+                      $width - 20,      # Right margin
+                      20,               # Bottom margin
+                      $height - 40,     # Top margin - leave space for title
+                      ); #
     my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
 
     # Plot histogram
