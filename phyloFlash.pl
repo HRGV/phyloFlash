@@ -1672,7 +1672,7 @@ sub run_plotscript_SVG {
              "&1");
         $outfiles{"assemratio_svg"}{"made"}++;
     }
-    
+
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
         my @inshist_args = ("--hist ",
@@ -1922,6 +1922,24 @@ sub write_report_html {
                 $flags{"INSERTHISTOGRAM"} = <$fh_slurp>;
                 close($fh_slurp);
             }
+    }
+
+    # Params defined only if positional coverage calculated
+    if ($poscov_flag == 1) {
+        { # Slurp in graphics to embed in HTML file
+            my $fh_slurp;
+            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_prok_histogram_svg"});
+            local $/ = undef;
+            $flags{"POSCOVHIST_PROK"} = <$fh_slurp>;
+            close($fh_slurp);
+        }
+        {
+            my $fh_slurp;
+            open_or_die(\$fh_slurp, "<", $outfiles{"nhmmer_euk_histogram_svg"});
+            local $/ = undef;
+            $flags{"POSCOVHIST_EUK"} = <$fh_slurp>;
+            close($fh_slurp);
+        }
     }
 
     # Params defined only for assembled (SPAdes) reads
