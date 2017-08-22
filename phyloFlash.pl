@@ -379,6 +379,8 @@ sub process_required_tools {
 # sanity checks
 sub parse_cmdline {
     my $emirge = 0;
+    my $everything = 0 ;
+    my $almosteverything = 0;
     GetOptions('read1=s' => \$readsf_full,
                'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
@@ -402,6 +404,8 @@ sub parse_cmdline {
                'sc' => \$sc,
                'zip!' => \$zip,
                'log!' => \$save_log,
+               'everything' => \$everything,
+               'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
@@ -510,6 +514,24 @@ sub parse_cmdline {
     %outfiles = %$outfiles_href;
     # use hash to keep track of output file description, filename,
     # whether it should be deleted at cleanup, and if file was actually created
+
+    # Activate all optional outputs if "everything" is asked for
+    if ($everything + $almosteverything > 0) {
+        ($poscov_flag,
+         $html_flag,
+         $treemap_flag,
+         $zip,
+         $save_log
+         ) = (1,1,1,1,1);
+        $skip_spades = 0; # Override any skip spades
+        if ($everything == 1) {
+            msg ("Running \"everything\" - overrides other command line options");
+            $emirge = 1;
+        } else {
+            # "almost everything" does not turn on EMIRGE
+            msg ("Running \"everything\" except EMIRGE- overrides other command line options");
+        }
+    }
 }
 
 sub print_report {
@@ -1696,7 +1718,7 @@ sub run_plotscript_SVG {
         my @args_euk = ("-hist",
                         $outfiles{"nhmmer_euk_histogram"}{"filename"},
                         "-height 150",
-                        "-width 400",
+                        "-width 480",
                         "-title=\"Coverage on 18S model\"");
         run_prog("plotscript_SVG",
                  join (" ", @args_euk),
@@ -1707,7 +1729,7 @@ sub run_plotscript_SVG {
         my @args_prok = ("-hist",
                          $outfiles{"nhmmer_prok_histogram"}{"filename"},
                          "-height 150",
-                         "-width 400",
+                         "-width 480",
                          "-title=\"Coverage on 16S model\"");
         run_prog("plotscript_SVG",
                  join (" ", @args_prok),
