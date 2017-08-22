@@ -210,8 +210,13 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 <!--SUPPRESS_IF_NO_POSCOV-->
 <div class="fullwidth">
-  <div class="col40pc"><!--POSCOVHIST_EUK--><span class="tooltiptext">Coverage evenenss across eukaryotic 18S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks). For the eukaryotic model it is normal to see one or two regions with low coverage because of variable regions in the 18S rRNA gene that are not present in all organisms.</span></div>
-  <div class="col40pc"><!--POSCOVHIST_PROK--><span class="tooltiptext">Coverage evenenss across prokaryotic 16S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks).</span></div>
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_EUK--><span class="tooltiptext">Coverage evenenss across eukaryotic 18S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks). For the eukaryotic model it is normal to see one or two regions with low coverage because of variable regions in the 18S rRNA gene that are not present in all organisms.</span></div>
+  </div>
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_PROK--><span class="tooltiptext">Coverage evenenss across prokaryotic 16S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks).</span>
+    </div>
+  </div>
 </div>
 <!--SUPPRESS_IF_NO_POSCOV_END-->
 
@@ -416,6 +421,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <li>Rognes T. et al. 2016. VSEARCH: a versatile open source tool for metagenomics. <i>PeerJ</i> 4: e2584. doi:<a href="http://dx.doi.org/10.7717/peerj.2584">10.7717/peerj.2584</a>. <a href="https://github.com/torognes/vsearch">Homepage</a></li>
     <li>Miller C.S. et al. 2011. EMIRGE: reconstruction of full-length ribosomal genes from microbial community short read sequencing data. <i>Genome Biol.</i> 12: R44. doi:<a href="http://dx.doi.org/10.1186/gb-2011-12-5-r44">10.1186/gb-2011-12-5-r44</a>. <a href="https://github.com/csmiller/EMIRGE">Homepage</a></li>
     <li>Bedtools. Online: <a href="http://bedtools.readthedocs.io/en/latest/">http://bedtools.readthedocs.io/en/latest/</a></li>
+    <li>Seemann T. Barrnap. Online: <a href="https://github.com/tseemann/barrnap">https://github.com/tseemann/barrnap</a></li>
+    <li>Wheeler T.J., Eddy S.R. 2013. nhmmer: DNA homology search with profile HMMs. <i>Bioinformatics</i> 29 (19): 2487-2489. doi:<a href="http://dx.doi.org/10.1093/bioinformatics/btt403">>10.1093/bioinformatics/btt403</a> <a href="http://hmmer.org/">Homepage</a></li>
   </ul>
 </div>
 

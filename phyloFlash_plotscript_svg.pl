@@ -35,7 +35,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Input arguments
 my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
-my ($plotheight, $plotwidth);
+my ($plotheight, $plotwidth, $plotcolor);
 if (!@ARGV) { # Help msg if no arguments given
     pod2usage (2);
     exit();
@@ -48,6 +48,7 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "title=s" => \$title,            # Title for plot
            "height=i" => \$plotheight,      # Optional height for plot
            "width=i" => \$plotwidth,        # Optional width for plot in pixels
+           "color=s" => \$plotcolor,        # Optional fill color for plot (currently implemented only for histogram)
            "decimalcomma" => \$decimalcomma,# BBmap is locale-aware and may produce histogram files with decimal comma!
                                             # Perl does not use locales unless requested so the other inputs should be safe
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
@@ -105,6 +106,11 @@ Default: (empty)
 Optional width and height of plot in pixels.
 Defaults: Built-in defaults for each plot type.
 
+=item -color="I<STRING>"
+
+Optional fill color for plot. Currently implemented only for histogram.
+Default: Built-in defaults for each plot type
+
 =item -breakpoints I<INT>
 
 Specify number of breakpoints in histogram.
@@ -152,13 +158,14 @@ if (defined $pipemode) {
 } else {
     # Otherwise in "file" mode read and write to specified files
     if (defined $histofile) {
-        if (defined $plotheight || defined $plotwidth) {
-            # If custom plot height and/or width specified
-            do_histogram_plots($histofile, $title, $plotwidth, $plotheight);
-        } else {
-            # Else use defaults (currently 240 x 240)
-            do_histogram_plots($histofile, $title);
-        }
+        do_histogram_plots($histofile, $title, $plotwidth, $plotheight, $plotcolor);
+        #if (defined $plotheight || defined $plotwidth) {
+        #    # If custom plot height and/or width specified
+        #    do_histogram_plots($histofile, $title, $plotwidth, $plotheight);
+        #} else {
+        #    # Else use defaults (currently 240 x 240)
+        #    do_histogram_plots($histofile, $title, 240, 240);
+        #}
     }
     if (defined $treefile) {
         do_phylog_tree($treefile);
@@ -599,14 +606,19 @@ sub hash2barchart {
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
 sub do_histogram_plots {
+    # Get input parameters
     my ($infile,    # Input filename
         $title,     # Optional title
         $width,     # Optional SVG plot width - passed to viewBox
         $height,    # Optional SVG plot height -passed to viewBox
-        ) = @_;
+        $color,     # Optional SVG fill color
+       ) = @_;
 
-    $width = 240 if !defined $width; # Default values
-    $height = 240 if !defined $height;
+    # Check if options defined, else substitute defaults
+    $width = defined $width ? $width : 240;
+    $height = defined $height ? $height : 240;
+    $color = defined $color ? $color : "rgb(155,155,155)";
+    
     # SVG and Plot parameters for histograms
     my @viewBox_arr = (0, 0, $width, $height);         # Viewbox parameter for SVG header - x y width height
     my $viewBox = join " ", @viewBox_arr;
@@ -617,7 +629,7 @@ sub do_histogram_plots {
                       20,               # Bottom margin
                       $height - 40,     # Top margin - leave space for title
                       ); #
-    my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
+    my $fill_style = "fill:$color;fill-opacity:0.5;stroke:none"; # Style for histogram bars
 
     # Plot histogram
     my $infile_out = "$infile.svg";       # Append .svg to get output file name

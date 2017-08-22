@@ -1719,7 +1719,9 @@ sub run_plotscript_SVG {
                         $outfiles{"nhmmer_euk_histogram"}{"filename"},
                         "-height 150",
                         "-width 480",
-                        "-title=\"Coverage on 18S model\"");
+                        "-title=\"Coverage on 18S model\"",
+                        "-color=\"blue\"",
+                        );
         run_prog("plotscript_SVG",
                  join (" ", @args_euk),
                  "tmp.$libraryNAME.plotscript.out",
@@ -1730,7 +1732,9 @@ sub run_plotscript_SVG {
                          $outfiles{"nhmmer_prok_histogram"}{"filename"},
                          "-height 150",
                          "-width 480",
-                         "-title=\"Coverage on 16S model\"");
+                         "-title=\"Coverage on 16S model\"",
+                         "-color=\"blue\"",
+                         );
         run_prog("plotscript_SVG",
                  join (" ", @args_prok),
                  "tmp.$libraryNAME.plotscript.out",
