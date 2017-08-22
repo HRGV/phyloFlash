@@ -2107,6 +2107,7 @@ print_report();
 write_csv();
 
 # SVG formatted graphics and HTML report
+# Must be run after write_csv()
 if ($html_flag) {
     run_plotscript_SVG();
     write_report_html(@report_inputs);

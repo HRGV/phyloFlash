@@ -33,7 +33,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode);
+my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 my ($plotheight, $plotwidth, $plotcolor);
 if (!@ARGV) { # Help msg if no arguments given
@@ -41,6 +41,7 @@ if (!@ARGV) { # Help msg if no arguments given
     exit();
 }
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
+           "assemcov=s" => \$assemcov,      # CSV file libNAME.phyloFlash.extractedSSUclassifications.csv
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
@@ -996,17 +997,103 @@ sub draw_tree {
     my $treewidth = $vb_width - $textwidth;
     my $br_scalefactor = $treewidth/max(@brlens);
 
+    # Hash in read coverage data for assembled taxa if csv file supplied supplied:
+    my $bubble_scalefactor; # Scaling factor for bubbles
+    if (defined $assemcov) {
+        $bubble_scalefactor = match_tree_taxon_to_read_coverage($taxa_href, $assemcov, $treewidth);
+    }
+    
     # Draw SVG and write to file
     open(my $fh, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     print $fh $svg_open;
+    # Draw bubbles first so that they are below other tree elements
+    if (defined $assemcov) {
+        foreach my $key (keys %{$taxa_href}) {
+            draw_bubbles($key,$taxa_href,$br_scalefactor,$bubble_scalefactor,$vb_height,$fh,);
+        }
+    }
+    
+    # Draw branches for internal nodes
     foreach my $key (keys %{$nodes_href}) {
         draw_node($key,$nodes_href, $br_scalefactor, $vb_height, $linestyle, $fh);
     }
+    # Draw taxon labels and leaf branches
     foreach my $key (keys %{$taxa_href}) {
         draw_taxon($key,$taxa_href, $br_scalefactor, $vb_height, $linestyle, $fontsize, $fh);
     }
     print $fh "</svg>\n";
     close($fh);
+}
+
+sub match_tree_taxon_to_read_coverage {
+    # Parse Readcov value from CSV file
+    # Match SPAdes taxon name in CSV file to href taxon and save field
+    my ($taxa_href, $csv, $treewidth) = @_;
+    
+    my @covs;
+    # Open CSV
+    my $fh_in;
+    open($fh_in, "<", $csv) or die ("Cannot open file $csv: $!");
+    while (<$fh_in>) {
+        next if m/^OTU,read_cov/; # Skip header line
+        my @split = split /,/;
+        if ($split[0] =~ m/(PFspades_\d+)/) {
+            my $csvid = $1;
+            # Find the matching taxon name in tree
+            foreach my $key (keys %$taxa_href) {
+                if ($taxa_href->{$key}{"name"} =~ m/(PFspades_\d+)/) {
+                    my $treeid = $1;
+                    if ($treeid eq $csvid) {
+                        $taxa_href->{$key}{"readcov"} = $split[1];
+                        push @covs, $split[1];
+                    }
+                }
+            }
+        }
+    }
+    close($fh_in);
+    
+    # We want the bubble diams to be max 10% of the tree width
+    my $maxcov = max(@covs);
+    my $maxradius_raw = sqrt ($maxcov / 3.14159265);
+    my $bubblefactor = 0.05 * $treewidth / $maxradius_raw;
+    return ($bubblefactor);
+}
+
+sub draw_bubble_unassembled {
+    my ($unassem_count,
+        $bubble_sf);
+}
+
+sub draw_bubbles {
+    # Draw bubbles corresponding to abundance of taxon, if taxon appears in tree
+    my ($taxonID,   # Taxon ID
+        $href,      # Ref to hash of taxa
+        $branch_sf, # Scaling factor for branches (so that bubble will appear at leaf)
+        $bubble_sf, # Scaling factor for bubble radii
+        $vb_height, # Plot area height, to calculate vertical position
+        $handle,    # File handle for printing
+        ) = @_;
+    if (defined $href->{$taxonID}{"readcov"}) {
+        my @param_names = qw(vpos cumul_brlen readcov);
+        my @params;
+        foreach my $pname (@param_names) {
+            push @params, ${$href}{$taxonID}{$pname};
+        }
+        my ($vpos, $cumul_brlen, $readcov) = @params;
+        # Rescale horizontal position
+        $cumul_brlen = $cumul_brlen * $branch_sf;
+        # Rescale vertical position
+        $vpos = $vpos * $vb_height/100;
+        # Calculate radius of bubble
+        my $bubbleradius = $bubble_sf * sqrt($readcov / 3.14159265);
+        # Print SVG tag
+        print $handle "<circle ".
+              "cx=\"$cumul_brlen\" ".
+              "cy=\"$vpos\" ".
+              "r=\"".$bubbleradius."px\" ".
+              "style=\"fill:rgb(255,235,205);\" />";
+    }
 }
 
 sub draw_taxon {
@@ -1029,6 +1116,16 @@ sub draw_taxon {
     # Rescale vertical position by viewbox height ($vpos is expressed as percentage)
     $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
+    
+    ## Draw bubble if readcov is defined
+    #if (defined ${$href}{$taxonID}{"readcov"}) {
+    #    print $handle "<circle ".
+    #                  "cx=\"$cumul_brlen\" ".
+    #                  "cy=\"$vpos\" ".
+    #                  "r=\"50px\" ".
+    #                  "style=\"fill:blue;\" />";
+    #}
+    
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
     print $handle "\t<line ".
