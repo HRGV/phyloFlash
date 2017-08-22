@@ -674,7 +674,7 @@ sub draw_histogram {
     }
     # Axis tick marks - should have ca. ten tick marks
     my @xax_ticks = tick_intervals(min(@$breaks_aref), max(@$breaks_aref));
-    my @yax_ticks = tick_intervals(min(@$counts_aref), max(@$counts_aref));
+    my @yax_ticks = tick_intervals(min(@$counts_aref), max(@$counts_aref),15);
     # Rescale to the bounding box coordinates
     my ($xax_ticks_rescale_aref, $yax_ticks_rescale_aref) = val2coord ($viewBox, $box_aref, \@boxval, \@xax_ticks, \@yax_ticks);
     # Axis style and positions
@@ -772,12 +772,20 @@ sub svg_axis_ticks {
 
 sub tick_intervals { # Value space
     # Determine intervals for tick marks of an axis, given the min and max vals
-    # should have ca. ten tick marks
-    my ($min, $max) = @_;
+    # should have ca. ten tick marks, and also scale with the plot height
+    my ($min,           # Minimum value for axis
+        $max,           # Maximum value for axis
+        $max_ticks,     # Optional maximum number of tick marks
+        ) = @_;
     # Interval is based on first significant digit
     my $int = 10**(floor(log($max - $min)/log(10) - 0.5));
     # Generate tick marks, with some buffer on ends
     my @ticks = ceil($min/$int + 0.5) .. floor($max/$int - 0.5);
+    # If there are more than ten tick marks, redo intervals
+    if (defined $max_ticks && scalar @ticks > $max_ticks) {
+        $int = 10**(floor(log($max - $min)/log(10) - 0.5) + 1);
+        @ticks = ceil($min/$int + 0.5) .. floor($max/$int - 0.5);
+    }
     @ticks = map {$_ * $int} @ticks;
     # Add min and max values to the tick marks
     unshift @ticks, $min;
