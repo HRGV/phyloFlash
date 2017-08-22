@@ -23,7 +23,7 @@ This tool rapidly approximates the phylogenetic composition of a
 Right now Illumina paired end or single HiSeq and MiSeq reads
 are supported.
 
-=head1 ARGUMENTS
+=head1 INPUT ARGUMENTS
 
 =over 15
 
@@ -58,15 +58,33 @@ Show manual.
 
 =back
 
-=head1 OPTIONS
+=head1 LOCAL SETTINGS
 
 =over 15
 
+=item -CPUs I<N>
+
+Set the number of threads to use. Defaults to all available CPU cores.
+
+=item -crlf
+
+Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
+
+=item -decimalcomma
+
+Use decimal comma instead of decimal point to fix locale problems.
+Default: Off
 
 =item -dbhome F<dir>
 
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
+
+=back
+
+=head1 INPUT AND ANALYSIS OPTIONS
+
+=over 15
 
 =item -interleaved
 
@@ -76,10 +94,6 @@ Interleaved readfile with R1 and R2 in a single file at read1
 
 Sets the expected readlength. Always use this if your read length
 differs from 100 (the default). Must be within 50..500.
-
-=item -CPUs I<N>
-
-Set the number of threads to use. Defaults to all available CPU cores.
 
 =item -readlimit I<N>
 
@@ -116,6 +130,32 @@ Default: 4 ("Order")
 Maximum insert size allowed for paired end read mapping. Must be within
 0..1200. Default: 1200
 
+=item -emirge
+
+Turn on EMIRGE reconstruction of SSU sequences
+Default: Off ("-noemirge")
+
+=item -skip_spades
+
+Turn off SPAdes assembly of SSU sequences
+
+=item -sc
+
+Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
+
+=item -poscov
+
+Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
+the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
+coverage evenness. 
+Default: Off ("-noposcov")
+
+=back
+
+=head1 OUTPUT OPTIONS
+
+=over 15
+
 =item -html
 
 Generate output in HTML format.
@@ -130,28 +170,6 @@ connection, requires that you agree to their terms of service (see
 https://developers.google.com/chart/terms), and is not open source,
 although it is free to use.
 Default: Off ("-notreemap")
-
-=item -crlf
-
-Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
-
-=item -decimalcomma
-
-Use decimal comma instead of decimal point to fix locale problems.
-Default: Off
-
-=item -emirge
-
-Turn on EMIRGE reconstruction of SSU sequences
-Default: Off ("-noemirge")
-
-=item -skip_spades
-
-Turn off SPAdes assembly of SSU sequences
-
-=item -sc
-
-Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
 
 =item -zip
 
@@ -230,6 +248,7 @@ my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
 my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
+my $poscov_flag = 0;            # Flag - use Nhmmer to estimate positional coverage? (Default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
@@ -379,6 +398,7 @@ sub parse_cmdline {
                'decimalcomma' => \$decimalcomma,
                'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
+               'poscov!' => \$poscov_flag,
                'sc' => \$sc,
                'zip!' => \$zip,
                'log!' => \$save_log,
@@ -2009,7 +2029,7 @@ readsam();
 
 # Find positional coverage along prok and euk SSU rRNA models using nhmmer
 # from a subsample of reads
-nhmmer_model_pos();
+nhmmer_model_pos() if ($poscov_flag == 1 );
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
