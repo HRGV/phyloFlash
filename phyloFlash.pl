@@ -1193,7 +1193,7 @@ sub taxonomy_spades_unmapped {
     # Report taxonomy of "leftover" sequences
     my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq
     my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
-    my $stats_href = \%ssu_sam_mapstats;
+    my $stats_href = \%ssu_sam_mapstats;            # mapping statistics
     my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
     my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassembled reads
     my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
@@ -1260,7 +1260,7 @@ sub taxonomy_spades_unmapped {
     # Summarize taxonomy
     $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
 
-    # Calculate ratio of reads assembled
+    # Calculate ratio of reads assembled and store in hash
     my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
     if (defined ${$stats_href}{"assem_rev_map"}) {
         $assem_tot_map += ${$stats_href}{"assem_rev_map"};
@@ -1269,11 +1269,14 @@ sub taxonomy_spades_unmapped {
     if (defined ${$stats_href}{"ssu_rev_map"}) {
         $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
     }
+    my $ssu_unassem = $ssu_tot_map - $assem_tot_map;
+    ${$stats_href}{"assem_tot_map"} = $assem_tot_map;
+    ${$stats_href}{"ssu_tot_map"} = $ssu_tot_map;
+    ${$stats_href}{"ssu_unassem"} = $ssu_unassem;
     ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
     ${$stats_href}{"assem_ratio_pc"} = sprintf ("%.3f", ${$stats_href}{"assem_ratio"} * 100) ;
 
     # Write CSV of reads assembled for piechart
-    my $ssu_unassem = $ssu_tot_map - $assem_tot_map;
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$ssu_unassem;
     push @assemratio_csv, "Assembled,".$assem_tot_map;
@@ -1751,9 +1754,19 @@ sub run_plotscript_SVG {
 
     # Plot tree if spades/emirge unless both skipped
     unless ($skip_spades + $skip_emirge == 2) {
+        my @treeplot_args = ("-tree",
+                             $outfiles{"ssu_coll_tree"}{"filename"},
+                             );
+         # Add "bubbles" corresponding to read coverage
+        if (defined $outfiles{"full_len_class"}{"made"}) {
+            push @treeplot_args, ("-assemcov",
+                                  $outfiles{"full_len_class"}{"filename"},
+                                  "-unassemcount",
+                                  $ssu_sam_mapstats{"ssu_unassem"},
+                                  );
+        }
         run_prog("plotscript_SVG",
-                 "--tree ".$outfiles{"ssu_coll_tree"}{"filename"},
-                 #. "$decimalcomma ",
+                 join(" ",@treeplot_args),
                  "tmp.$libraryNAME.plotscript.out",
                  "&1");
         $outfiles{"ssu_coll_tree_svg"}{"made"}++;

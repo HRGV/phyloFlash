@@ -33,7 +33,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov);
+my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov, $unassem_count);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 my ($plotheight, $plotwidth, $plotcolor);
 if (!@ARGV) { # Help msg if no arguments given
@@ -42,6 +42,7 @@ if (!@ARGV) { # Help msg if no arguments given
 }
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
            "assemcov=s" => \$assemcov,      # CSV file libNAME.phyloFlash.extractedSSUclassifications.csv
+           "unassemcount=i" => \$unassem_count, # Number of unassembled reads
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
@@ -66,6 +67,22 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
 Phylogenetic tree plot from Newick-formatted tree. Does not support node or
 branch labels, branch lengths required. Tree is oriented with root on left
 and leaf labels on right. Height of plot scales with number of leaves.
+
+=item -assemcov F<<FILE>>
+
+CSV file containing coverage stats of assembled SSU sequences, from phyloFlash
+output, for drawing bubbles representing read coverage per assembled sequence
+on the tree.
+
+When supplied, beneath the node for each leaf representing an assembled SSU
+sequence will be a circle whose area represents the abundance of that sequence
+(i.e. number of reads mapping to it in the re-mapping step) in the read library.
+
+=item -unassemcount I<INT>
+
+Number of reads that are not mapping to any of the assembled SSU sequences.
+This is to draw a bubble representing coverage of unassembled reads, when
+coverage of assembled sequences is also supplied via -assemcov parameter.
 
 =item -hist F<<FILE>>
 
@@ -619,7 +636,7 @@ sub do_histogram_plots {
     $width = defined $width ? $width : 240;
     $height = defined $height ? $height : 240;
     $color = defined $color ? $color : "rgb(155,155,155)";
-    
+
     # SVG and Plot parameters for histograms
     my @viewBox_arr = (0, 0, $width, $height);         # Viewbox parameter for SVG header - x y width height
     my $viewBox = join " ", @viewBox_arr;
@@ -1000,9 +1017,14 @@ sub draw_tree {
     # Hash in read coverage data for assembled taxa if csv file supplied supplied:
     my $bubble_scalefactor; # Scaling factor for bubbles
     if (defined $assemcov) {
-        $bubble_scalefactor = match_tree_taxon_to_read_coverage($taxa_href, $assemcov, $treewidth);
+        $bubble_scalefactor
+            = match_tree_taxon_to_read_coverage($taxa_href,
+                                                $assemcov,
+                                                $treewidth,
+                                                $vb_height,
+                                                $unassem_count);
     }
-    
+
     # Draw SVG and write to file
     open(my $fh, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     print $fh $svg_open;
@@ -1012,7 +1034,10 @@ sub draw_tree {
             draw_bubbles($key,$taxa_href,$br_scalefactor,$bubble_scalefactor,$vb_height,$fh,);
         }
     }
-    
+    # Draw bubble representing unassembled reads if supplied
+    if (defined $unassem_count) {
+        draw_bubble_unassembled($unassem_count,$bubble_scalefactor,$vb_height, $vb_width, $fh);
+    }
     # Draw branches for internal nodes
     foreach my $key (keys %{$nodes_href}) {
         draw_node($key,$nodes_href, $br_scalefactor, $vb_height, $linestyle, $fh);
@@ -1028,8 +1053,8 @@ sub draw_tree {
 sub match_tree_taxon_to_read_coverage {
     # Parse Readcov value from CSV file
     # Match SPAdes taxon name in CSV file to href taxon and save field
-    my ($taxa_href, $csv, $treewidth) = @_;
-    
+    my ($taxa_href, $csv, $treewidth, $treeheight, $unassem_count) = @_;
+
     my @covs;
     # Open CSV
     my $fh_in;
@@ -1052,17 +1077,41 @@ sub match_tree_taxon_to_read_coverage {
         }
     }
     close($fh_in);
-    
-    # We want the bubble diams to be max 10% of the tree width
+
+    # We want the bubble diams to be max 20% of the tree height
+    if (defined $unassem_count) {
+        # If a bubble is to be drawn for unassembeld reads
+        push @covs, $unassem_count;
+    }
     my $maxcov = max(@covs);
     my $maxradius_raw = sqrt ($maxcov / 3.14159265);
-    my $bubblefactor = 0.05 * $treewidth / $maxradius_raw;
+    my $bubblefactor = 0.10 * $treeheight / $maxradius_raw;
     return ($bubblefactor);
 }
 
 sub draw_bubble_unassembled {
-    my ($unassem_count,
-        $bubble_sf);
+    my ($unassem_count, # Number of unassembled reads - to draw the bubble
+        $bubble_sf,     # Scaling factor for bubble radii
+        $vb_height,     # Plot area height, to calculate vertical position
+        $vb_width,      # Plot area width, for to be calculate position the horizontal
+        $handle,        # File handle for printing
+        ) = @_;
+    my $bubbleradius = $bubble_sf * sqrt($unassem_count / 3.14159265);
+    my $cy = $vb_height - $bubbleradius;
+    my $cx = $vb_width - $bubbleradius;     # At right bottom corner
+    # Print bubble for unassembled reads
+    print $handle "<circle ".
+                  "cx=\"$cx\" ".
+                  "cy=\"$cy\" ".
+                  "r=\"".$bubbleradius."px\" ".
+                  "style=\"fill:rgb(255,200,200);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" />";
+    # Print label for the unassembled
+    print $handle "<text ".
+                  "x=\"$cx\" ".
+                  "y=\"".($vb_height-12)."\" ".
+                  "style=\"text-anchor:end;font-size:8;fill:rgb(255,180,180);fill-opacity:0.85;\" >".
+                  "Unassembled reads: $unassem_count".
+                  "</text>\n";
 }
 
 sub draw_bubbles {
@@ -1092,7 +1141,7 @@ sub draw_bubbles {
               "cx=\"$cumul_brlen\" ".
               "cy=\"$vpos\" ".
               "r=\"".$bubbleradius."px\" ".
-              "style=\"fill:rgb(255,235,205);\" />";
+              "style=\"fill:rgb(255,235,205);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" />\n";
     }
 }
 
@@ -1116,7 +1165,7 @@ sub draw_taxon {
     # Rescale vertical position by viewbox height ($vpos is expressed as percentage)
     $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
-    
+
     ## Draw bubble if readcov is defined
     #if (defined ${$href}{$taxonID}{"readcov"}) {
     #    print $handle "<circle ".
@@ -1125,7 +1174,7 @@ sub draw_taxon {
     #                  "r=\"50px\" ".
     #                  "style=\"fill:blue;\" />";
     #}
-    
+
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
     print $handle "\t<line ".
