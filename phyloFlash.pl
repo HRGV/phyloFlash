@@ -867,10 +867,13 @@ sub bbmap_fast_filter_parse {
         push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio;
     } elsif ($SEmode == 0) {
+        # For PE reads, do not include Unmapped in piechart because it will be
+        # impossible to read the other slices anyway. Instead report mapping
+        # ratio in title.
         my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
         my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
         my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
-        push @mapratio_csv, "Unmapped pair,".$unmapped_pairs;
+        #push @mapratio_csv, "Unmapped pair,".$unmapped_pairs;
         push @mapratio_csv, "Mapped pair,".$ssu_pairs;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
@@ -1676,22 +1679,26 @@ sub run_plotscript_SVG {
     $outfiles{"idhistogram_svg"}{"made"}++;
 
     # Piechart of proportion mapped
+    my @map_args = ("-pie",
+                    $outfiles{"mapratio_csv"}{"filename"},
+                    "-title=\"$SSU_ratio_pc % reads mapped\"");
     run_prog("plotscript_SVG",
-         " --pie ".$outfiles{"mapratio_csv"}{"filename"}
-         ." --title=\"Reads mapped\" ",
-         #. "$decimalcomma ",
-         "tmp.$libraryNAME.plotscript.out",
-         "&1");
+             join(" ", @map_args),
+             "tmp.$libraryNAME.plotscript.out",
+             "&1");
     $outfiles{"mapratio_svg"}{"made"}++;
 
     # Piechart of proportion assembled, if SPAdes run
     unless ($skip_spades == 1) {
+        my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
+        my @pie_args = ("--pie",
+                        $outfiles{"assemratio_csv"}{"filename"},
+                        " --title=\"Reads assembled\"",
+                        );
         run_prog("plotscript_SVG",
-             "--pie ".$outfiles{"assemratio_csv"}{"filename"}
-             ." --title=\"Reads assembled\" ",
-             #. "$decimalcomma ",
-             "tmp.$libraryNAME.plotscript.out",
-             "&1");
+                 join (" ", @pie_args),
+                 "tmp.$libraryNAME.plotscript.out",
+                 "&1");
         $outfiles{"assemratio_svg"}{"made"}++;
     }
 
