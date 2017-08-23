@@ -272,6 +272,7 @@ my @taxa_from_hitmaps_sorted;   # Sorted list of read counts                    
 my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string  # To be replaced
 my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads                  # To be replaced
 
+my $taxa_full_href;             # Summary of read counts for full-length taxonomy strings (for treemap) - hash ref
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
 
@@ -682,7 +683,7 @@ sub write_csv {
     }
     close($fh);
 
-    open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
+    open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});                   # To be superseded
     $outfiles{"ntu_csv"}{"made"} = 1;
     print $fh "NTU,reads\n";
     foreach my $arr ( @taxa_from_hitmaps_sorted ) {
@@ -690,7 +691,7 @@ sub write_csv {
     }
     close($fh);
 
-    open_or_die(\$fh, ">", $outfiles{"taxa_csv"}{"filename"});
+    open_or_die(\$fh, ">", $outfiles{"taxa_csv"}{"filename"});                  # Replace this with ntu_csv, and add header
     $outfiles{"taxa_csv"}{"made"} = 1;
     # Sort results descending
     my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
@@ -946,6 +947,7 @@ sub readsam {
             # Shorten taxonomy string and save into NTU table
             if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
                 my $taxonlongstring = $1;
+                $taxa_full_href->{$taxonlongstring}++; # Count full-length taxon for treemap
                 # Truncate to 6 levels
                 my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6); # To be superseded
                 # Increment count for taxon
@@ -966,19 +968,37 @@ sub readsam {
         map  { [$_, $taxa_from_hitmaps{$_}] }
         keys %taxa_from_hitmaps;
 
-    # Calculate Chao1 statistic
-    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
-    if ($xtons[1] > 0) {
-        $chao1 =
-          $xtons[2] +
-          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-    } else {
-        $chao1 = 'n.d.';
-    }
+    ## Calculate Chao1 statistic
+    #$xtons[2] = $#taxa_from_hitmaps_sorted +1;
+    #if ($xtons[1] > 0) {
+    #    $chao1 =
+    #      $xtons[2] +
+    #      ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    #} else {
+    #    $chao1 = 'n.d.';
+    #}
 
     # Summarize taxonomy
     $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
 
+    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
+    foreach my $taxon (keys %$taxa_summary_href) {
+        if ($taxa_summary_href->{$taxon} == 1) {        # 1-tons
+            $xtons[0]++;
+        } elsif ($taxa_summary_href->{$taxon} == 2) {   # 2-tons
+            $xtons[1]++;
+        } elsif ($taxa_summary_href->{$taxon} >= 3) {   # 3+-tons
+            $xtons[2]++;
+        }
+    }
+    if ($xtons[1] > 0) {
+        $chao1 =
+          $xtons[2] +                               # Is there an error here? Should be sum of all spp. observed
+          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    } else {
+        $chao1 = 'n.d.';
+    }
+    
     msg("done...");
 }
 
@@ -1003,17 +1023,17 @@ sub summarize_taxonomy {
         ) = @_;
     my @input = @$in_aref; # Dereference array input
     my %taxhash;        # Hash to store counts per taxon at each taxonomic level
-    my %output;         # Hash to store output
+    #my %output;         # Hash to store output
 
     foreach my $taxstring (@input) {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
-    # Sort output in descending order
-    foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
-        $output{$key} = $taxhash{$key};
-    }
-    return (\%output); # Return reference to output array
+    ## Sort output in descending order
+    #foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
+    #    $output{$key} = $taxhash{$key};
+    #}
+    return (\%taxhash); # Return reference to output array
 }
 
 sub spades_run {
@@ -1787,48 +1807,48 @@ sub run_plotscript_SVG {
 }
 
 sub generate_treemap_data_rows {
-  # Generate data rows for drawing treemap chart
-  my %parents_HoH; # Hash of count vals by parent and child taxa
-  my @output; # Array to store output
-  # Parse taxstrings into hash of child-parent relationships
+    # Generate data rows for drawing treemap chart
+    my %parents_HoH; # Hash of count vals by parent and child taxa
+    my @output; # Array to store output
+    # Parse taxstrings into hash of child-parent relationships
 
-  foreach my $taxstring (keys %taxa_from_hitmaps) {
-    my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
-    my $taxlen = scalar @taxsplit; # Get length of tax string
-    while (scalar @taxsplit > 1) {
-      my $countval = 0; # Initialize count value as dummy "zero" by default
-      if (scalar @taxsplit == $taxlen) { # If leaf node, set count value to real value
-          $countval = $taxa_from_hitmaps{$taxstring};
-      }
-      my $child_taxstring = join ";", @taxsplit;
-      my $dummy = pop @taxsplit; # Get parent node
-      my $parent_taxstring = join ";", @taxsplit;
-      # Remove non-word and non-semicolon chars to avoid problems with Javascript
-      $child_taxstring =~ s/[^\w;_]/_/g;
-      $parent_taxstring =~ s/[^\w;_]/_/g;
-      # Update the parent-child hash if this taxon not already represented
-      if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
-        $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
-      }
+    foreach my $taxstring (keys %$taxa_full_href) {
+        my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
+        my $taxlen = scalar @taxsplit; # Get length of tax string
+        while (scalar @taxsplit > 1) {
+            my $countval = 0; # Initialize count value as dummy "zero" by default
+            if (scalar @taxsplit == $taxlen) { # If leaf node, set count value to real value
+                $countval = $taxa_full_href->{$taxstring};
+            }
+            my $child_taxstring = join ";", @taxsplit;
+            my $dummy = pop @taxsplit; # Get parent node
+            my $parent_taxstring = join ";", @taxsplit;
+            # Remove non-word and non-semicolon chars to avoid problems with Javascript
+            $child_taxstring =~ s/[^\w;_]/_/g;
+            $parent_taxstring =~ s/[^\w;_]/_/g;
+            # Update the parent-child hash if this taxon not already represented
+            if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
+                $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
+            }
+        }
     }
-  }
 
-  # Write output in dataRow format for treemap chart
-  # Root and top-level taxa
-  push @output, "[\'Cellular organisms\',\t,\t0],\n";
-  push @output, "[\'Bacteria\',\t\'Cellular organisms\',\t0],\n";
-  push @output, "[\'Archaea\',\t\'Cellular organisms\',\t0],\n";
-  push @output,"[\'Eukaryota\',\t\'Cellular organisms\',\t0],\n";
-  # Go through sorted hash and write parent-child data rows
-  foreach my $parent (sort {$a cmp $b} keys %parents_HoH) {
-    foreach my $child (sort {$a cmp $b} keys %{$parents_HoH{$parent}}) {
-      # Concatenate output as string
-      my $outstring = "[\'".$child."\',\t\'".$parent."\',\t".$parents_HoH{$parent}{$child}."],\n";
-      push @output, $outstring;
-      }
-  }
-  # Return array of output lines
-  return @output;
+    # Write output in dataRow format for treemap chart
+    # Root and top-level taxa
+    push @output, "[\'Cellular organisms\',\t,\t0],\n";
+    push @output, "[\'Bacteria\',\t\'Cellular organisms\',\t0],\n";
+    push @output, "[\'Archaea\',\t\'Cellular organisms\',\t0],\n";
+    push @output, "[\'Eukaryota\',\t\'Cellular organisms\',\t0],\n";
+    # Go through sorted hash and write parent-child data rows
+    foreach my $parent (sort {$a cmp $b} keys %parents_HoH) {
+        foreach my $child (sort {$a cmp $b} keys %{$parents_HoH{$parent}}) {
+            # Concatenate output as string
+            my $outstring = "[\'".$child."\',\t\'".$parent."\',\t".$parents_HoH{$parent}{$child}."],\n";
+            push @output, $outstring;
+        }
+    }
+    # Return array of output lines
+    return @output;
 }
 
 sub write_report_html {
