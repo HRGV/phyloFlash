@@ -739,11 +739,11 @@ sub write_csv {
 
 sub bbmap_fast_filter_sam_run {
     # input: $readsf, $readsr
-    # output: lib.$readsf.SSU.sam
-    #         lib.$readsf.SSU.{1,2}.fq
-    #         lib.bbmap.out
-    #         lib.inserthistogram
-    # tmp:    tmp.$libraryNAME.basecompositionhistogram
+    # output: $libraryNAME.$readsf.SSU.sam
+    #         $libraryNAME.$readsf.SSU.{1,2}.fq
+    #         $libraryNAME.bbmap.out
+    #         $libraryNAME.inserthistogram
+    # tmp:    $libraryNAME.basecompositionhistogram
     msg("filtering reads with SSU db using minimum identity of $id%");
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
@@ -765,7 +765,7 @@ sub bbmap_fast_filter_sam_run {
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
                       "build=1",
                       "in=$readsf_full",
-                      "bhist=tmp.$libraryNAME.basecompositionhistogram",
+                      "bhist=".$outfiles{"basecompositionhist"}{"filename"},
                       "ihist=".$outfiles{"inserthistogram"}{"filename"},
                       "idhist=".$outfiles{"idhistogram"}{"filename"},
                       "scafstats=".$outfiles{"hitstats"}{"filename"},
@@ -791,7 +791,7 @@ sub bbmap_fast_filter_sam_run {
              $outfiles{"bbmap_log"}{"filename"}
              );
     # Record which files were created
-    foreach my $madekey (qw(sam_map reads_mapped_f inserthistogram idhistogram hitstats bbmap_log)) {
+    foreach my $madekey (qw(sam_map reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
@@ -1131,11 +1131,12 @@ sub spades_parse {
         return;
     }
 
-    open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
+    open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
     for my $key (sort keys %ssus) {
         print $fh join("\t",@{$ssus{$key}});
     }
     close($fh);
+    $outfiles{"gff_all"}{"made"}++;
 
     # fastaFromBed will build a .fai index from the source .fasta
     # However, it does not notice if the .fasta changed. So we
@@ -1147,14 +1148,17 @@ sub spades_parse {
     }
 
     # extract rrna fragments from spades scaffolds accoding to gff
+    my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                             "-bed",$outfiles{"gff_all"}{"filename"},
+                             "-fo",$outfiles{"spades_fasta"}{"filename"},
+                             "-s","-name",
+                             );
     run_prog("fastaFromBed",
-             "  -fi $libraryNAME.spades/scaffolds.fasta"
-             . " -bed tmp.$libraryNAME.scaffolds.final.gff"
-             . " -fo ".$outfiles{"spades_fasta"}{"filename"}
-             . " -s -name",
-             "tmp.$libraryNAME.fastaFromBed.out",
+             join (" ",@fastaFromBed_args),
+             $outfiles{"fastaFromBed_out"}{"filename"},
              "&1");
     $outfiles{"spades_fasta"}{"made"}++;
+    $outfiles{"fastaFromBed_out"}{"made"}++;
     msg("done...");
 }
 
@@ -1283,7 +1287,8 @@ sub emirge_run {
     msg("creating phylotypes with Emirge");
 
     my $cmd = "emirge";
-    my $args = "-1 $libraryNAME.$readsf.SSU.1.fq ";
+    my @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"});
+    my $args = "-1 ".$outfiles{"reads_mapped_f"}{"filename"}." ";
 
     if ($SEmode == 1) {
         msg("only one read file provided - running in single end mode");
@@ -1313,6 +1318,11 @@ sub emirge_run {
             msg("Warning: More than $amplimit SSU reads - using Emirge Amplicon");
         }
 
+        @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"},
+                        "-2",$outfiles{"reads_mapped_r"}{"filename"},
+                        "-i $ins_used",
+                        "-s $ins_std",
+                        );
         $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}
                 . " -2 ".$outfiles{"reads_mapped_r"}{"filename"}
                 . " -i $ins_used -s $ins_std ";
@@ -1321,26 +1331,40 @@ sub emirge_run {
         run_prog("cat",
                  $outfiles{"reads_mapped_f"}{"filename"}." ".
                  $outfiles{"reads_mapped_r"}{"filename"},
-                 "tmp.$libraryNAME.SSU_all.fq");
-        # ename the reads with a running number to make emirge happy
+                 $outfiles{"reads_mapped_cat"}{"filename"});
+        $outfiles{"reads_mapped_cat"}{"made"}++;
+                 #"tmp.$libraryNAME.SSU_all.fq");
+        # rename the reads with a running number to make emirge happy
         # using awk for speed, these files can be huge
 
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-                 . " tmp.$libraryNAME.SSU_all.fq",
-                 "tmp.$libraryNAME.renamed.SSU_all.fq");
+                 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 $outfiles{"reads_mapped_cat_rename"}{"filename"});
+        $outfiles{"reads_mapped_cat_rename"}{"made"}++;
+                 #"tmp.$libraryNAME.renamed.SSU_all.fq");
 
-        $args = " -1 tmp.$libraryNAME.renamed.SSU_all.fq ";
+        @emirge_args = ("-1",$outfiles{"reads_mapped_cat_rename"}{"filename"});
+        $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";
     }
 
+    unshift @emirge_args, "$libraryNAME.emirge"; # Add library name to arguments
+    push @emirge_args, ("-f ${DBHOME}/${emirge_db}.fasta",
+                        "-b ${DBHOME}/${emirge_db}.bt",
+                        "-l $readlength",
+                        "-a $cpus",
+                        "--phred33",
+                        );
     run_prog($cmd,
-             " $libraryNAME.emirge "
-             . $args
-             . " -f ${DBHOME}/${emirge_db}.fasta"
-             . " -b ${DBHOME}/${emirge_db}.bt "
-             . " -l $readlength -a $cpus --phred33 "
-             , $outfiles{"emirge_log"}{"filename"}
-             , "&1");
+             join (" ", @emirge_args),
+             #" $libraryNAME.emirge "
+             #. $args
+             #. " -f ${DBHOME}/${emirge_db}.fasta"
+             #. " -b ${DBHOME}/${emirge_db}.bt "
+             #. " -l $readlength -a $cpus --phred33 "
+             $outfiles{"emirge_log"}{"filename"},
+             "&1",
+             );
     $outfiles{"emirge_log"}{"made"}++;
     msg("done...");
 }
@@ -1350,11 +1374,12 @@ sub emirge_parse {
     msg("getting Emirge phylotypes and their abundances...");
     run_prog("emirge_rename_fasta",
              "./$libraryNAME.emirge/iter.40/",
-             "tmp.$libraryNAME.emirge.result.fasta");
+             $outfiles{"emirge_raw_fasta"}{"filename"});
+    $outfiles{"emirge_result_fasta"}{"made"}++;
 
     my $fh_in;
     my $fh_out;
-    open_or_die(\$fh_in, "<","tmp.$libraryNAME.emirge.result.fasta");
+    open_or_die(\$fh_in, "<", $outfiles{"emirge_raw_fasta"}{"filename"});
     open_or_die(\$fh_out, ">", $outfiles{"emirge_fasta"}{"filename"});
     $outfiles{"emirge_fasta"}{"made"}++;
     while (<$fh_in>) {
@@ -1407,11 +1432,12 @@ sub vsearch_best_match {
              . " -threads $cpus --strand plus --notrunclabels"
              . " -notmatched ".$outfiles{"notmatched_fasta"}{"filename"}
              . " -dbmatched ".$outfiles{"dbhits_all_fasta"}{"filename"},
-             "tmp.$libraryNAME.all.vsearch.out",
+             $outfiles{"vsearch_out"}{"filename"},
              "&1");
         $outfiles{"vsearch_csv"}{"made"}++;
         $outfiles{"dbhits_all_fasta"}{"made"}++;
         $outfiles{"notmatched_fasta"}{"made"}++;
+        $outfiles{"vsearch_out"}{"made"}++;
 
        # query, target: labels
        # id: "100* matching colums / (alignment length - terminal gaps)"
@@ -1466,10 +1492,11 @@ sub vsearch_cluster {
              . " -centroids ".$outfiles{"dhbits_nr97_fasta"}{"filename"}
              . " -notrunclabels"
              . " --threads $cpus",
-             "tmp.$libraryNAME.clusterdbhits.out",
+             $outfiles{"vsearch_clusterdb_out"}{"filename"},
              "&1");
     $outfiles{"dbhits_all_fasta"}{"made"}++;
     $outfiles{"dhbits_nr97_fasta"}{"made"}++;
+    $outfiles{"vsearch_clusterdb_out"}{"made"}++;
     msg("done...");
 }
 
@@ -1502,9 +1529,10 @@ sub mafft_run {
     run_prog("mafft",
              "--treeout ".$outfiles{"ssu_coll_fasta"}{"filename"},
              $outfiles{"ssu_coll_aln_fasta"}{"filename"},
-             "tmp.$libraryNAME.SSU.collection.alignment.mafftout");
+             $outfiles{"ssu_coll_aln_mafftout"}{"filename"});
     $outfiles{"ssu_coll_aln_fasta"}{"made"}++;
     $outfiles{"ssu_coll_tree"}{"made"}++;
+    $outfiles{"ssu_coll_aln_mafftout"}{"made"}++;
 
     # fix missing ; at and of MaFFT newick tree
     my $fh;
@@ -1534,9 +1562,10 @@ sub nhmmer_model_pos {
     run_prog ("reformat",
               join (" ", @reformat_args),
               undef,
-              "tmp.$libraryNAME.reformat.out"
+              $outfiles{"reformat_out"}{"filename"}
               );
     $outfiles{"readsf_subsample"}{"made"}++;
+    $outfiles{"reformat_out"}{"made"}++;
 
     # Run nhmmer
     my @nhmmer_args = ("--cpu $cpus",
@@ -1620,15 +1649,19 @@ sub nhmmer_model_pos {
 sub clean_up {
     # cleanup of intermediate files and folders
     if ($keeptmp == 1) {
-        msg ("Retaining temp files...");
+        msg ("Retaining temp files and folders...");
     } elsif ($keeptmp == 0) {
         msg("Cleaning temp files...");
+        
+        # Delete SPAdes and/or EMIRGE output folders
         if ($skip_spades == 0) {
-            system ("rm ./$libraryNAME.spades -r");
+            system ("rm $libraryNAME.spades -r");
         }
         if ($skip_emirge == 0) {
-            system ("rm ./$libraryNAME.emirge -r");
+            system ("rm $libraryNAME.emirge -r");
         }
+        
+        # Remove tmp files marked by "tmp" filename prefix                      # To be superseded
         system ("rm tmp.$libraryNAME.* -r");
     
         # Remove files that are earmarked for destruction
@@ -1670,7 +1703,7 @@ sub run_plotscript_SVG {
     }
     run_prog("plotscript_SVG",
          join (" ", @idhist_args),
-         "tmp.$libraryNAME.plotscript.out",
+         $outfiles{"plotscript_out"}{"filename"},
          "&1");
     $outfiles{"idhistogram_svg"}{"made"}++;
 
@@ -1680,7 +1713,7 @@ sub run_plotscript_SVG {
                     "-title=\"$SSU_ratio_pc % reads mapped\"");
     run_prog("plotscript_SVG",
              join(" ", @map_args),
-             "tmp.$libraryNAME.plotscript.out",
+             $outfiles{"plotscript_out"}{"filename"},
              "&1");
     $outfiles{"mapratio_svg"}{"made"}++;
 
@@ -1693,7 +1726,7 @@ sub run_plotscript_SVG {
                         );
         run_prog("plotscript_SVG",
                  join (" ", @pie_args),
-                 "tmp.$libraryNAME.plotscript.out",
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"assemratio_svg"}{"made"}++;
     }
@@ -1710,7 +1743,7 @@ sub run_plotscript_SVG {
 
         run_prog("plotscript_SVG",
                  join (" ", @inshist_args),
-                 "tmp.$libraryNAME.plotscript.out",
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"inserthistogram_svg"}{"made"}++;
     }
@@ -1727,7 +1760,7 @@ sub run_plotscript_SVG {
                         );
         run_prog("plotscript_SVG",
                  join (" ", @args_euk),
-                 "tmp.$libraryNAME.plotscript.out",
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
         # Prokaryotic gene model
@@ -1740,7 +1773,7 @@ sub run_plotscript_SVG {
                          );
         run_prog("plotscript_SVG",
                  join (" ", @args_prok),
-                 "tmp.$libraryNAME.plotscript.out",
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
     }
@@ -1760,19 +1793,25 @@ sub run_plotscript_SVG {
         }
         run_prog("plotscript_SVG",
                  join(" ",@treeplot_args),
-                 "tmp.$libraryNAME.plotscript.out",
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"ssu_coll_tree_svg"}{"made"}++;
     }
 
     # Generate barplot of taxonomy at level XX
+    my @barplot_args = ("-bar",
+                        $outfiles{"ntu_csv"}{"filename"},
+                        "-title=\"Taxonomic summary from reads mapped\"",
+                        );
     run_prog("plotscript_SVG",
-             "--bar ".$outfiles{"ntu_csv"}{"filename"}
-             ." --title=\"Taxonomic summary from reads mapped\" ",
-             "tmp.$libraryNAME.plotscript.out",
+             join(" ", @barplot_args),
+             $outfiles{"plotscript_out"}{"filename"},
              "&1");
     $outfiles{"ntu_csv_svg"}{"made"}++;
 
+    # Mark plotscript out tmp file as made
+    $outfiles{"plotscript_out"}{"made"}++,
+    
     msg("done");
 }
 
