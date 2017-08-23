@@ -529,7 +529,7 @@ sub parse_cmdline {
         $skip_spades = 0; # Override any skip spades
         if ($everything == 1) {
             msg ("Running \"everything\" - overrides other command line options");
-            $emirge = 1;
+            $skip_emirge = 0;
         } else {
             # "almost everything" does not turn on EMIRGE
             msg ("Running \"everything\" except EMIRGE- overrides other command line options");
