@@ -1367,7 +1367,7 @@ sub emirge_parse {
     run_prog("emirge_rename_fasta",
              "./$libraryNAME.emirge/iter.40/",
              $outfiles{"emirge_raw_fasta"}{"filename"});
-    $outfiles{"emirge_result_fasta"}{"made"}++;
+    $outfiles{"emirge_raw_fasta"}{"made"}++;
 
     my $fh_in;
     my $fh_out;
@@ -1652,10 +1652,7 @@ sub clean_up {
         if ($skip_emirge == 0) {
             system ("rm $libraryNAME.emirge -r");
         }
-        
-        # Remove tmp files marked by "tmp" filename prefix                      # To be superseded
-        system ("rm tmp.$libraryNAME.* -r");
-    
+
         # Remove files that are earmarked for destruction
         # (Change earmarking in PhyloFlash.pm)
         foreach my $key (keys %outfiles) {
