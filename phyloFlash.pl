@@ -354,7 +354,6 @@ sub process_required_tools {
         grep => "grep",
         awk => "awk",
         cat => "cat",
-        plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R",
         plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
     );
     if ($skip_spades == 0) {
