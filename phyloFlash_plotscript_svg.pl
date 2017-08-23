@@ -24,6 +24,7 @@ Output files are simply input filename with .svg suffix, silently overwritten.
 
 use strict;
 use warnings;
+use diagnostics;
 use Pod::Usage;
 use POSIX qw (ceil floor);
 use List::Util qw(min max);
@@ -33,7 +34,7 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov, $unassem_count);
+my ($treefile, $fastafile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov, $unassem_count);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
 my ($plotheight, $plotwidth, $plotcolor);
 if (!@ARGV) { # Help msg if no arguments given
@@ -41,6 +42,7 @@ if (!@ARGV) { # Help msg if no arguments given
     exit();
 }
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
+           "treefasta=s" => \$fastafile,    # Fasta file used to produce guide tree - to rewrite the text labels
            "assemcov=s" => \$assemcov,      # CSV file libNAME.phyloFlash.extractedSSUclassifications.csv
            "unassemcount=i" => \$unassem_count, # Number of unassembled reads
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
@@ -67,6 +69,15 @@ GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
 Phylogenetic tree plot from Newick-formatted tree. Does not support node or
 branch labels, branch lengths required. Tree is oriented with root on left
 and leaf labels on right. Height of plot scales with number of leaves.
+
+Can be modified with -treefasta, -assemcov, and -unassemcount
+
+=item -treefasta F<<FILE>>
+
+Original Fasta file used to produce the tree, if the tree is a guide tree
+from MAFFT aligner. This is used to relabel the text labels in the SVG
+with the original text, because MAFFT automatically replaces spaces and
+other punctuation with underscores, and truncates the names.
 
 =item -assemcov F<<FILE>>
 
@@ -1021,8 +1032,36 @@ sub draw_tree {
             = match_tree_taxon_to_read_coverage($taxa_href,
                                                 $assemcov,
                                                 $treewidth,
+                                                $vb_width,
                                                 $vb_height,
                                                 $unassem_count);
+    }
+
+    # If original Fasta file is supplied, match substituted names to originals
+    if (defined $fastafile) { # NB: $fastafile is a global var
+        my $rename_href = original_names_from_fasta($fastafile);
+        foreach my $ID (keys %$taxa_href) {
+            my $taxname = ${$taxa_href}{$ID}{"name"};
+            my $shortid;
+            # If SPAdes identifier
+            if ($taxname =~ m/^\d+_\w+_(PFspades_\d+)_/) {
+                $shortid = $1;
+            }
+            # If EMIRGE identifier
+            elsif ($taxname =~ m/^\d+_\w+_(PFemirge_\d+)_/) {
+                $shortid = $1;
+            }
+            # If reference sequence
+            elsif ($taxname =~ m/^\d+_(\w+)_\d+_\d+_/) {
+                $shortid = $1;
+            }
+            # Check whether a matching original header can be found
+            if (defined ${$rename_href}{$shortid}) {
+                ${$taxa_href}{$ID}{"original_name"} = ${$rename_href}{$shortid};
+            } else {
+                print STDERR "Original name not found for shortid $shortid\n";
+            }
+        }
     }
 
     # Draw SVG and write to file
@@ -1050,10 +1089,50 @@ sub draw_tree {
     close($fh);
 }
 
+sub original_names_from_fasta {
+    # MAFFT substitutes special characters with underscore in the Newick
+    # guidetree. This looks ugly and also truncates names.
+    # If given the original Fasta file, substitute the reformatted tree labels
+    # with the original labels in Fasta file
+    
+    # Return ref to hash of accession numbers (key) and full labels (value)
+    my ($fastafile) = @_;
+    
+    my %hash;
+    # Open Fasta file and read 
+    my $fh_in;
+    open($fh_in, "<", $fastafile) or die ("Cannot open file $fastafile: $!");
+    while (my $line = <$fh_in>) {
+        if ($line =~ m/^>(.+)/) { # Get header lines
+            my $head = $1;
+            chomp $head;
+            # If EMIRGE reconstructed sequence extract identifier
+            if ($head =~ m/^\S+\.(PFemirge_\d+)_/) {
+                $hash{$1} = $head;
+            }
+            # If SPAdes assembled sequence extract identifier
+            elsif ($head =~ m/^\S+\.(PFspades_\d+)/) {
+                $hash{$1} = $head;
+            }
+            # If a reference sequence, get accession number without start/stop pos
+            elsif ($head =~ m/^(\w+)\.\d+\.\d+ /) {
+                $hash{$1} = $head;
+            }
+            # Otherwise report problem
+            else {
+                print STDERR "Malformed sequence header: $head\n in Fasta file $fastafile \n";
+            }
+        }
+    }
+    close($fh_in);
+    
+    return (\%hash);
+}
+
 sub match_tree_taxon_to_read_coverage {
     # Parse Readcov value from CSV file
     # Match SPAdes taxon name in CSV file to href taxon and save field
-    my ($taxa_href, $csv, $treewidth, $treeheight, $unassem_count) = @_;
+    my ($taxa_href, $csv, $treewidth, $vb_width, $vb_height, $unassem_count) = @_;
 
     my @covs;
     # Open CSV
@@ -1078,14 +1157,14 @@ sub match_tree_taxon_to_read_coverage {
     }
     close($fh_in);
 
-    # We want the bubble diams to be max 20% of the tree height
+    # We want the bubble diams to be max 20% of the plot width
     if (defined $unassem_count) {
         # If a bubble is to be drawn for unassembeld reads
         push @covs, $unassem_count;
     }
     my $maxcov = max(@covs);
     my $maxradius_raw = sqrt ($maxcov / 3.14159265);
-    my $bubblefactor = 0.10 * $treeheight / $maxradius_raw;
+    my $bubblefactor = 0.10 * $vb_width / $maxradius_raw;
     return ($bubblefactor);
 }
 
@@ -1205,13 +1284,15 @@ sub draw_taxon {
     my $prenode = $cumul_brlen - $brlen;
     # Style for text label
     my $textstyle = "font-size:".$fontsize."px;";
-    
+
     # Color the text label blue/green if it is an assembled or reconstructed sequence
     if (${$href}{$taxonID}{"name"} =~ m/PFspades/) { 
         $textstyle .= "fill:blue;";
     } elsif (${$href}{$taxonID}{"name"} =~ m/PFemirge/) {
         $textstyle .= "fill:green;";
     }
+    # Use original name if available, else the name found in tree
+    $name = defined ${$href}{$taxonID}{"original_name"} ? ${$href}{$taxonID}{"original_name"} : $name;
 
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";

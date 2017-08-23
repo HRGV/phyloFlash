@@ -1523,7 +1523,7 @@ sub mafft_run {
              $outfiles{"ssu_coll_aln_fasta"}{"filename"},
              $outfiles{"ssu_coll_aln_mafftout"}{"filename"});
     $outfiles{"ssu_coll_aln_fasta"}{"made"}++;
-    $outfiles{"ssu_coll_tree"}{"made"}++;
+    $outfiles{"ssu_coll_tree"}{"made"}++; # Tree filename is input filename with suffix
     $outfiles{"ssu_coll_aln_mafftout"}{"made"}++;
 
     # fix missing ; at and of MaFFT newick tree
@@ -1776,6 +1776,8 @@ sub run_plotscript_SVG {
         if (defined $outfiles{"full_len_class"}{"made"}) {
             push @treeplot_args, ("-assemcov",
                                   $outfiles{"full_len_class"}{"filename"},
+                                  "-treefasta",
+                                  $outfiles{"ssu_coll_fasta"}{"filename"},
                                   "-unassemcount",
                                   $ssu_sam_mapstats{"ssu_unassem"},
                                   );
