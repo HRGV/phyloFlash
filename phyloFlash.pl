@@ -415,7 +415,7 @@ sub parse_cmdline {
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
         or pod2usage(2);
-    $skip_emirge = 0 if $emirge == 1;
+    $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
 
     # verify tools present
     if ($check_env == 1) {
@@ -1333,7 +1333,6 @@ sub emirge_run {
                  $outfiles{"reads_mapped_r"}{"filename"},
                  $outfiles{"reads_mapped_cat"}{"filename"});
         $outfiles{"reads_mapped_cat"}{"made"}++;
-                 #"tmp.$libraryNAME.SSU_all.fq");
         # rename the reads with a running number to make emirge happy
         # using awk for speed, these files can be huge
 
@@ -1342,7 +1341,6 @@ sub emirge_run {
                  .$outfiles{"reads_mapped_cat"}{"filename"},
                  $outfiles{"reads_mapped_cat_rename"}{"filename"});
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
-                 #"tmp.$libraryNAME.renamed.SSU_all.fq");
 
         @emirge_args = ("-1",$outfiles{"reads_mapped_cat_rename"}{"filename"});
         $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";
@@ -1357,11 +1355,6 @@ sub emirge_run {
                         );
     run_prog($cmd,
              join (" ", @emirge_args),
-             #" $libraryNAME.emirge "
-             #. $args
-             #. " -f ${DBHOME}/${emirge_db}.fasta"
-             #. " -b ${DBHOME}/${emirge_db}.bt "
-             #. " -l $readlength -a $cpus --phred33 "
              $outfiles{"emirge_log"}{"filename"},
              "&1",
              );

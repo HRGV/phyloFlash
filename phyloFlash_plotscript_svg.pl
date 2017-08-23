@@ -1166,15 +1166,6 @@ sub draw_taxon {
     $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
 
-    ## Draw bubble if readcov is defined
-    #if (defined ${$href}{$taxonID}{"readcov"}) {
-    #    print $handle "<circle ".
-    #                  "cx=\"$cumul_brlen\" ".
-    #                  "cy=\"$vpos\" ".
-    #                  "r=\"50px\" ".
-    #                  "style=\"fill:blue;\" />";
-    #}
-
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
     print $handle "\t<line ".
@@ -1262,7 +1253,6 @@ sub newick2tables {
     $nodes{"0"}{"cumul_brlen"} = 0;
 
     foreach my $line (@treesplit) {
-        #print STDERR "$line\n";
         if ($line =~ m/^\($/) { # Lone open paren
             ($nodecount, $currnode, $parent) = increment_node($nodecount, $currnode, $parent, \%nodes);
         } elsif ($line =~ m/^\((.+):([\d\.]+)/) { # Open paren with taxon
@@ -1278,8 +1268,6 @@ sub newick2tables {
         } elsif ($line =~ m/^\);/) { # Close paren with semicolon
             ($currnode, $parent) = climbdown_node(0, $currnode, $parent, \%nodes); # Root node has brlen zero
         }
-        #print STDERR join "\t", ($nodecount, $currnode, $parent);
-        #print STDERR "\n";
     }
 
     sum_cumul_brlen(\%nodes, \%taxa);      # Sum cumulative branchlengths (this can only be done after reading tree in)
