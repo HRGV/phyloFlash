@@ -1101,6 +1101,7 @@ sub draw_bubble_unassembled {
     my $cx = $vb_width - $bubbleradius;     # At right bottom corner
     # Print bubble for unassembled reads
     print $handle "<circle ".
+                  "id=\"circle_unassembled\" ".
                   "cx=\"$cx\" ".
                   "cy=\"$cy\" ".
                   "r=\"".$bubbleradius."px\" ".
@@ -1109,8 +1110,15 @@ sub draw_bubble_unassembled {
     print $handle "<text ".
                   "x=\"$cx\" ".
                   "y=\"".($vb_height-12)."\" ".
-                  "style=\"text-anchor:end;font-size:8;fill:rgb(255,180,180);fill-opacity:0.85;\" >".
-                  "Unassembled reads: $unassem_count".
+                  "visibility=\"hidden\" ".
+                  "style=\"text-anchor:end;font-size:8;fill:rgb(255,180,180);\" >";
+    # Animate text on mouseover of the corresponding taxon leaf
+    print $handle "<set ".
+                  "attributeName=\"visibility\" ".
+                  "to=\"visible\" ".
+                  "begin=\"circle_unassembled.mouseover\" ".
+                  "end=\"circle_unassembled.mouseout\" />";
+    print $handle "Unassembled reads: $unassem_count".
                   "</text>\n";
 }
 
@@ -1136,12 +1144,42 @@ sub draw_bubbles {
         $vpos = $vpos * $vb_height/100;
         # Calculate radius of bubble
         my $bubbleradius = $bubble_sf * sqrt($readcov / 3.14159265);
+        
+        # Calculate position of text label (same vertical height, offset to the left)
+        my $textx = $cumul_brlen - ($bubbleradius / 2);
+        my $texty = $vpos;
+        
         # Print SVG tag
+        # Circle element
         print $handle "<circle ".
-              "cx=\"$cumul_brlen\" ".
-              "cy=\"$vpos\" ".
-              "r=\"".$bubbleradius."px\" ".
-              "style=\"fill:rgb(255,235,205);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" />\n";
+                      "id=\"circle_$taxonID\" ".
+                      "cx=\"$cumul_brlen\" ".
+                      "cy=\"$vpos\" ".
+                      "r=\"".$bubbleradius."px\" ".
+                      "style=\"fill:rgb(255,235,205);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" >";
+        # Animate circle on mouseover of the corresponding taxon leaf
+        print $handle "<set ".
+                      "attributeName=\"fill-opacity\" ".
+                      "to=\"1\" ".
+                      "begin=\"$taxonID.mouseover\" ".
+                      "end=\"$taxonID.mouseout\" />";
+        print $handle "</circle>";
+        # Text label giving number of reads
+        print $handle "<text ".
+                      "x=\"$textx\" ".
+                      "y=\"$texty\" ".
+                      "visibility=\"hidden\" ".
+                      "style=\"font-size:12px;text-anchor:end;fill:rgb(255,128,0)\" ".
+                      ">";
+        # Animate text on mouseover of the corresponding taxon leaf
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"visible\" ".
+                      "begin=\"$taxonID.mouseover\" ".
+                      "end=\"$taxonID.mouseout\" />";
+        # Display reads mapping to this seq
+        print $handle "Reads: $readcov";
+        print $handle "</text>\n";
     }
 }
 
@@ -1165,6 +1203,15 @@ sub draw_taxon {
     # Rescale vertical position by viewbox height ($vpos is expressed as percentage)
     $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
+    # Style for text label
+    my $textstyle = "font-size:".$fontsize."px;";
+    
+    # Color the text label blue/green if it is an assembled or reconstructed sequence
+    if (${$href}{$taxonID}{"name"} =~ m/PFspades/) { 
+        $textstyle .= "fill:blue;";
+    } elsif (${$href}{$taxonID}{"name"} =~ m/PFemirge/) {
+        $textstyle .= "fill:green;";
+    }
 
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
@@ -1178,7 +1225,7 @@ sub draw_taxon {
     print $handle "\t<text ".
                   "x=\"$cumul_brlen\" ".
                   "y=\"$vpos\" ".
-                  "font-size=\"".$fontsize."px\" ".
+                  "style=\"$textstyle\" ".
                   ">";
     print $handle $name;
     print $handle "</text>\n";

@@ -223,6 +223,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences</a></h3>
 <div id="tree" class="more">
 <p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of reads mapping to each respective seqeunce. Additional circle representing proportion of SSU reads that were not assembled is in lower right corner.</p>
+<p><b>Color key: </b><span style="color:blue;">Full-length sequences assembled by SPAdes</span>, <span style="color:green;">Full-length sequences reconstructed by EMIRGE</span>, <span>Closest-matching reference sequence from SILVA database</span></p>
 <!--SEQUENCES_TREE-->
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
