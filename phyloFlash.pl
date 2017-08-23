@@ -176,6 +176,11 @@ Default: Off ("-notreemap")
 Compress output into a tar.gz archive file
 Default: Off ("-nozip")
 
+=item -keeptmp
+
+Keep temporary/intermediate files
+Default: No ("-nokeeptmp")
+
 =item -log
 
 Write status messages printed to STDERR also to a log file
@@ -253,6 +258,7 @@ my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
+my $keeptmp     = 0;            # Do not delete temporary files (Default = 0, do delete temporary files)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
@@ -401,6 +407,7 @@ sub parse_cmdline {
                'sc' => \$sc,
                'zip!' => \$zip,
                'log!' => \$save_log,
+               'keeptmp!' => \$keeptmp,
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
@@ -1612,23 +1619,27 @@ sub nhmmer_model_pos {
 
 sub clean_up {
     # cleanup of intermediate files and folders
-    msg("cleaning temp files...");
-    if ($skip_spades == 0) {
-        system ("rm ./$libraryNAME.spades -r");
-    }
-    if ($skip_emirge == 0) {
-        system ("rm ./$libraryNAME.emirge -r");
-    }
-    system ("rm tmp.$libraryNAME.* -r");
-
-    # Remove files that are earmarked for destruction
-    # (Change earmarking in PhyloFlash.pm)
-    foreach my $key (keys %outfiles) {
-        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
-            system ("rm -r ".$outfiles{$key}{"filename"});
+    if ($keeptmp == 1) {
+        msg ("Retaining temp files...");
+    } elsif ($keeptmp == 0) {
+        msg("Cleaning temp files...");
+        if ($skip_spades == 0) {
+            system ("rm ./$libraryNAME.spades -r");
+        }
+        if ($skip_emirge == 0) {
+            system ("rm ./$libraryNAME.emirge -r");
+        }
+        system ("rm tmp.$libraryNAME.* -r");
+    
+        # Remove files that are earmarked for destruction
+        # (Change earmarking in PhyloFlash.pm)
+        foreach my $key (keys %outfiles) {
+            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
+                system ("rm -r ".$outfiles{$key}{"filename"});
+            }
         }
     }
-
+    
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
@@ -1644,7 +1655,7 @@ sub clean_up {
         system ("rm -r $to_tar");
     }
 
-    msg("done...");
+    msg("Done...");
 }
 
 sub run_plotscript_SVG {
