@@ -267,11 +267,7 @@ my %outfiles;           # Hash to keep track of output files
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
-my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string         # To be replaced
-my @taxa_from_hitmaps_sorted;   # Sorted list of read counts                                            # To be replaced
-my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string  # To be replaced
-my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads                  # To be replaced
-
+# Hashes to keep count of NTUs
 my $taxa_full_href;             # Summary of read counts for full-length taxonomy strings (for treemap) - hash ref
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
@@ -608,10 +604,12 @@ NTU\treads
 
     # sort keys numerically descending in hash of
     # mapping-based detected higher taxa
-    foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {
-        # Print the name of this higher taxon, and the
-        # corresponding no. of unambig hits mapped
-        print {$fh} join("\t",@$taxonshortstring)."\n";
+    my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
+    foreach my $key (@keys) {
+        if (${$taxa_summary_href}{$key} >= 3) {
+            my @out = ($key, ${$taxa_summary_href}{$key});
+            print {$fh} join("\t", @out)."\n";
+        }
     }
 
     if ($skip_spades == 0) {
@@ -624,16 +622,18 @@ NTU\treads
             my @out = @$arr;
             my $spades_id = $out[0];
             splice @out, 1, 0, $ssuassem_cov{$spades_id};
-            print {$fh} join("\t",  @out)."\n";
+            print {$fh} join("\t", @out)."\n";
         }
 
         ## Print the table of taxonomic affiliations for unassembled SSU reads
         print {$fh} "---\n";
         print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
-        foreach my $taxonshortstring ( @taxa_from_hitmaps_unassem_sorted ) {
-            # Print the name of this higher taxon, and the
-            # corresponding no. of unambig hits mapped
-            print {$fh} join("\t",@$taxonshortstring)."\n";
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        foreach my $uatax (@taxsort) {
+            if (${$taxa_unassem_summary_href}{$uatax} >= 3) {
+                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+                print {$fh} join ("\t", @out)."\n";
+            }
         }
     }
 
@@ -652,8 +652,8 @@ NTU\treads
 
 sub write_csv {
     msg("exporting results to csv");
-    my $fh;
-
+    
+    # CSV file of phyloFlash run metadata
     my @report = csv_escape((
         "version",$version,
         "library name",$libraryNAME,
@@ -675,24 +675,17 @@ sub write_csv {
         "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",$chao1
     ));
-
+    my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
     $outfiles{"report_csv"}{"made"} = 1;
     while ($#report > 0) {
         print {$fh} shift(@report).",".shift(@report).$crlf;
     }
     close($fh);
-
-    open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});                   # To be superseded
+    
+    # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
+    open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
-    print $fh "NTU,reads\n";
-    foreach my $arr ( @taxa_from_hitmaps_sorted ) {
-        print {$fh} join(",",csv_escape(@$arr)).$crlf;
-    }
-    close($fh);
-
-    open_or_die(\$fh, ">", $outfiles{"taxa_csv"}{"filename"});                  # Replace this with ntu_csv, and add header
-    $outfiles{"taxa_csv"}{"made"} = 1;
     # Sort results descending
     my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
     foreach my $key (@keys) {
@@ -700,32 +693,40 @@ sub write_csv {
         print {$fh} join(",",csv_escape(@out)).$crlf;
     }
     close($fh);
-
-    if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
-      open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
-      $outfiles{"full_len_class"}{"made"}++;
-      print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
-      if ($skip_spades == 0) {
-        foreach my $arr (@ssuassem_results_sorted) {
-            my $otu = ${$arr}[0];
-            my @out = @$arr;
-            splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-            print {$fh} join(",",csv_escape(@out)).$crlf;
+    
+    # If full-length seqeunces were assembled or reconstructed
+    if ($skip_spades + $skip_emirge < 2) {
+        
+        # CSV file of assembled/reconstructed sequnces 
+        open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
+        $outfiles{"full_len_class"}{"made"}++;
+        print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
+        if ($skip_spades == 0) {
+            foreach my $arr (@ssuassem_results_sorted) {
+                my $otu = ${$arr}[0];
+                my @out = @$arr;
+                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
+                print {$fh} join(",",csv_escape(@out)).$crlf;
+            }
+        
+            # CSV file of taxonomic affiliations for unassembled reads
+            my $fh2;
+            open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
+            my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+            foreach my $uatax (@taxsort) {
+                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+                print {$fh2} join (",", csv_escape(@out)).$crlf;
+            }
+            $outfiles{"unassem_csv"}{"made"}++;
+            close ($fh2);
         }
-        my $fh2;
-        open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
-        $outfiles{"unassem_csv"}{"made"}++;
-        print $fh2 "NTU,reads\n";
-        foreach my $arr ( @taxa_from_hitmaps_unassem_sorted ) {
-            print {$fh2} join (",",csv_escape(@$arr)).$crlf;
+        # Add sequences from EMIRGE, if available
+        if ($skip_emirge == 0) {
+            foreach my $arr (@ssurecon_results_sorted) {
+                print {$fh} join(",",csv_escape(@$arr)).$crlf;
+            }
         }
-      }
-      if ($skip_emirge == 0) {
-        foreach my $arr (@ssurecon_results_sorted) {
-            print {$fh} join(",",csv_escape(@$arr)).$crlf;
-        }
-      }
-      close($fh);
+        close($fh);
     }
 }
 
@@ -877,7 +878,6 @@ sub bbmap_fast_filter_parse {
         my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
         my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
         my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
-        #push @mapratio_csv, "Unmapped pair,".$unmapped_pairs;
         push @mapratio_csv, "Mapped pair,".$ssu_pairs;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
@@ -948,10 +948,6 @@ sub readsam {
             if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
                 my $taxonlongstring = $1;
                 $taxa_full_href->{$taxonlongstring}++; # Count full-length taxon for treemap
-                # Truncate to 6 levels
-                my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6); # To be superseded
-                # Increment count for taxon
-                $taxa_from_hitmaps{$taxonshortstring}++;                          # To be superseded
                 # Save full taxonomy string
                 push @taxa_full, $taxonlongstring;
             } else {
@@ -960,23 +956,6 @@ sub readsam {
         }
     }
     close($fh);
-
-    # Sort counts of taxa from hits, minimum of three hits                      # To be superseded
-    @taxa_from_hitmaps_sorted =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, $taxa_from_hitmaps{$_}] }
-        keys %taxa_from_hitmaps;
-
-    ## Calculate Chao1 statistic
-    #$xtons[2] = $#taxa_from_hitmaps_sorted +1;
-    #if ($xtons[1] > 0) {
-    #    $chao1 =
-    #      $xtons[2] +
-    #      ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-    #} else {
-    #    $chao1 = 'n.d.';
-    #}
 
     # Summarize taxonomy
     $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
@@ -1023,16 +1002,12 @@ sub summarize_taxonomy {
         ) = @_;
     my @input = @$in_aref; # Dereference array input
     my %taxhash;        # Hash to store counts per taxon at each taxonomic level
-    #my %output;         # Hash to store output
 
     foreach my $taxstring (@input) {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
-    ## Sort output in descending order
-    #foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
-    #    $output{$key} = $taxhash{$key};
-    #}
+    
     return (\%taxhash); # Return reference to output array
 }
 
@@ -1217,8 +1192,6 @@ sub taxonomy_spades_unmapped {
     my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq
     my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
     my $stats_href = \%ssu_sam_mapstats;            # mapping statistics
-    my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
-    my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassembled reads
     my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
     my @taxa_full;
     msg ("extracting taxonomy of unassembled SSU reads");
@@ -1249,10 +1222,6 @@ sub taxonomy_spades_unmapped {
                 if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
                     my $taxonlongstring = $1;
                     push @taxa_full, $taxonlongstring;
-                    # Truncate to 6 levels
-                    my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6);           # To be superseded
-                    # Increment count for taxon
-                    ${$out_href}{$taxonshortstring}++;                                          # To be superseded
                 } else {
                     msg ("warning: malformed database entry $ref");
                 }
@@ -1266,22 +1235,12 @@ sub taxonomy_spades_unmapped {
             } elsif ($pair eq "R") {
                 ${$stats_href}{"assem_rev_map"}++;
             }
-
         }
     }
-
-    # Sort taxon strings for unassembled reads affiliation
-    my @discard2;
-    @{$out_sorted_aref} =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @discard2[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, ${$out_href}{$_}] }
-        keys %{$out_href};
-
     close($fh);
 
-    # Summarize taxonomy
-    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
+    # Summarize counts per NTU of unassembled reads
+    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl);
 
     # Calculate ratio of reads assembled and store in hash
     my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
@@ -1797,11 +1756,11 @@ sub run_plotscript_SVG {
 
     # Generate barplot of taxonomy at level XX
     run_prog("plotscript_SVG",
-             "--bar ".$outfiles{"taxa_csv"}{"filename"}
+             "--bar ".$outfiles{"ntu_csv"}{"filename"}
              ." --title=\"Taxonomic summary from reads mapped\" ",
              "tmp.$libraryNAME.plotscript.out",
              "&1");
-    $outfiles{"taxa_csv_svg"}{"made"}++;
+    $outfiles{"ntu_csv_svg"}{"made"}++;
 
     msg("done");
 }
@@ -1930,7 +1889,7 @@ sub write_report_html {
     # Slurp in the SVG plots to embed in HTML file
     $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
     $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"});
-    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"taxa_csv_svg"}{"filename"});
+    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"});
 
     # Table of output files produced
     my @table_outfiles;
