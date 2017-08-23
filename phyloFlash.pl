@@ -735,50 +735,54 @@ sub bbmap_fast_filter_sam_run {
     #         lib.bbmap.out
     #         lib.inserthistogram
     # tmp:    tmp.$libraryNAME.basecompositionhistogram
-    msg("filtering reads with SSU db using minimal identity of $id%");
+    msg("filtering reads with SSU db using minimum identity of $id%");
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
     }
-
+    # Minimum mapping ID of 63%
     my $minID= $id / 100;
     if ($minID < 0.63) {
         $minID = 0.63
     }
-
-    my $args = "";
+    # Set up input arguments for BBmap
+    my @bbmap_args = ("fast=t",
+                      "minidentity=$minID",
+                      "-Xmx20g reads=$readlimit",
+                      "threads=$cpus",
+                      "po=f",
+                      "outputunmapped=f",
+                      "path=$DBHOME",
+                      "out=".$outfiles{"sam_map"}{"filename"}, # Also skip SAM header?
+                      "outm=".$outfiles{"reads_mapped_f"}{"filename"},
+                      "build=1",
+                      "in=$readsf_full",
+                      "bhist=tmp.$libraryNAME.basecompositionhistogram",
+                      "ihist=".$outfiles{"inserthistogram"}{"filename"},
+                      "idhist=".$outfiles{"idhistogram"}{"filename"},
+                      "scafstats=".$outfiles{"hitstats"}{"filename"},
+                      );
+    # Additional input arguments for paired-end input
     if ($SEmode == 0) {
         if ($interleaved == 1) {
-            $args =
-            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert interleaved=t";
+            push @bbmap_args, ("outm2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert interleaved=t"
+                               );
         } else {
-            $args =
-            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert in2=$readsr_full";
+            push @bbmap_args, ("outm2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert",
+                               "in2=$readsr_full",
+                               );
         }
         $outfiles{"reads_mapped_r"}{"made"}++;
     }
+    # Run BBmap
     run_prog("bbmap",
-             "  fast=t"
-             . " minidentity=$minID"
-             . " -Xmx20g reads=$readlimit"
-             . " threads=$cpus"
-             . " po=f"
-             . " outputunmapped=f"
-             . " path=$DBHOME"
-             . " out=".$outfiles{"sam_map"}{"filename"} # Also skip SAM header?
-             . " outm=".$outfiles{"reads_mapped_f"}{"filename"}
-             . " build=1"
-             . " in=$readsf_full"
-             . " bhist=tmp.$libraryNAME.basecompositionhistogram"
-             . " ihist=".$outfiles{"inserthistogram"}{"filename"}
-             . " idhist=".$outfiles{"idhistogram"}{"filename"}
-             . " scafstats=".$outfiles{"hitstats"}{"filename"}
-             . $args,
+             join (" ", @bbmap_args),
              undef,
-             "$libraryNAME.bbmap.out");
+             $outfiles{"bbmap_log"}{"filename"}
+             );
     # Record which files were created
-    foreach my $madekey (qw(sam_map reads_mapped_f inserthistogram idhistogram hitstats)) {
+    foreach my $madekey (qw(sam_map reads_mapped_f inserthistogram idhistogram hitstats bbmap_log)) {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
@@ -800,9 +804,8 @@ sub bbmap_fast_filter_parse {
     my $forward_count = 0;
     # Variables for output
     my ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
-
+    # Read reported statistics from BBmap log file
     my $fh;
-    #open_or_die(\$fh, "<", $libraryNAME.'.bbmap.out');
     open_or_die(\$fh, "<", $infile);
     while (<$fh>) {
         if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
@@ -2059,11 +2062,9 @@ check_environment();
 my $timer = new Timer;
 
 bbmap_fast_filter_sam_run();
-## Replaced: bbmap_hitstats_parse();
 
 # Parse statistics from BBmap initial mapping
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
-$outfiles{"bbmap_log"}{"made"}++; # Log creation of bbmap log file
 
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
