@@ -714,25 +714,28 @@ sub write_csv {
                 splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
                 print {$fh} join(",",csv_escape(@out)).$crlf;
             }
-        
-            # CSV file of taxonomic affiliations for unassembled reads
-            my $fh2;
-            open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
-            my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
-            foreach my $uatax (@taxsort) {
-                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
-                print {$fh2} join (",", csv_escape(@out)).$crlf;
-            }
-            $outfiles{"unassem_csv"}{"made"}++;
-            close ($fh2);
         }
         # Add sequences from EMIRGE, if available
         if ($skip_emirge == 0) {
             foreach my $arr (@ssurecon_results_sorted) {
+                my $otu = ${$arr}[0];
+                my @out = @$arr;
+                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
                 print {$fh} join(",",csv_escape(@$arr)).$crlf;
             }
         }
         close($fh);
+        
+        # CSV file of taxonomic affiliations for unassembled/unreconstructed reads
+        my $fh2;
+        open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        foreach my $uatax (@taxsort) {
+            my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+            print {$fh2} join (",", csv_escape(@out)).$crlf;
+        }
+        $outfiles{"unassem_csv"}{"made"}++;
+        close ($fh2);
     }
 }
 
@@ -1252,7 +1255,174 @@ sub bbmap_remap {
     msg("done...");
 }
 
+sub screen_remappings {
+    # Read SAM file from re-mapping and identify whether given read has mapped
+    # to a full length sequence from either SPAdes or EMIRGE
+    
+    msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
+    
+    # first SAM in %ssu_sam
+    
+    my %sam_spades; # too good to be true
+    my %sam_emirge;
+    # If SPAdes results were mapped, read into memory
+    if ($skip_spades == 0) {
+        flag_unmapped_sam("SPAdes");
+    }
+    # If EMIRGE results were mapped, read into memory
+    if ($skip_emirge == 0) {
+        flag_unmapped_sam("EMIRGE");
+    }
+    
+    my @unassem_taxa;
+    my $ssu_fwd_map = 0;
+    my $ssu_rev_map = 0;
+    my $total_assembled = 0;    # Count total that map to a full-length SSU
 
+    # Go through hash of initial mapping
+    # Count total reads, total assembled/reconstructed, and total unassembled/reconstructed
+    foreach my $read (keys %ssu_sam) {
+        # Iterate through all segments of read pairs
+        my @pairs;
+        if ($SEmode == 1) {
+            push @pairs, "U";
+        } else {
+            push @pairs, ("F", "R");
+        }
+        
+        foreach my $pair (@pairs) {
+            # Check if read segment exists and add to total reads
+            if (defined $ssu_sam{$read}{$pair}) {
+                if ($pair eq "U" | $pair eq "F") {
+                    $ssu_fwd_map ++;
+                } elsif ($pair eq "R") {
+                    $ssu_rev_map ++ ;
+                }
+                # Check whether has been flagged as mappign to SPAdes or Emirge
+                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"}) {
+                    # Add to total of read segments mapping to a full-length seq
+                    $total_assembled ++;
+                } else {
+                    # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
+                    if (defined $ssu_sam{$read}{$pair}{"ref"} ) {
+                        if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                            # Record the taxon to which it has mapped
+                            my $taxonlongstring = $1;
+                            push @unassem_taxa, $taxonlongstring;
+                        } else {
+                            msg ("Warning: Malformed database entry: ".$ssu_sam{$read}{$pair}{"ref"});
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    # Summarize counts per NTU of unassembled reads
+    $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
+
+    # Calculate ratio of reads assembled and store in hash
+    my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
+    my $total_unassembled = $ssu_tot_map - $total_assembled;
+    $ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
+    $ssu_sam_mapstats{"assem_tot_map"} = $total_assembled;      # Total mapping to full-length
+    $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
+    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
+    $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
+    
+    # Calculate totals for each tool used
+    if (defined $ssu_sam_mapstats{"spades_fwd_map"}) {
+        my $spades_tot_map = $ssu_sam_mapstats{"spades_fwd_map"};
+        if (defined $ssu_sam_mapstats{"spades_rev_map"}) {
+            $spades_tot_map += $ssu_sam_mapstats{"spades_rev_map"};
+        }
+        $ssu_sam_mapstats{"spades_tot_map"} = $spades_tot_map;
+    }
+    if (defined $ssu_sam_mapstats{"emirge_fwd_map"}) {
+        my $emirge_tot_map = $ssu_sam_mapstats{"emirge_fwd_map"};
+        if (defined $ssu_sam_mapstats{"emirge_rev_map"}) {
+            $emirge_tot_map +=  $ssu_sam_mapstats{"emirge_rev_map"};
+        }
+        $ssu_sam_mapstats{"emirge_tot_map"} = $emirge_tot_map;
+    }
+    
+    # Write CSV of reads assembled for piechart
+    my @assemratio_csv;
+    push @assemratio_csv, "Unassembled,".$total_unassembled;
+    push @assemratio_csv, "Assembled,".$total_assembled;
+    my $fh_csv;
+    open_or_die (\$fh_csv, ">", $outfiles{"assemratio_csv"}{"filename"});
+    $outfiles{"assemratio_csv"}{"made"}++;
+    print $fh_csv join ("\n", @assemratio_csv);
+    close($fh_csv);
+
+    msg ("Done");
+}
+
+sub flag_unmapped_sam {
+    # Given a SAM file from remapping, and hash of original mapping, it will:
+    # 1. Flag reads in hash of original mapping to whether mapped to spades or emirge
+    # 2. Count number of reads mapping to each reference to %ssuassem_cov
+    my ($which) = @_;
+    my ($sam_in,$mappedname,$mapped_fwd,$mapped_rev);
+    if ($which eq "SPAdes") {
+        $sam_in = $outfiles{"sam_remap_spades"}{"filename"};
+        $mappedname = "mapped2spades";
+        $mapped_fwd = "spades_fwd_map";
+        $mapped_rev = "spades_rev_map";
+    } elsif ($which eq "EMIRGE") {
+        $sam_in = $outfiles{"sam_remap_emirge"}{"filename"};
+        $mappedname = "mapped2emirge";
+        $mapped_fwd = "emirge_fwd_map";
+        $mapped_rev = "emirge_rev_map";
+    }
+    msg ("Reading results of remapping to $which results");
+    my $fh_in;
+    open_or_die(\$fh_in, "<", $sam_in);
+    while (my $line = <$fh_in>) {
+        next if ($line =~ m/^@/); # Skip headers
+        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        # Check whether fwd or rev
+        my $pair;
+        if ($bitflag & 0x1) { # If PE read
+            if ($SEmode != 0) { # Sanity check
+                msg ("Error: bitflag in SAM file conflicts with SE mode flag");
+            }
+            if ($bitflag & 0x40) {
+                $pair = "F";
+            } elsif ($bitflag & 0x80) {
+                $pair = "R";
+            }
+        } else {
+            $pair = "U";
+        }
+        # Check whether read has mapped to reference
+        unless ($bitflag & 0x4) { # negate condition because bitflag 0x4 means "segment unmapped"
+            if (defined $ssu_sam{$read}{$pair}) {
+                # Mark that read maps to SPAdes or EMIRGE
+                $ssu_sam{$read}{$pair}{$mappedname}++;
+                # Add to read count for that reference sequence
+                my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
+                $ssuassem_cov{$refshort}++;
+                # Count how many fwd and rev reads map to SPAdes
+                if ($pair eq "F" | $pair eq "U") {
+                    $ssu_sam_mapstats{$mapped_fwd}++;
+                } elsif ($pair eq "R") {
+                    $ssu_sam_mapstats{$mapped_rev}++;
+                }
+            } else {
+                print STDERR "Cannot find read $read in original SAM file\n";
+            }
+        }
+    }
+    msg ("total fwd reads remapping:".$ssu_sam_mapstats{$mapped_fwd});
+    msg ("total rev reads remapping:".$ssu_sam_mapstats{$mapped_rev});
+    foreach my $refshort (keys %ssuassem_cov) {
+        msg ("SSU assembled: $refshort");
+        msg ("Coverage: ".$ssuassem_cov{$refshort});
+    }
+    close($fh_in);
+}
 
 sub taxonomy_spades_unmapped {                                                  # To be replaced
     # Filter output of mapping to SPAdes assembled SSU sequences
@@ -2139,7 +2309,8 @@ check_environment();
 
 my $timer = new Timer;
 
-bbmap_fast_filter_sam_run();
+# Run BBmap against the SILVA database
+#bbmap_fast_filter_sam_run();
 
 # Parse statistics from BBmap initial mapping
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
@@ -2163,13 +2334,15 @@ nhmmer_model_pos() if ($poscov_flag == 1 );
 if ($skip_spades == 0) {
     spades_run();
     spades_parse();
-    bbmap_spades_out();
-    taxonomy_spades_unmapped();
+    bbmap_remap("SPAdes");
+    #bbmap_spades_out();
+    #taxonomy_spades_unmapped();
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
     emirge_run();
     emirge_parse();
+    bbmap_remap("EMIRGE");
 }
 # If at least one of either SPAdes or Emirge is activated, parse results
 if ($skip_spades + $skip_emirge < 2) {
@@ -2177,6 +2350,7 @@ if ($skip_spades + $skip_emirge < 2) {
     vsearch_parse();
     vsearch_cluster();
     mafft_run();
+    screen_remappings();
 }
 
 $runtime = $timer->minutes; # Log run time
