@@ -150,6 +150,16 @@ the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
 coverage evenness.
 Default: Off ("-noposcov")
 
+=item -everything
+
+Turn on all the optional analyses and output options. Options without defaults
+and any local settings must still be specified. Equivalent to "-emirge -poscov
+-treemap -zip -log"
+
+=item -almosteverything
+
+Like I<-everything> except without running EMIRGE.
+
 =back
 
 =head1 OUTPUT OPTIONS
