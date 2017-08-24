@@ -647,8 +647,11 @@ NTU\treads
         ## Print the table of SSU reconstruction-based taxa to report file
         print {$fh} "---\n";
         print {$fh} "SSU reconstruction based taxa:\n";
-        print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+        print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $arr (@ssurecon_results_sorted) {
+            my @out = @$arr;
+            my $emirge_id = $out[0];
+            splice @out, 1, 0, $ssuassem_cov{$emirge_id};
             print {$fh} join("\t", @$arr)."\n";
         }
     }
@@ -888,6 +891,7 @@ sub bbmap_fast_filter_parse {
         my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
         my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
         push @mapratio_csv, "Mapped pair,".$ssu_pairs;
+        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
