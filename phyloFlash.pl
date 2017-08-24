@@ -890,8 +890,8 @@ sub bbmap_fast_filter_parse {
         my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
         my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
         my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
-        push @mapratio_csv, "Mapped pair,".$ssu_pairs;
-        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs;
+        push @mapratio_csv, "Mapped pair,".$ssu_pairs*2;
+        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs*2;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
@@ -1931,7 +1931,14 @@ sub run_plotscript_SVG {
     # Piechart of proportion mapped
     my @map_args = ("-pie",
                     $outfiles{"mapratio_csv"}{"filename"},
-                    "-title=\"$SSU_ratio_pc % reads mapped\"");
+                    #"-title=\"$SSU_ratio_pc % reads mapped\""
+                    );
+    if ($SEmode == 0) {
+        push @map_args, "-title=\"$SSU_ratio_pc % pairs mapped\"";
+    } else {
+        push @map_args, "-title=\"$SSU_ratio_pc % reads mapped\"";
+    }
+    
     run_prog("plotscript_SVG",
              join(" ", @map_args),
              $outfiles{"plotscript_out"}{"filename"},
