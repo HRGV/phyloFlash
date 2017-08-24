@@ -228,9 +228,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
 
-<h2>Parameters</h2>
+<h2>Input parameters</h2>
 
-<h3>Input parameters</h3>
 <table class="slimTable">
   <tr>
     <th>Input command</th>
@@ -259,6 +258,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <td><!--DBHOME--></td>
   </tr>
 </table>
+
+<h2>Results</h2>
 
 <h3>Mapping statistics</h3>
 <table class="slimTable">
@@ -319,7 +320,6 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
   </table>
 </div>
 
-<h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
   <p>Approximate overview of taxonomic composition of ALL reads, based on mapping hits to SILVA SSU rRNA database using BBmap.</p>
@@ -369,7 +369,29 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--ASSEMBLED_SSU_TABLE-->
 </table>
 </div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
 
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
+<div id="emirge" class="more">
+<p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
+<table>
+  <tr>
+    <th>OTU</th>
+    <th><span class="withHoverText" title="Number of reads mapping to assembled SSU sequence">Mapped</span></th>
+    <th>ratio</th>
+    <th>dbHit</th>
+    <th>taxonomy</th>
+    <th>\%id</th>
+    <th>alnlen</th>
+    <th>evalue</th>
+  </tr>
+<!--EMIRGE_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+
+<!--SUPPRESS_IF_NO_TREE-->
 <h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
 <p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences, based on mapping hits to SILVA SSU rRNA database with BBmap.</p>
@@ -382,26 +404,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--UNASSEMBLED_READS_TABLE-->
 </table>
 </div>
-<!--SUPPRESS_IF_SKIP_SPADES_END-->
-
-<!--SUPPRESS_IF_SKIP_EMIRGE-->
-<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
-<div id="emirge" class="more">
-<p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
-<table>
-  <tr>
-    <th>OTU</th>
-    <th>ratio</th>
-    <th>dbHit</th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th>alnlen</th>
-    <th>evalue</th>
-  </tr>
-<!--EMIRGE_TABLE-->
-</table>
-</div>
-<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+<!--SUPPRESS_IF_NO_TREE_END-->
 
 <!--SUPPRESS_IF_NO_TREEMAP-->
 <h3>Interactive treemap of mapping-based taxonomic read classification</h3>

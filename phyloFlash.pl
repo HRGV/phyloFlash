@@ -640,17 +640,6 @@ NTU\treads
             splice @out, 1, 0, $ssuassem_cov{$spades_id};
             print {$fh} join("\t", @out)."\n";
         }
-
-        ## Print the table of taxonomic affiliations for unassembled SSU reads
-        print {$fh} "---\n";
-        print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
-        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
-        foreach my $uatax (@taxsort) {
-            if (${$taxa_unassem_summary_href}{$uatax} >= 3) {
-                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
-                print {$fh} join ("\t", @out)."\n";
-            }
-        }
     }
 
     if ($skip_emirge == 0) {
@@ -662,7 +651,20 @@ NTU\treads
             my @out = @$arr;
             my $emirge_id = $out[0];
             splice @out, 1, 0, $ssuassem_cov{$emirge_id};
-            print {$fh} join("\t", @$arr)."\n";
+            print {$fh} join("\t", @out)."\n";
+        }
+    }
+
+    if ($skip_emirge + $skip_spades < 2) {
+        ## Print the table of taxonomic affiliations for unassembled SSU reads
+        print {$fh} "---\n";
+        print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        foreach my $uatax (@taxsort) {
+            if (${$taxa_unassem_summary_href}{$uatax} >= 3) {
+                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+                print {$fh} join ("\t", @out)."\n";
+            }
         }
     }
 
@@ -734,7 +736,7 @@ sub write_csv {
                 my $otu = ${$arr}[0];
                 my @out = @$arr;
                 splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-                print {$fh} join(",",csv_escape(@$arr)).$crlf;
+                print {$fh} join(",",csv_escape(@out)).$crlf;
             }
         }
         close($fh);
@@ -2252,7 +2254,32 @@ sub write_report_html {
             push @table_assem_seq, "  </tr>\n";
         }
         $flags{"ASSEMBLED_SSU_TABLE"} = join "", @table_assem_seq;
+    }
 
+    # Params defined only for reconstructed (EMIRGE) reads
+    if ($skip_emirge == 0) {
+        $flags {"INS_USED"} = $ins_used;
+        my @table_recon_seq;
+        foreach (@ssurecon_results_sorted) {
+            push @table_recon_seq, "  <tr>\n";
+            my @split_entry = @$_;
+            my $test = $split_entry[2];
+            my @get_genbank = split (/\./,$test);
+            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
+            push @table_recon_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
+            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
+            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
+            push @table_recon_seq, "  </tr>\n";
+        }
+        $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
+    }
+
+    # Params defined if either SPAdes or EMIRGE are run
+    if ($skip_spades + $skip_emirge < 2) {
         # Table of unassembled SSU reads affiliations
         my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
         my @table_unassem_lines;
@@ -2266,28 +2293,7 @@ sub write_report_html {
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
     }
-
-    # Params defined only for reconstructed (EMIRGE) reads
-    if ($skip_emirge == 0) {
-        $flags {"INS_USED"} = $ins_used;
-        my @table_recon_seq;
-        foreach (@ssurecon_results_sorted) {
-            push @table_recon_seq, "  <tr>\n";
-            my @split_entry = @$_;
-            my $test = $split_entry[2];
-            my @get_genbank = split (/\./,$test);
-            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_recon_seq, "  </tr>\n";
-        }
-        $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
-    }
-
+    
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
@@ -2331,7 +2337,7 @@ check_environment();
 my $timer = new Timer;
 
 # Run BBmap against the SILVA database
-#bbmap_fast_filter_sam_run();
+bbmap_fast_filter_sam_run();
 
 # Parse statistics from BBmap initial mapping
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
