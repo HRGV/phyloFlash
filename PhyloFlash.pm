@@ -789,13 +789,6 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.scaffolds.bac.gff",
         intable     => 0,
       },
-      "sam_remap",                                                              # To be replaced
-      {
-        description => "SAM file of re-mapping extracted reads to assembled full-length sequences",
-        discard     => 0,
-        filename    => "$libraryNAME.$readsf.SSU_assem.sam",
-        intable     => 0,
-      },
       "emirge_log",
       {
         description => "Log file from EMIRGE sequence reconstruction",
@@ -914,13 +907,6 @@ sub initialize_infiles_hash {
         discard     => 0,
         filename    => "$libraryNAME.SSU.collection.fasta",
         intable     => 1,
-      },
-      "bbmap_remap_log",                                                        # To be replaced
-      {
-        description => "Log file from BBmap of re-mapping to assembled sequences",
-        discard     => 0,
-        filename    => "$libraryNAME.remap.bbmap.out",
-        intable     => 0,
       },
       "all_final_fasta",
       {

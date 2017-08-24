@@ -1180,40 +1180,6 @@ sub spades_parse {
     msg("done...");
 }
 
-sub bbmap_spades_out {                                                          # To be replaced
-    # Map extracted reads back to the SPAdes output to see what proportion
-    # of reads can be explained by the assembled sequences
-    msg("mapping extracted SSU reads back on assembled SSU sequences");
-    my $args = ""; # Check whether running in PE or SE mode
-    if ($SEmode == 0) {
-        if ($interleaved == 1) {
-            $args =
-            "  interleaved=t "
-            . "pairlen=$maxinsert ";
-        } else {
-            $args =
-            "  in2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert ";
-        }
-    }
-    run_prog("bbmap",                                                           # TODO: Convert these params to an array
-         "  fast=t"
-         . " minidentity=0.98" # Note high identity 
-         . " -Xmx20g"
-         . " threads=$cpus"
-         . " po=f"
-         . " outputunmapped=t" # This is important
-         . " ref=".$outfiles{"spades_fasta"}{"filename"}
-         . " nodisk"
-         . " in=".$outfiles{"reads_mapped_f"}{"filename"}
-         . " out=".$outfiles{"sam_remap"}{"filename"} # Also skip SAM header?
-         . $args,
-         undef,
-         $outfiles{"bbmap_remap_log"}{"filename"});
-    $outfiles{"sam_remap"}{"made"}++;
-    $outfiles{"bbmap_remap_log"}{"made"}++;
-    msg("done...");
-}
 
 sub bbmap_remap {
     # Map extracted reads back to the SPAdes or EMIRGE output to see what
@@ -1438,91 +1404,6 @@ sub flag_unmapped_sam {
         msg ("Coverage: ".$ssuassem_cov{$refshort});
     }
     close($fh_in);
-}
-
-sub taxonomy_spades_unmapped {                                                  # To be replaced
-    # Filter output of mapping to SPAdes assembled SSU sequences
-    # Report taxonomy of "leftover" sequences
-    my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq
-    my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
-    my $stats_href = \%ssu_sam_mapstats;            # mapping statistics
-    my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
-    my @taxa_full;
-    msg ("extracting taxonomy of unassembled SSU reads");
-    my $fh;
-    open_or_die(\$fh, "<", $in);
-    while (my $line = <$fh>) {
-        next if ( $line =~ m/^@/ ); # Skip headers
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
-        # Check whether fwd or rev read
-        my $pair;
-        if ($bitflag & 0x1) { # If PE read
-            if ($SEmode != 0) { # Sanity check
-                msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
-            }
-            if ($bitflag & 0x40) {
-                $pair="F";
-            } elsif ($bitflag & 0x80) {
-                $pair="R";
-            }
-        } else {
-            $pair = "U";
-        }
-        # Check whether read mapped to assembled SSU
-        if ($bitflag & 0x4) { # If not mapped, check corresponding read in original mapping
-            if (defined ${$sam_href}{$read}{$pair}{"ref"}) {
-                my $ref = ${$sam_href}{$read}{$pair}{"ref"};
-                # Shorten taxonomy string and save into NTU table
-                if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                    my $taxonlongstring = $1;
-                    push @taxa_full, $taxonlongstring;
-                } else {
-                    msg ("warning: malformed database entry $ref");
-                }
-            }
-        } else {
-            # Add to read count
-            my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
-            ${$cov_href}{$refshort}++;
-            if ($pair eq "F" | $pair eq "U") {
-                ${$stats_href}{"assem_fwd_map"}++;
-            } elsif ($pair eq "R") {
-                ${$stats_href}{"assem_rev_map"}++;
-            }
-        }
-    }
-    close($fh);
-
-    # Summarize counts per NTU of unassembled reads
-    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl);
-
-    # Calculate ratio of reads assembled and store in hash
-    my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
-    if (defined ${$stats_href}{"assem_rev_map"}) {
-        $assem_tot_map += ${$stats_href}{"assem_rev_map"};
-    }
-    my $ssu_tot_map = ${$stats_href}{"ssu_fwd_map"};
-    if (defined ${$stats_href}{"ssu_rev_map"}) {
-        $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
-    }
-    my $ssu_unassem = $ssu_tot_map - $assem_tot_map;
-    ${$stats_href}{"assem_tot_map"} = $assem_tot_map;
-    ${$stats_href}{"ssu_tot_map"} = $ssu_tot_map;
-    ${$stats_href}{"ssu_unassem"} = $ssu_unassem;
-    ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
-    ${$stats_href}{"assem_ratio_pc"} = sprintf ("%.3f", ${$stats_href}{"assem_ratio"} * 100) ;
-
-    # Write CSV of reads assembled for piechart
-    my @assemratio_csv;
-    push @assemratio_csv, "Unassembled,".$ssu_unassem;
-    push @assemratio_csv, "Assembled,".$assem_tot_map;
-    my $fh_csv;
-    open_or_die (\$fh_csv, ">", $outfiles{"assemratio_csv"}{"filename"});
-    $outfiles{"assemratio_csv"}{"made"}++;
-    print $fh_csv join ("\n", @assemratio_csv);
-    close($fh_csv);
-
-    msg ("done ... ");
 }
 
 sub emirge_run {
