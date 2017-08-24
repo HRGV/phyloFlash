@@ -220,9 +220,9 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 <!--SUPPRESS_IF_NO_POSCOV_END-->
 <!--SUPPRESS_IF_NO_TREE-->
-<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences</a></h3>
+<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to expand)</a></h3>
 <div id="tree" class="more">
-<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of reads mapping to each respective seqeunce. Additional circle representing proportion of SSU reads that were not assembled is in lower right corner.</p>
+<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes and EMIRGE full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner.</p>
 <p><b>Color key: </b><span style="color:blue;">Full-length sequences assembled by SPAdes</span>, <span style="color:green;">Full-length sequences reconstructed by EMIRGE</span>, <span>Closest-matching reference sequence from SILVA database</span></p>
 <!--SEQUENCES_TREE-->
 </div>
@@ -358,7 +358,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <table>
   <tr>
     <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
-    <th><span class="withHoverText" title="Number of reads mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
     <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">Cov</span></th>
     <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
     <th>Taxonomy</th>
@@ -377,14 +377,14 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
 <table>
   <tr>
-    <th>OTU</th>
-    <th><span class="withHoverText" title="Number of reads mapping to assembled SSU sequence">Mapped</span></th>
-    <th>ratio</th>
-    <th>dbHit</th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th>alnlen</th>
-    <th>evalue</th>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Ratio of rRNA reads represented by this sequence, reported by EMIRGE">Ratio</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between reconstructed SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
   </tr>
 <!--EMIRGE_TABLE-->
 </table>
