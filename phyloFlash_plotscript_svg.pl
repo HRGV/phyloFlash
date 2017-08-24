@@ -998,7 +998,8 @@ sub draw_tree {
     if ($num_taxa > 10) {   # Make image larger if number of taxa is large
         $vb_height = 30*$num_taxa;
     }
-    my $viewBox = join " ", ($vb_x, $vb_y, $vb_width, $vb_height); # Viewbox parameter for SVG header
+    # A fudge for the viewBox to add 50 pixels for control buttons
+    my $viewBox = join " ", ($vb_x, ($vb_y - 50), $vb_width, ($vb_height + 50 ) ); # Viewbox parameter for SVG header
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my $linestyle = "stroke:rgb(0,0,0);stroke-width:1"; # Style for drawing lines
 
@@ -1025,10 +1026,12 @@ sub draw_tree {
     my $treewidth = $vb_width - $textwidth;
     my $br_scalefactor = $treewidth/max(@brlens);
 
-    # Hash in read coverage data for assembled taxa if csv file supplied supplied:
+    # Hash in read coverage data for assembled taxa and which kinds of
+    # full-length sequences are present, if csv file supplied supplied:
     my $bubble_scalefactor; # Scaling factor for bubbles
+    my ($spades_flag, $emirge_flag); # Flags for whether these types of sequences present
     if (defined $assemcov) {
-        $bubble_scalefactor
+        ($bubble_scalefactor, $spades_flag, $emirge_flag)
             = match_tree_taxon_to_read_coverage($taxa_href,
                                                 $assemcov,
                                                 $treewidth,
@@ -1069,6 +1072,9 @@ sub draw_tree {
     print $fh $svg_open;
     # Draw bubbles first so that they are below other tree elements
     if (defined $assemcov) {
+        # Draw switches for turning bubbles on and off
+        draw_bubble_switches($spades_flag, $emirge_flag, $fh);
+        # Draw bubbles for each taxon in tree
         foreach my $key (keys %{$taxa_href}) {
             draw_bubbles($key,$taxa_href,$br_scalefactor,$bubble_scalefactor,$vb_height,$fh,);
         }
@@ -1087,6 +1093,84 @@ sub draw_tree {
     }
     print $fh "</svg>\n";
     close($fh);
+}
+
+sub draw_bubble_switches {
+    # Draw buttons on tree to turn the bubbles representing 
+    my ($spades,    # Draw for SPAdes?
+        $emirge,    # Draw for EMIRGE?
+        $fh,
+        ) = @_;
+    
+    # Start positions for each group of labels, SPAdes always on left:
+    my $sstart = 190;
+    my $estart = 325;
+    # If no SPAdes switches to draw, then move EMIRGE switches to the left
+    if ($spades == 0 && $emirge == 1) {
+        $estart = 190;
+    }
+    # Standard offset values for elements in the switch grouping
+    my @std_offsets = (0, 10, 25, 40, 55);
+    
+    # No caption if nothing to draw - in practice this will never happen with phyloFlash
+    if ($spades + $emirge > 0) {
+        print $fh "<g id=\"switches\">\n";
+        print $fh "\t<text x=\"20\" y=\"-20\" style=\"font-size:10px;text-anchor:start\" >Toggle reads mapped:</text>\n";
+    }
+    
+    # Draw box labels for SPAdes?
+    if ($spades == 1) {
+        # Calculate x-position offsets
+        my ($posLabel,$posOn,$posOnText,$posOff,$posOffText) = map {$_ + $sstart} @std_offsets;
+        # text label
+        print $fh "\t<text x=\"$posLabel\" y=\"-20\" style=\"fill:blue;font-size:9px;text-anchor:end;\" >SPAdes</text>\n";
+        # SPAdes ON
+        print $fh "\t<rect id=\"spadesBubbleOn\" x=\"$posOn\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(93,173,226);opacity:1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOnText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(254,254,254);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "I</text>\n";
+        # SPAdes OFF
+        print $fh "\t<rect id=\"spadesBubbleOff\" x=\"$posOff\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(93,173,226);opacity:0.1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOffText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(214,234,248);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "O</text>\n";
+    }
+    
+    if ($emirge == 1) {
+        my ($posLabel,$posOn,$posOnText,$posOff,$posOffText) = map {$_ + $estart} @std_offsets;
+        print $fh "\t<text x=\"$posLabel\" y=\"-20\" style=\"fill:green;font-size:9px;text-anchor:end;\" >EMIRGE</text>\n";
+        #EMIRGE ON
+        print $fh "\t<rect id=\"emirgeBubbleOn\" x=\"$posOn\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(88,214,141);opacity:1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOnText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(254,254,254);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "I</text>\n";
+        #EMIRGE OFF
+        print $fh "\t<rect id=\"emirgeBubbleOff\" x=\"$posOff\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(88,214,141);opacity:0.1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOffText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(214,234,248);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "O</text>\n";
+    }
+    
+    if ($spades + $emirge > 0) {
+        print $fh "</g>\n";
+    }
+
 }
 
 sub original_names_from_fasta {
@@ -1135,6 +1219,9 @@ sub match_tree_taxon_to_read_coverage {
     my ($taxa_href, $csv, $treewidth, $vb_width, $vb_height, $unassem_count) = @_;
 
     my @covs;
+    my $spades_flag = 0; # Report whether any SPAdes taxa found
+    my $emirge_flag = 0; # Report whether any EMIRGE taxa found
+    
     # Open CSV
     my $fh_in;
     open($fh_in, "<", $csv) or die ("Cannot open file $csv: $!");
@@ -1142,6 +1229,7 @@ sub match_tree_taxon_to_read_coverage {
         next if m/^OTU,read_cov/; # Skip header line
         my @split = split /,/;
         if ($split[0] =~ m/(PFspades_\d+)/) {
+            $spades_flag = 1;
             my $csvid = $1;
             # Find the matching taxon name in tree
             foreach my $key (keys %$taxa_href) {
@@ -1149,6 +1237,22 @@ sub match_tree_taxon_to_read_coverage {
                     my $treeid = $1;
                     if ($treeid eq $csvid) {
                         $taxa_href->{$key}{"readcov"} = $split[1];
+                        $taxa_href->{$key}{"source"} = "SPAdes";
+                        push @covs, $split[1];
+                    }
+                }
+            }
+        }
+        if ($split[0] =~ m/(PFemirge_\d+)/) {
+            $emirge_flag = 1;
+            my $csvid = $1;
+            # Find the matching taxon name in tree
+            foreach my $key (keys %$taxa_href) {
+                if ($taxa_href->{$key}{"name"} =~ m/(PFemirge_\d+)/) {
+                    my $treeid = $1;
+                    if ($treeid eq $csvid) {
+                        $taxa_href->{$key}{"readcov"} = $split[1];
+                        $taxa_href->{$key}{"source"} = "EMIRGE";
                         push @covs, $split[1];
                     }
                 }
@@ -1165,7 +1269,7 @@ sub match_tree_taxon_to_read_coverage {
     my $maxcov = max(@covs);
     my $maxradius_raw = sqrt ($maxcov / 3.14159265);
     my $bubblefactor = 0.10 * $vb_width / $maxradius_raw;
-    return ($bubblefactor);
+    return ($bubblefactor, $spades_flag, $emirge_flag);
 }
 
 sub draw_bubble_unassembled {
@@ -1190,14 +1294,14 @@ sub draw_bubble_unassembled {
                   "x=\"$cx\" ".
                   "y=\"".($vb_height-12)."\" ".
                   "visibility=\"hidden\" ".
-                  "style=\"text-anchor:end;font-size:8;fill:rgb(255,180,180);\" >";
+                  "style=\"text-anchor:end;font-size:12px;fill:rgb(255,180,180);\" >";
     # Animate text on mouseover of the corresponding taxon leaf
     print $handle "<set ".
                   "attributeName=\"visibility\" ".
                   "to=\"visible\" ".
                   "begin=\"circle_unassembled.mouseover\" ".
                   "end=\"circle_unassembled.mouseout\" />";
-    print $handle "Unassembled reads: $unassem_count".
+    print $handle "Unassembled SSU reads: $unassem_count".
                   "</text>\n";
 }
 
@@ -1211,12 +1315,12 @@ sub draw_bubbles {
         $handle,    # File handle for printing
         ) = @_;
     if (defined $href->{$taxonID}{"readcov"}) {
-        my @param_names = qw(vpos cumul_brlen readcov);
+        my @param_names = qw(vpos cumul_brlen readcov source);
         my @params;
         foreach my $pname (@param_names) {
             push @params, ${$href}{$taxonID}{$pname};
         }
-        my ($vpos, $cumul_brlen, $readcov) = @params;
+        my ($vpos, $cumul_brlen, $readcov, $source) = @params;
         # Rescale horizontal position
         $cumul_brlen = $cumul_brlen * $branch_sf;
         # Rescale vertical position
@@ -1228,6 +1332,22 @@ sub draw_bubbles {
         my $textx = $cumul_brlen - ($bubbleradius / 2);
         my $texty = $vpos;
         
+        # Customize switch names, bubble colors, depending on source
+        # of the sequence (SPAdes vs EMIRGE)
+        my ($switchon, $switchoff, $bubblefill, $bubblestroke);
+        if ($source eq "SPAdes") {
+            $switchon = "spadesBubbleOn";
+            $switchoff = "spadesBubbleOff";
+            $bubblefill = "rgb(174,214,241)";   # Light blue
+            $bubblestroke = "rgb(27,79,114)"    # Dark blue
+        } elsif ($source eq "EMIRGE") {
+            $switchon = "emirgeBubbleOn";
+            $switchoff = "emirgeBubbleOff";
+            $bubblefill = "rgb(213,245,227)";   # Light green
+            $bubblestroke = "rgb(24,106,59)";   # Dark green
+        }
+        # Old color: rgb(255,235,205)
+        
         # Print SVG tag
         # Circle element
         print $handle "<circle ".
@@ -1235,20 +1355,30 @@ sub draw_bubbles {
                       "cx=\"$cumul_brlen\" ".
                       "cy=\"$vpos\" ".
                       "r=\"".$bubbleradius."px\" ".
-                      "style=\"fill:rgb(255,235,205);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" >";
+                      "visibility=\"visible\" ".
+                      "style=\"fill:$bubblefill;fill-opacity:0.25;stroke:$bubblestroke;stroke-opacity:0.1;\" >";
         # Animate circle on mouseover of the corresponding taxon leaf
         print $handle "<set ".
                       "attributeName=\"fill-opacity\" ".
                       "to=\"1\" ".
                       "begin=\"$taxonID.mouseover\" ".
                       "end=\"$taxonID.mouseout\" />";
+        # Show/hide visbility of circle when button clicked
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"visible\" ".
+                      "begin=\"$switchon.click\" />";
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"hidden\" ".
+                      "begin=\"$switchoff.click\" />";
         print $handle "</circle>";
         # Text label giving number of reads
         print $handle "<text ".
                       "x=\"$textx\" ".
                       "y=\"$texty\" ".
                       "visibility=\"hidden\" ".
-                      "style=\"font-size:12px;text-anchor:end;fill:rgb(255,128,0)\" ".
+                      "style=\"font-size:10px;text-anchor:end;fill:rgb(255,128,0)\" ".
                       ">";
         # Animate text on mouseover of the corresponding taxon leaf
         print $handle "<set ".
