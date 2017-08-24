@@ -1161,7 +1161,7 @@ sub spades_parse {
     msg("done...");
 }
 
-sub bbmap_spades_out {
+sub bbmap_spades_out {                                                          # To be replaced
     # Map extracted reads back to the SPAdes output to see what proportion
     # of reads can be explained by the assembled sequences
     msg("mapping extracted SSU reads back on assembled SSU sequences");
@@ -1177,9 +1177,9 @@ sub bbmap_spades_out {
             . " pairlen=$maxinsert ";
         }
     }
-    run_prog("bbmap",
+    run_prog("bbmap",                                                           # TODO: Convert these params to an array
          "  fast=t"
-         . " minidentity=0.98"
+         . " minidentity=0.98" # Note high identity 
          . " -Xmx20g"
          . " threads=$cpus"
          . " po=f"
@@ -1196,7 +1196,65 @@ sub bbmap_spades_out {
     msg("done...");
 }
 
-sub taxonomy_spades_unmapped {
+sub bbmap_remap {
+    # Map extracted reads back to the SPAdes or EMIRGE output to see what
+    # proportion of reads can be explained by the assembled sequences
+    my ($which,     # SPAdes or EMIRGE output?
+        ) = @_;
+    my ($ref,$outsam,$outlog);
+    if ($which eq "SPAdes") {
+        $ref = $outfiles{"spades_fasta"}{"filename"};
+        $outsam = $outfiles{"sam_remap_spades"}{"filename"};
+        $outlog = $outfiles{"bbmap_remap_log_spades"}{"filename"};
+        # Record that output files were made
+        $outfiles{"sam_remap_spades"}{"made"}++;
+        $outfiles{"bbmap_remap_log_spades"}{"made"}++;
+    } elsif ($which eq "EMIRGE") {
+        $ref = $outfiles{"emirge_fasta"}{"filename"};
+        $outsam = $outfiles{"sam_remap_emirge"}{"filename"};
+        $outlog = $outfiles{"bbmap_remap_log_emirge"}{"filename"};
+        # Record that output files were made
+        $outfiles{"sam_remap_emirge"}{"made"}++;
+        $outfiles{"bbmap_remap_log_emirge"}{"made"}++;
+    }
+    # Report for log
+    msg("mapping extracted SSU reads back on $which SSU sequences");
+    # Define input arguments to BBmap
+    my @remap_args = ("fast=t",
+                      "minidentity=0.98", # Note high identity 
+                      "-Xmx20g",
+                      "threads=$cpus",
+                      "po=f",
+                      "outputunmapped=t", # This is important
+                      "ref=$ref",
+                      "nodisk",
+                      "in=".$outfiles{"reads_mapped_f"}{"filename"},
+                      "out=$outsam", # Also skip SAM header?
+                      );
+    # If running in PE mode, include reverse reads
+    if ($SEmode == 0) {
+        if ($interleaved == 1) {
+            push @remap_args, ("interleaved=t",
+                               "pairlen=$maxinsert",
+                               );
+        } else {
+            push @remap_args, ("in2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert",
+                               );
+        }
+    }
+    # Run BBmap
+    run_prog("bbmap",
+             join (" ", @remap_args),
+             undef,
+             $outlog,
+             );
+    msg("done...");
+}
+
+
+
+sub taxonomy_spades_unmapped {                                                  # To be replaced
     # Filter output of mapping to SPAdes assembled SSU sequences
     # Report taxonomy of "leftover" sequences
     my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq

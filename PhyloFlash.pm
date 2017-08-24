@@ -789,7 +789,7 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.scaffolds.bac.gff",
         intable     => 0,
       },
-      "sam_remap",
+      "sam_remap",                                                              # To be replaced
       {
         description => "SAM file of re-mapping extracted reads to assembled full-length sequences",
         discard     => 0,
@@ -915,7 +915,7 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.SSU.collection.fasta",
         intable     => 1,
       },
-      "bbmap_remap_log",
+      "bbmap_remap_log",                                                        # To be replaced
       {
         description => "Log file from BBmap of re-mapping to assembled sequences",
         discard     => 0,
@@ -1055,7 +1055,35 @@ sub initialize_infiles_hash {
         filename    => "$libraryNAME.reformat.out",
         intable     => 0,
       },
-      #"",
+      "sam_remap_spades",
+      {
+        description => "SAM file of re-mapping extracted reads to SPAdes full-length sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU_spades.sam",
+        intable     => 0,
+      },
+      "bbmap_remap_log_spades",
+      {
+        description => "Log file from BBmap of re-mapping to SPAdes sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.remap_spades.bbmap.out",
+        intable     => 0,
+      },
+      "sam_remap_emirge",
+      {
+        description => "SAM file of re-mapping extracted reads to EMIRGE full-length sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU_emirge.sam",
+        intable     => 0,
+      },
+      "bbmap_remap_log_emirge",
+      {
+        description => "Log file from BBmap of re-mapping to EMIRGE sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.remap_emirge.bbmap.out",
+        intable     => 0,
+      },
+      "",
       #{
       #  description => "",
       #  discard     => 1,
