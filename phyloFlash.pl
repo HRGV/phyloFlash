@@ -290,9 +290,10 @@ my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at
 
 my $taxon_report_lvl = 4;       # Taxonomic level to report counts
 
-my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting
-my %ssuassem_cov;               # Coverage of assembled SSU sequences
-my @ssurecon_results_sorted;
+my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting    # To be replacd by ssufull_stats
+my %ssuassem_cov;               # Coverage of assembled SSU sequences           # To be replaced by ssufull_stats
+my %ssufull_stats;              # Store counts and details on full-length SSU sequences
+my @ssurecon_results_sorted;                                                    # To be replaced by ssufull_stats
 
 # mapping statistics parsed from BBmap output
 my $readnr = 0;
@@ -634,7 +635,7 @@ NTU\treads
         print {$fh} "SSU assembly based taxa:\n";
         print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
 
-        foreach my $arr (@ssuassem_results_sorted) {
+        foreach my $arr (@ssuassem_results_sorted) {                            # To be replaced by ssufull_stats
             my @out = @$arr;
             my $spades_id = $out[0];
             splice @out, 1, 0, $ssuassem_cov{$spades_id};
@@ -647,7 +648,7 @@ NTU\treads
         print {$fh} "---\n";
         print {$fh} "SSU reconstruction based taxa:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-        foreach my $arr (@ssurecon_results_sorted) {
+        foreach my $arr (@ssurecon_results_sorted) {                            # To be replaced by ssufull_stats
             my @out = @$arr;
             my $emirge_id = $out[0];
             splice @out, 1, 0, $ssuassem_cov{$emirge_id};
@@ -673,7 +674,7 @@ NTU\treads
 
 sub write_csv {
     msg("exporting results to csv");
-    
+
     # CSV file of phyloFlash run metadata
     my @report = csv_escape((
         "version",$version,
@@ -703,7 +704,7 @@ sub write_csv {
         print {$fh} shift(@report).",".shift(@report).$crlf;
     }
     close($fh);
-    
+
     # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
     open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
@@ -714,33 +715,46 @@ sub write_csv {
         print {$fh} join(",",csv_escape(@out)).$crlf;
     }
     close($fh);
-    
+
     # If full-length seqeunces were assembled or reconstructed
     if ($skip_spades + $skip_emirge < 2) {
-        
-        # CSV file of assembled/reconstructed sequnces 
+
+        # CSV file of assembled/reconstructed sequnces
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
         $outfiles{"full_len_class"}{"made"}++;
         print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
-        if ($skip_spades == 0) {
-            foreach my $arr (@ssuassem_results_sorted) {
-                my $otu = ${$arr}[0];
-                my @out = @$arr;
-                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-                print {$fh} join(",",csv_escape(@out)).$crlf;
+    #     if ($skip_spades == 0) {
+    #         foreach my $arr (@ssuassem_results_sorted) {                        # To be replaced by ssufull_stats
+    #             my $otu = ${$arr}[0];
+    #             my @out = @$arr;
+    #             splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
+    #             print {$fh} join(",",csv_escape(@out)).$crlf;
+    #         }
+    #     }                                                                       # <--
+    #     # Add sequences from EMIRGE, if available
+    #     if ($skip_emirge == 0) {
+    #         foreach my $arr (@ssurecon_results_sorted) {                        # To be replaced by ssufull_stats
+    #             my $otu = ${$arr}[0];
+    #             my @out = @$arr;
+    #             splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
+    #             print {$fh} join(",",csv_escape(@out)).$crlf;
+    #         }
+    # }                                                                           # <--
+
+        # Get info from hash
+        foreach my $seqid (%ssufull_stats) {
+            #source cov dbHit taxon pcid alnlen evalue
+            my @out;
+            push @out, $seqid;
+            my @fields = qw (cov counts dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_stats{$seqid}{$field};
             }
+            print {$fh} join ("," csv_escape(@out)).$crlf;
         }
-        # Add sequences from EMIRGE, if available
-        if ($skip_emirge == 0) {
-            foreach my $arr (@ssurecon_results_sorted) {
-                my $otu = ${$arr}[0];
-                my @out = @$arr;
-                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-                print {$fh} join(",",csv_escape(@out)).$crlf;
-            }
-        }
+
         close($fh);
-        
+
         # CSV file of taxonomic affiliations for unassembled/unreconstructed reads
         my $fh2;
         open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
@@ -1002,7 +1016,7 @@ sub readsam {
     } else {
         $chao1 = 'n.d.';
     }
-    
+
     msg("done...");
 }
 
@@ -1032,7 +1046,7 @@ sub summarize_taxonomy {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
-    
+
     return (\%taxhash); # Return reference to output array
 }
 
@@ -1206,7 +1220,7 @@ sub bbmap_remap {
     msg("mapping extracted SSU reads back on $which SSU sequences");
     # Define input arguments to BBmap
     my @remap_args = ("fast=t",
-                      "minidentity=0.98", # Note high identity 
+                      "minidentity=0.98", # Note high identity
                       "-Xmx20g",
                       "threads=$cpus",
                       "po=f",
@@ -1240,11 +1254,11 @@ sub bbmap_remap {
 sub screen_remappings {
     # Read SAM file from re-mapping and identify whether given read has mapped
     # to a full length sequence from either SPAdes or EMIRGE
-    
+
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
-    
+
     # first SAM in %ssu_sam
-    
+
     my %sam_spades; # too good to be true
     my %sam_emirge;
     # If SPAdes results were mapped, read into memory
@@ -1255,7 +1269,7 @@ sub screen_remappings {
     if ($skip_emirge == 0) {
         flag_unmapped_sam("EMIRGE");
     }
-    
+
     my @unassem_taxa;
     my $ssu_fwd_map = 0;
     my $ssu_rev_map = 0;
@@ -1271,7 +1285,7 @@ sub screen_remappings {
         } else {
             push @pairs, ("F", "R");
         }
-        
+
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
             if (defined $ssu_sam{$read}{$pair}) {
@@ -1299,7 +1313,7 @@ sub screen_remappings {
             }
         }
     }
-    
+
     # Summarize counts per NTU of unassembled reads
     $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
 
@@ -1311,7 +1325,7 @@ sub screen_remappings {
     $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
     $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
     $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
-    
+
     # Calculate totals for each tool used
     if (defined $ssu_sam_mapstats{"spades_fwd_map"}) {
         my $spades_tot_map = $ssu_sam_mapstats{"spades_fwd_map"};
@@ -1327,7 +1341,7 @@ sub screen_remappings {
         }
         $ssu_sam_mapstats{"emirge_tot_map"} = $emirge_tot_map;
     }
-    
+
     # Write CSV of reads assembled for piechart
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$total_unassembled;
@@ -1385,6 +1399,7 @@ sub flag_unmapped_sam {
                 $ssu_sam{$read}{$pair}{$mappedname}++;
                 # Add to read count for that reference sequence
                 my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
+                $ssufull_stats{$refshort}{"counts"}++;
                 $ssuassem_cov{$refshort}++;
                 # Count how many fwd and rev reads map to SPAdes
                 if ($pair eq "F" | $pair eq "U") {
@@ -1399,10 +1414,10 @@ sub flag_unmapped_sam {
     }
     msg ("total fwd reads remapping:".$ssu_sam_mapstats{$mapped_fwd});
     msg ("total rev reads remapping:".$ssu_sam_mapstats{$mapped_rev});
-    foreach my $refshort (keys %ssuassem_cov) {
-        msg ("SSU assembled: $refshort");
-        msg ("Coverage: ".$ssuassem_cov{$refshort});
-    }
+    # foreach my $refshort (keys %ssuassem_cov) {
+    #     msg ("SSU assembled: $refshort");
+    #     msg ("Coverage: ".$ssuassem_cov{$refshort});
+    # }
     close($fh_in);
 }
 
@@ -1576,23 +1591,46 @@ sub vsearch_parse {
     open_or_die(\$fh, "<", $outfiles{"vsearch_csv"}{"filename"});
     while (<$fh>) {
         chomp;
+        # Split fields in sequence name and split accession no from taxonomy string
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
         s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
+        #                                                                       # To be replaced
         push @vsearch_matches, [split("\t",$_)];
+        #
+        # Join back taxonomy ID without the coverage value
+        my @line = split "\t", $_;
+        my $id = join "_", ($line[0],$line[1]);         # e.g. lib.PFspades_1
+        # Record which tool produced the sequence
+        my $source;
+        if ($line[0] =~ m/PFspades/) {
+            $source = "SPAdes";
+        } elsif ($line[0] =~ m/PFemirge/) {
+            $source = "EMIRGE";
+        }
+        # Record data from match into hash
+        # source cov dbHit taxon pcid alnlen evalue - counts added later
+        $ssufull_stats{$id}{"source"} = $source;        # Source used for sequence reconstruction
+        $ssufull_stats{$id}{"cov"} = $line[2];          # Coverage or Ratio from SPAdes or Emirge
+        $ssufull_stats{$id}{"dbHit"} = $line[3];        # Accession number from SILVA hit
+        $ssufull_stats{$id}{"taxon"} = $line[4];        # Taxonomy string from SILVA hit
+        $ssufull_stats{$id}{"pcid"} = $line[5];         # % ID from Vsearch match
+        $ssufull_stats{$id}{"alnlen"} = $line[6];       # Alignment length of match
+        $ssufull_stats{$id}{"evalue"} = $line[7];       # E-value of match
+
     }
     close($fh);
 
     # Sort numerically descending the list of
     # assembled SSU sequences by coverage value
 
-    @ssuassem_results_sorted =
+    @ssuassem_results_sorted =                                                  # To be replaced by ssufull_stats
         sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
         grep { @{$_}[0] =~ /^$libraryNAME.PFspades/ }
         @vsearch_matches;
 
     # Sort numerically descending the list of reconstructed
     # SSU sequences by mapping ratio
-    @ssurecon_results_sorted =
+    @ssurecon_results_sorted =                                                  # To be replaced by ssufull_stats
         sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
         grep { @{$_}[0] =~ /^$libraryNAME.PFemirge/ }
         @vsearch_matches;
@@ -1769,7 +1807,7 @@ sub clean_up {
         msg ("Retaining temp files and folders...");
     } elsif ($keeptmp == 0) {
         msg("Cleaning temp files...");
-        
+
         # Delete SPAdes and/or EMIRGE output folders
         if ($skip_spades == 0) {
             system ("rm $libraryNAME.spades -r");
@@ -1786,7 +1824,7 @@ sub clean_up {
             }
         }
     }
-    
+
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
@@ -1831,7 +1869,7 @@ sub run_plotscript_SVG {
     } else {
         push @map_args, "-title=\"$SSU_ratio_pc % reads mapped\"";
     }
-    
+
     run_prog("plotscript_SVG",
              join(" ", @map_args),
              $outfiles{"plotscript_out"}{"filename"},
@@ -1934,7 +1972,7 @@ sub run_plotscript_SVG {
 
     # Mark plotscript out tmp file as made
     $outfiles{"plotscript_out"}{"made"}++,
-    
+
     msg("done");
 }
 
@@ -1998,8 +2036,8 @@ sub write_report_html {
         $xtons_aref,$chao1,
         $taxa_summary_href,
         $taxa_unassem_summary_href,
-        $ssuassem_results_sorted_aref,
-        $ssurecon_results_sorted_aref,
+        $ssuassem_results_sorted_aref,  # To be replaced by ssufull_stats
+        $ssurecon_results_sorted_aref,  # To be replaced by ssufull_stats
         ) = @_;
     my %outfiles = %$outfiles_href;
     my @xtons = @$xtons_aref;
@@ -2119,20 +2157,43 @@ sub write_report_html {
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
-        foreach (@$ssuassem_results_sorted_aref) {
-            my @split_entry = @$_;
-            # Parse the database entry number of the reference sequence to get Genbank accession
-            my @get_genbank = split (/\./,$split_entry[2]);
-            push @table_assem_seq, "  <tr>\n";
-            push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";    # Link to Genbank entry using accession no.
-            push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_assem_seq, "  </tr>\n";
+        # foreach (@$ssuassem_results_sorted_aref) {                              # To be replaced by ssufull_stats -->
+        #     my @split_entry = @$_;
+        #     # Parse the database entry number of the reference sequence to get Genbank accession
+        #     my @get_genbank = split (/\./,$split_entry[2]);
+        #     push @table_assem_seq, "  <tr>\n";
+        #     push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
+        #     push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
+        #     push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
+        #     push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";    # Link to Genbank entry using accession no.
+        #     push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
+        #     push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
+        #     push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
+        #     push @table_assem_seq, "    <td>".$split_entry[6]."</td>\n";
+        #     push @table_assem_seq, "  </tr>\n";
+        # }                                                                       # To be replaced .. <--
+
+        # Sort IDs in descending order
+        foreach my $seqid (sort {$ssufull_stats{$b}{"counts"} <=> $ssufull_stats{$a}{"counts"}} keys %ssufull_stats) {
+            # Check if seq produced by SPAdes
+            if ($ssufull_stats{$seqid}{"source"} eq "SPAdes") {
+                push @table_assem_seq, "  <tr>\n";  # Start table row
+                # Parse DB entry number to get Genbank accession as link
+                my @get_gbk = split (/\./, $ssufull_stats{$seqid}{"dbHit"});
+                $ssufull_stats{$seqid}{"gbk"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/"
+                                                .$get_gbk[0]
+                                                ."\">"
+                                                .$ssufull_stats{$seqid}{"dbHit"}
+                                                ."</a>";
+                # Start table with Seq ID
+                push @table_assem_seq, "    <td>".$seqid."</td>\n";
+                # Fields to report
+                my @fields = qw (counts cov gbk taxon pcid alnlen evalue);
+                foreach my $field (@fields) {
+                    push @table_assem_seq, "    <td>".$ssufull_stats{$seqid}{$field}."</td>\n";
+                }
+                push @table_assem_seq, "  </tr>\n"; # End table row
+            }
         }
         $flags{"ASSEMBLED_SSU_TABLE"} = join "", @table_assem_seq;
     }
@@ -2141,20 +2202,41 @@ sub write_report_html {
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
         my @table_recon_seq;
-        foreach (@ssurecon_results_sorted) {
-            push @table_recon_seq, "  <tr>\n";
-            my @split_entry = @$_;
-            my $test = $split_entry[2];
-            my @get_genbank = split (/\./,$test);
-            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_recon_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_recon_seq, "  </tr>\n";
+        # foreach (@ssurecon_results_sorted) {                                    # To be replaced by ssufull_stats
+        #     push @table_recon_seq, "  <tr>\n";
+        #     my @split_entry = @$_;
+        #     my $test = $split_entry[2];
+        #     my @get_genbank = split (/\./,$test);
+        #     push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
+        #     push @table_recon_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
+        #     push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
+        #     push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
+        #     push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
+        #     push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
+        #     push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
+        #     push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
+        #     push @table_recon_seq, "  </tr>\n";
+        # }
+        foreach my $seqid (sort {$ssufull_stats{$b}{"counts"} <=> $ssufull_stats{$a}{"counts"}} keys %ssufull_stats) {
+            # Check if seq produced by EMIRGE
+            if ($ssufull_stats{$seqid}{"source"} eq "EMIRGE") {
+                push @table_recon_seq, "  <tr>\n";  # Start table row
+                # Parse DB entry number to get Genbank accession as link
+                my @get_gbk = split (/\./, $ssufull_stats{$seqid}{"dbHit"});
+                $ssufull_stats{$seqid}{"gbk"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/"
+                                                .$get_gbk[0]
+                                                ."\">"
+                                                .$ssufull_stats{$seqid}{"dbHit"}
+                                                ."</a>";
+                # Start table with Seq ID
+                push @table_recon_seq, "    <td>".$seqid."</td>\n";
+                # Fields to report
+                my @fields = qw (counts cov gbk taxon pcid alnlen evalue);
+                foreach my $field (@fields) {
+                    push @table_recon_seq, "    <td>".$ssufull_stats{$seqid}{$field}."</td>\n";
+                }
+                push @table_recon_seq, "  </tr>\n"; # End table row
+            }
         }
         $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
     }
@@ -2174,7 +2256,7 @@ sub write_report_html {
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
     }
-    
+
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
@@ -2273,7 +2355,7 @@ my @report_inputs = (
     $taxon_report_lvl,
     \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
-    \@ssuassem_results_sorted, \@ssurecon_results_sorted,
+    \@ssuassem_results_sorted, \@ssurecon_results_sorted,                       # To be replaced by ssufull_stats
     );
 
 # Print report file and CSV output
