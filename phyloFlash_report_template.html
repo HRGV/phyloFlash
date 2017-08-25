@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<!--This is a template file for phyloFlash v3.0 report output.
+    Comment tags in all-uppercase are flags to the write_report_html
+    function in phyloFlash.pl to substitute field values for a
+    given phyloFlash run. -->
+<html>
+<head>
+<title>phyloFlash results summary for library <!--LIBNAME--></title>
+
+<script language="javascript" type="text/javascript">
+// adapted from http://www.cssnewbie.com/example/showhide-content/
+function showHide(shID) {
+  if (document.getElementById(shID)) {
+    if (document.getElementById(shID).style.display == 'none') {
+      document.getElementById(shID).style.display = 'block';
+    }
+    else {
+      document.getElementById(shID).style.display = 'none';
+    }
+  }
+}
+</script>
+
+<!--SUPPRESS_IF_NO_TREEMAP-->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+google.charts.load('current', {'packages':['treemap']});
+google.charts.setOnLoadCallback(drawChart);
+function drawChart() {
+  var data = new google.visualization.DataTable();
+  data.addColumn('string','ID');
+  data.addColumn('string','Parent');
+  data.addColumn('number','NumReads');
+  data.addRows([
+<!--TREEMAPDATAROWS-->
+  ]);
+
+tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
+
+  tree.draw(data, {
+    minColor: '#009688',
+    midColor: '#f7f7f7',
+    maxColor: '#ee8100',
+    highlightOnMouseOver: true,
+    minHighlightColor: '#ee8100',
+    midHighlightColor: '#f7f7f7',
+    maxHighlightColor: '#009688',
+    maxPostDepth: 2,
+    headerHeight: 15,
+    fontColor: 'black',
+    showScale: false,
+    generateTooltip: showFullTooltip
+  });
+
+  function showFullTooltip(row,size,value) {
+    return '<div style="background:white; padding:10px; border-style:none">' +
+    '<b>' + data.getValue(row, 0) + '</b><br>' +
+    'Total reads: ' + size + '</div>';
+  }
+
+}
+</script>
+<!--SUPPRESS_IF_NO_TREEMAP_END-->
+
+<style type="text/css">
+  body {
+    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;
+    max-width:1200px;
+    margin:auto;
+  }
+
+  /*Tabular output*/
+  th {
+    background-color: #dee;
+    padding: .5em;
+    font-weight: bold;
+  }
+  td {
+    padding: 0em .5em 0em .5em;
+  }
+  table.slimTable th {
+    padding: 0em .5em 0em .5em;
+    font-weight: normal;
+    text-align: right;
+  }
+
+  .withHoverText {
+    text-decoration: none;
+    border-bottom: 1px grey dotted;
+  }
+
+  /*Show/hide on click*/
+  .more { display: none; }
+  a.showLink { text-decoration: none; }
+  a.showLink:link { color: grey; }
+  a.showLink:visited { color: grey; }
+  a.showLink:hover { color: white;
+    background-color: grey;
+  }
+
+  /*Format code snippets*/
+  .code {
+    font-family:monospace;
+  }
+
+  /*Arrangement of graphical summary*/
+  .fullwidth {
+    max-width: 1200px;
+    width: 100%;
+    margin: auto;
+    padding: 0px;
+    border: 0px solid grey;
+  }
+  .col20pc, .col40pc, .col50pc {
+    display: inline-block;
+    vertical-align: top;
+    padding: 0px;
+    margin: 0;
+    border: 0px solid grey;
+  }
+  .col20pc { width:20%; }
+  .col40pc { width:40%; }
+  .col50pc { width:50%; }
+
+  /*Tooltip text for graphical summary*/
+  .tooltip .tooltiptext {
+    position: relative;
+    display: inline-block;
+    visibility: hidden;
+    width: 200px;
+    margin-left: -200px;
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    text-align: left;
+    padding: 5px;
+    font-size:12px;
+    position: absolute;
+    z-index: 1;
+  }
+  .tooltip:hover .tooltiptext {
+    visibility:visible;
+  }
+</style>
+</head>
+<body>
+
+<h3><a href="https://github.com/HRGV/phyloFlash"><svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg"
+   version="1.1"
+   id="svg2"
+   viewBox="0 0 971.097 996.31606"
+   height="60"
+   width="58.5">
+  <defs id="defs4" />
+  <metadata id="metadata7">
+    <rdf:RDF>
+      <cc:Work rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g transform="translate(139.80325,25.517248)" id="layer1">
+    <circle r="435.79376" cy="507.50507" cx="368" id="path3352" style="fill:#93aca7;fill-opacity:1;stroke:#dbe3e2;stroke-width:35;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+    <path id="path3342" d="m 225.71429,522.3622 -68.57143,-7.14285 -61.428574,-50 -32.857143,-68.57143 20,-71.42857 L 151.42857,308.07649 162.85714,206.64792 250,179.50506 l 52.85714,31.42857 92.85715,-44.28571 71.42857,17.14286 22.85714,42.85714 102.85714,-20 37.14286,57.14286 60,41.42857 17.14286,68.57143 -31.42857,101.42857 -122.85715,42.85714 -41.42857,40 -55.71428,-2.85714 -70,25.71428 -107.85715,-17.14286 z" style="fill:#536c67;fill-rule:evenodd;stroke:none" />
+    <path id="path3340" d="m 294.28572,840.93363 119.99999,0 -22.85714,-168.57143 2.85714,-108.57142 91.42858,-80 151.42857,-78.57144 -5.71429,-12.85714 -122.85714,48.57143 40,-154.28571 -12.85715,-2.85714 -44.28571,137.14285 -120,97.14286 -45.71428,-85.71429 58.57142,-88.57142 30,-100 -11.42857,1.42856 L 380,309.50506 288.57143,435.21935 240,386.64792 l -2.85714,-102.85714 -14.28572,0 -5.71428,120 -85.71429,-25.71429 -2.85714,12.85715 80,32.85714 65.71428,58.57142 34.28572,58.57143 -1.42858,152.85714 z" style="fill:#dbe3e2;fill-rule:evenodd;stroke:none" />
+    <path id="path3344" d="m 605.03353,539.7578 74.79659,31.39105 -10.5438,39.6101 68.53729,73.68286 -108.61178,-61.76037 12.04532,-30.1668 z" style="fill:#ffeeaa;fill-rule:evenodd;stroke:none" />
+    <path style="fill:#ffeeaa;fill-rule:evenodd;stroke:none" d="m 470.82158,567.14296 88.33974,69.32457 -12.46169,47.83116 79.4686,106.65679 L 488.4797,685.66438 510.70238,646.462 z" id="path3346" />
+    <path id="path3348" d="m 270.42792,569.1008 -99.41899,84.78435 25.57204,46.38385 -56.28454,126.25897 128.96522,-130.56236 -29.04105,-37.854 z" style="fill:#ffeeaa;fill-rule:evenodd;stroke:none" />
+    <path style="fill:#ffeeaa;fill-rule:evenodd;stroke:none" d="m 132.32004,521.39112 -57.067583,40.80272 -1.702341,46.54703 -86.575373,54.0682 124.151137,-34.4792 -2.08688,-46.0898 z" id="path3350" />
+    <g id="g3042">
+      <path id="path3005" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#536c67;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m -71.943444,322.62257 c 5.405576,2.00565 10.230582,4.29578 14.475027,6.87042 4.244445,2.57479 7.631528,5.50637 10.161265,8.79474 2.546015,3.24457 4.136144,6.90936 4.770404,10.99441 0.606568,4.0249 -0.0032,8.49839 -1.829412,13.42048 -1.891449,5.09798 -4.513287,9.19994 -7.86554,12.30592 -3.352271,3.10605 -7.600809,4.85457 -12.745631,5.2456 l -0.122245,0.32963 c 0.104164,-0.0113 0.507874,0.1135 1.211035,0.37433 0.719475,0.21697 1.606594,0.52105 2.661329,0.91239 1.071042,0.34744 2.265779,0.76569 3.584216,1.25482 1.290775,0.42896 2.573418,0.87981 3.847905,1.35265 l 27.884812,10.34577 -4.40245,11.86587 -84.775111,-31.45308 c -1.7139,-0.63588 -3.37008,-1.22536 -4.96857,-1.76844 -1.58206,-0.58696 -3.01851,-1.09491 -4.30936,-1.52385 -1.33467,-0.44519 -2.47164,-0.81701 -3.41091,-1.11552 -0.93913,-0.29847 -1.61465,-0.49909 -2.02657,-0.60186 l 4.2557,-11.47035 c 0.14822,0.005 0.62596,0.1323 1.4333,0.38164 0.82374,0.20561 1.81505,0.49842 2.97392,0.87842 1.13137,0.31973 2.34242,0.69407 3.63313,1.12297 1.30716,0.38501 2.53203,0.78946 3.67461,1.21335 l 0.0979,-0.26367 c -1.87759,-1.94652 -3.34659,-3.91648 -4.40698,-5.90984 -1.10424,-2.00957 -1.82753,-4.10283 -2.16986,-6.27976 -0.38617,-2.19313 -0.39138,-4.46994 -0.0156,-6.83044 0.3482,-2.42062 1.0359,-5.01532 2.06312,-7.78408 1.82625,-4.92206 4.23791,-8.72703 7.23498,-11.41492 3.01346,-2.73168 6.49928,-4.5132 10.45747,-5.34459 3.930629,-0.89147 8.322274,-0.937 13.174963,-0.13658 4.8088,0.78428 9.959911,2.19547 15.453346,4.23358 m -4.35889,12.557 c -4.394752,-1.63046 -8.403928,-2.81796 -12.027528,-3.56247 -3.623554,-0.74438 -6.866513,-0.89763 -9.728887,-0.45976 -2.845994,0.39406 -5.283754,1.4395 -7.313294,3.13631 -2.02946,1.69696 -3.6475,4.17146 -4.85415,7.42352 -0.97827,2.63692 -1.52598,5.25857 -1.6431,7.86492 -0.11702,2.60648 0.55308,5.17997 2.01031,7.72049 1.47362,2.49666 3.89067,4.94335 7.25116,7.34005 3.316624,2.38049 7.941376,4.67132 13.874279,6.87252 5.054007,1.87515 9.493807,3.04743 13.319414,3.51678 3.781686,0.45316 7.042728,0.28814 9.78315,-0.49505 2.756738,-0.82706 5.058775,-2.24784 6.906121,-4.26233 1.803381,-2.03073 3.275764,-4.58427 4.417149,-7.66066 1.222898,-3.29602 1.596588,-6.25721 1.12108,-8.88355 -0.459219,-2.67019 -1.660962,-5.09094 -3.605225,-7.26228 -1.927959,-2.21517 -4.530042,-4.23053 -7.806243,-6.04609 -3.320149,-1.83173 -7.22155,-3.5792 -11.704229,-5.24243" />
+      <path id="path3007" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#536c67;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m -76.401101,278.49795 c -1.489137,-2.53106 -2.576297,-4.958 -3.261465,-7.28079 -0.72529,-2.34676 -1.084831,-4.66572 -1.078622,-6.95691 0.0063,-2.29106 0.390399,-4.57443 1.152279,-6.85013 0.721751,-2.29964 1.829282,-4.69612 3.322551,-7.18944 2.504944,-4.18215 5.115224,-7.26312 7.830822,-9.24292 2.739763,-2.01983 5.592696,-3.17967 8.558828,-3.47951 2.950051,-0.36396 6.001147,0.0155 9.153286,1.13843 3.176264,1.08288 6.453359,2.63588 9.831297,4.65898 L 2.5990468,269.34432 -3.9402148,280.26236 -45.32016,255.4782 c -2.774732,-1.66184 -5.316049,-2.93806 -7.623948,-3.82867 -2.28378,-0.93066 -4.398339,-1.32293 -6.343691,-1.17679 -1.985508,0.12221 -3.849977,0.86325 -5.593409,2.22311 -1.783586,1.33594 -3.518389,3.41136 -5.204426,6.22624 -1.541441,2.57376 -2.475956,5.18313 -2.803528,7.82815 -0.303413,2.60493 -0.05624,5.15712 0.741529,7.65657 0.821928,2.45934 2.198432,4.8137 4.129506,7.06306 1.931139,2.24947 4.404714,4.27738 7.420714,6.08377 l 38.484557,23.05 -6.50313,10.85771 -89.515804,-53.61473 6.50313,-10.85771 23.283755,13.94561 c 1.327113,0.79489 2.642119,1.60981 3.945036,2.4448 1.303022,0.8351 2.493405,1.63003 3.571178,2.3848 1.101937,0.71467 2.04298,1.33294 2.823127,1.85481 0.740015,0.4979 1.238717,0.85122 1.496081,1.05999 l 0.108334,-0.18098" />
+      <path id="path3009" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#536c67;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 35.703256,229.25802 c 2.29936,4.35757 4.214151,8.44306 5.744384,12.25646 1.596306,3.80881 2.614303,7.42559 3.054002,10.85035 0.47502,3.45552 0.303287,6.6906 -0.515188,9.70524 -0.783181,3.04538 -2.373759,5.94807 -4.771774,8.70806 -1.045344,1.20305 -2.049175,2.28692 -3.011499,3.25159 -0.962376,0.96463 -2.059308,1.90551 -3.290791,2.82261 l -7.165327,-6.22572 c 0.690267,-0.58008 1.422043,-1.27936 2.195314,-2.09783 0.80861,-0.78774 1.474247,-1.48237 1.996931,-2.0839 2.428776,-2.79537 3.644642,-6.30307 3.647601,-10.52312 0.0029,-4.22005 -1.493923,-9.21538 -4.490523,-14.98601 l -1.498313,-2.88531 -76.947391,-26.89762 8.854367,-10.19069 42.2543176,15.47621 c 1.2628304,0.47629 2.9209646,1.14078 4.9744271,1.99347 2.0841995,0.81738 4.1530323,1.65243 6.2064953,2.50511 2.084199,0.81738 3.94768,1.56715 5.59046,2.24929 1.642759,0.68223 2.65411,1.12628 3.03408,1.33217 -0.297015,-0.4443 -0.842565,-1.35299 -1.636668,-2.72608 -0.798764,-1.43913 -1.690608,-3.02129 -2.675553,-4.74649 -0.954217,-1.76049 -1.926122,-3.5364 -2.915702,-5.32773 -0.989599,-1.79123 -1.861438,-3.32496 -2.615524,-4.60118 l -23.024597,-39.75221 8.7621267,-10.08454 38.2443443,71.97787" />
+      <path id="path3011" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#536c67;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 63.164075,201.2472 -70.0351202,-77.34792 9.3818298,-8.49482 70.0351104,77.34791 -9.38182,8.49483" />
+      <path id="path3013" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#536c67;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 117.87847,111.43353 c 7.59923,10.93047 10.85308,20.7429 9.76157,29.43734 -1.09161,8.69452 -6.21737,16.22596 -15.37732,22.59434 -4.3491,3.02367 -8.6912,5.07193 -13.026318,6.14481 -4.335165,1.0729 -8.632371,1.09179 -12.891629,0.0567 -4.220782,-1.06188 -8.371016,-3.17188 -12.450684,-6.33005 -4.067937,-3.22338 -8.015099,-7.58692 -11.841512,-13.09064 -14.984437,-21.55286 -13.143498,-38.81811 5.522836,-51.79581 4.849417,-3.371416 9.493551,-5.601126 13.932432,-6.689132 4.47736,-1.114588 8.768701,-1.100853 12.874032,0.04121 4.14388,1.115146 8.159303,3.319152 12.046563,6.611008 3.88721,3.292024 7.70388,7.632114 11.45003,13.020264 m -10.91116,7.58589 c -3.37153,-4.84934 -6.53922,-8.58443 -9.503111,-11.20532 -2.925423,-2.64748 -5.774963,-4.40579 -8.548604,-5.27495 -2.735181,-0.89575 -5.396133,-0.98684 -7.982839,-0.27324 -2.613483,0.67526 -5.228787,1.92262 -7.845924,3.74208 -2.655626,1.84639 -4.780119,3.92288 -6.3735,6.22948 -1.581631,2.24151 -2.45401,4.84618 -2.617133,7.81404 -0.189853,2.92951 0.408182,6.25317 1.79409,9.97099 1.424416,3.69117 3.782233,7.90371 7.073462,12.6376 3.371502,4.84944 6.591072,8.57702 9.658703,11.18277 3.040872,2.56732 5.948141,4.28549 8.721813,5.15454 2.812143,0.84231 5.486453,0.95267 8.022971,0.33097 2.574972,-0.6484 5.055562,-1.8021 7.441802,-3.46113 2.6556,-1.84626 4.80686,-3.88426 6.45378,-6.114 1.6201,-2.26816 2.52509,-4.86698 2.715,-7.79646 0.18982,-2.9294 -0.42158,-6.2723 -1.83423,-10.02872 -1.41271,-3.75631 -3.8048,-8.05919 -7.17628,-12.90865" />
+    </g>
+    <g style="fill:#aa8800;fill-opacity:1" id="g3035">
+      <path id="path3015" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 132.21718,47.982588 14.87573,33.707196 50.56078,-22.313596 4.48543,10.163622 -50.56078,22.313586 16.21,36.730544 -12.2864,5.42227 -39.99981,-90.636324 64.39103,-28.417182 4.42864,10.034962 -52.10462,22.994922" />
+      <path id="path3017" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="M 235.30236,102.33769 206.64606,2.0060673 218.81567,-1.4697645 247.47197,98.861855 235.30236,102.33769" />
+      <path id="path3019" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 285.54373,91.72749 c -7.55596,1.134399 -13.53376,-0.0064 -17.9334,-3.422261 -4.39968,-3.41588 -7.12146,-8.600493 -8.16538,-15.553827 -0.74466,-4.960018 -0.4265,-9.155303 0.95447,-12.585882 1.42038,-3.483835 3.50141,-6.355878 6.2431,-8.616148 2.78803,-2.267136 6.07679,-4.04069 9.86627,-5.320673 3.78945,-1.279876 7.69368,-2.268924 11.71272,-2.967155 l 16.85482,-2.814852 -0.61592,-4.102465 c -0.46633,-3.105758 -1.1875,-5.699301 -2.16353,-7.780641 -0.97611,-2.081209 -2.23721,-3.693085 -3.7833,-4.835639 -1.54617,-1.142411 -3.3843,-1.861859 -5.51437,-2.158342 -2.09076,-0.349639 -4.5036,-0.319204 -7.23853,0.09133 -2.41053,0.361971 -4.56139,0.874482 -6.45262,1.537554 -1.89824,0.616853 -3.49626,1.496667 -4.79406,2.639451 -1.30481,1.09657 -2.27928,2.498977 -2.9234,4.207224 -0.6511,1.662026 -0.9382,3.695959 -0.86144,6.101766 l -13.24971,0.780507 c 0.0181,-3.036293 0.49177,-5.880307 1.42088,-8.532081 0.92214,-2.697995 2.42957,-5.128417 4.52228,-7.291288 2.13906,-2.16968 4.9202,-4.00923 8.34344,-5.518646 3.4626,-1.562578 7.74346,-2.726673 12.84259,-3.492292 9.45648,-1.419644 16.89913,-0.309214 22.32798,3.331297 5.42179,3.594314 8.74862,9.493886 9.9805,17.698736 l 4.86466,32.402489 c 0.55669,3.708467 1.46446,6.439899 2.72334,8.194303 1.25177,1.708088 3.24518,2.356823 5.98022,1.946193 0.69525,-0.104366 1.38363,-0.255118 2.06512,-0.452238 0.68134,-0.19708 1.33609,-0.413887 1.96427,-0.650401 l 1.16919,7.787723 c -1.52049,0.607472 -3.05482,1.122228 -4.603,1.544258 -1.50196,0.415101 -3.13367,0.754868 -4.8951,1.019322 -2.36419,0.354938 -4.44908,0.359842 -6.25463,0.01471 -1.76629,-0.398409 -3.27645,-1.143405 -4.53047,-2.234945 -1.26109,-1.137879 -2.30895,-2.59217 -3.14353,-4.36289 -0.84166,-1.817046 -1.5199,-3.966735 -2.03472,-6.449074 l -0.41719,0.06264 c -0.98247,2.612323 -2.13875,5.013733 -3.46885,7.204225 -1.28384,2.183567 -2.88752,4.13074 -4.81104,5.84153 -1.93057,1.66445 -4.20764,3.072819 -6.83123,4.225113 -2.5773,1.145332 -5.62744,1.982465 -9.15043,2.511372 m 1.44158,-9.814984 c 3.98654,-0.598508 7.35532,-1.838969 10.10637,-3.721409 2.79036,-1.935721 4.98852,-4.185452 6.59449,-6.749185 1.65221,-2.57065 2.76326,-5.273367 3.33313,-8.108161 0.56976,-2.834737 0.67025,-5.480538 0.30145,-7.937412 l -0.92908,-6.18846 -13.6563,2.334652 c -3.05254,0.505719 -5.93813,1.175938 -8.65679,2.01066 -2.67932,0.781494 -4.97498,1.908252 -6.88697,3.380274 -1.91203,1.472103 -3.33724,3.345077 -4.27565,5.618951 -0.89209,2.266971 -1.08409,5.092412 -0.57604,8.476335 0.61242,4.079309 2.17501,7.067925 4.68779,8.965877 2.55909,1.891028 5.87829,2.530316 9.9576,1.917878" />
+      <path id="path3021" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 403.36846,63.872409 c -0.0954,3.561249 -0.88353,6.728787 -2.36445,9.502647 -1.43294,2.728282 -3.48711,5.017888 -6.16252,6.868842 -2.67428,1.804103 -5.94638,3.170181 -9.81628,4.098227 -3.8219,0.882444 -8.19288,1.257835 -13.11295,1.126163 -4.4047,-0.117882 -8.37824,-0.575919 -11.92064,-1.374095 -3.49682,-0.750074 -6.56062,-1.910573 -9.19139,-3.481524 -2.6308,-1.570936 -4.82733,-3.59917 -6.58957,-6.084715 -1.71416,-2.531123 -2.9453,-5.588594 -3.69343,-9.172408 l 11.23399,-1.879814 c 0.96862,4.105522 3.11413,7.16401 6.43652,9.175484 3.3236,1.964621 7.98434,3.027191 13.98222,3.1877 2.71775,0.07274 5.20624,-0.04822 7.46551,-0.362902 2.30604,-0.313404 4.29101,-0.893322 5.95492,-1.739745 1.66507,-0.893267 2.96285,-2.077714 3.89333,-3.553364 0.9785,-1.52123 1.49787,-3.406446 1.55812,-5.655656 0.0614,-2.296029 -0.42731,-4.184778 -1.46613,-5.666254 -1.03766,-1.528279 -2.50388,-2.810149 -4.39868,-3.845612 -1.8949,-1.035407 -4.21524,-1.941558 -6.96102,-2.718449 -2.69775,-0.822438 -5.67473,-1.722717 -8.93094,-2.700834 -3.02451,-0.878023 -6.02302,-1.849258 -8.99559,-2.913579 -2.97261,-1.06425 -5.65589,-2.425578 -8.04987,-4.08401 -2.34589,-1.703954 -4.23658,-3.770896 -5.67207,-6.200836 -1.43553,-2.429856 -2.10499,-5.448843 -2.00842,-9.056977 0.18559,-6.934952 2.78672,-12.14066 7.80341,-15.617131 5.06476,-3.5219605 12.32983,-5.1562816 21.79521,-4.9030213 8.38758,0.2245303 15.00195,1.8786071 19.84309,4.9623323 4.88793,3.084989 7.90076,7.901707 9.03854,14.450075 l -11.42417,1.10101 c -0.36911,-1.979272 -1.09837,-3.640003 -2.1878,-4.982183 -1.08829,-1.388926 -2.41833,-2.503038 -3.99014,-3.342321 -1.57065,-0.886024 -3.35902,-1.520029 -5.3651,-1.902031 -1.95805,-0.427509 -4.0148,-0.670079 -6.17024,-0.727829 -5.71673,-0.152926 -9.95717,0.60108 -12.72132,2.262038 -2.7642,1.661078 -4.19331,4.248768 -4.28734,7.763077 -0.0552,2.061815 0.39104,3.785304 1.33872,5.17048 0.99574,1.339671 2.37139,2.501886 4.12694,3.486658 1.80362,0.939254 3.9612,1.794162 6.47277,2.564704 2.51275,0.72379 5.28201,1.501244 8.30776,2.332465 2.00108,0.569372 4.04779,1.186834 6.14014,1.85243 2.09353,0.618736 4.11304,1.376203 6.05857,2.272278 1.99353,0.850553 3.84215,1.861306 5.54586,3.032269 1.7517,1.125419 3.26291,2.478833 4.53362,4.06024 1.27059,1.581458 2.25318,3.413096 2.9478,5.494885 0.74135,2.08311 1.07569,4.483533 1.00302,7.201286" />
+      <path id="path3023" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 442.68429,27.382875 c 1.89325,-2.244902 3.82167,-4.075947 5.78533,-5.493325 1.97294,-1.463143 4.04108,-2.572123 6.20442,-3.326836 2.16323,-0.754536 4.44462,-1.150144 6.84418,-1.186825 2.40884,-0.08255 5.03708,0.166631 7.8847,0.747634 4.77654,0.974625 8.54933,2.413994 11.31826,4.318595 2.81473,1.913993 4.85584,4.220119 6.12326,6.918569 1.32257,2.661992 1.97741,5.66604 1.96452,9.012143 0.0328,3.355684 -0.34427,6.962439 -1.13137,10.820411 l -10.13499,49.671894 -12.46964,-2.544289 9.643,-47.260632 c 0.64655,-3.169039 1.00682,-5.989895 1.08084,-8.46257 0.11981,-2.463223 -0.21208,-4.58809 -0.99569,-6.374602 -0.77436,-1.832388 -2.09228,-3.345165 -3.95377,-4.538333 -1.85226,-1.238946 -4.38582,-2.186543 -7.6008,-2.842506 -2.93947,-0.599747 -5.71111,-0.615062 -8.31487,-0.04615 -2.55796,0.578518 -4.88339,1.658897 -6.97631,3.241134 -2.04705,1.591647 -3.81098,3.67162 -5.2918,6.239869 -1.48088,2.568337 -2.57272,5.574815 -3.27553,9.019424 l -8.96827,43.953769 -12.40075,-2.530236 20.86035,-102.237261 12.40077,2.530169 -5.42594,26.592738 c -0.30927,1.51574 -0.64152,3.026712 -0.99666,4.532938 -0.3552,1.506315 -0.70996,2.893094 -1.06416,4.160268 -0.30839,1.276669 -0.57917,2.369582 -0.81257,3.278782 -0.22426,0.863189 -0.39175,1.450944 -0.5032,1.763068 l 0.20661,0.04244" />
+    </g>
+  </g>
+</svg><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a>, Elmar Pruesse, Brandon Seah</h3>
+<h3>High throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+<p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
+
+<h1>Library name: <!--LIBNAME--></h1>
+
+<h2>Graphical Summary</h2>
+<p>Mouseover on panels to expand details.</p>
+<div class="fullwidth">
+  <div class="col20pc">
+    <div class="tooltip"><!--IDHISTOGRAM--><span class="tooltiptext">Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</span></div>
+<!--SUPPRESS_IF_SE_READS-->
+    <div class="tooltip"><!--INSERTHISTOGRAM--><span class="tooltiptext">Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</span></div>
+<!--SUPPRESS_IF_SE_READS_END-->
+  </div>
+  <div class="col20pc">
+    <div class="tooltip"><!--MAPRATIOPIE--><span class="tooltiptext">Proportion of reads mapped to SSU rRNA database. Typically < 1% for metagenomes, ca. 20% for metatranscriptomes without rRNA depletion or poly-A selection.</span></div>
+<!--SUPPRESS_IF_SKIP_SPADES-->
+    <div class="tooltip"><!--ASSEMBLYRATIOPIE--><span class="tooltiptext">Proportion of reads assembled to full-length sequences. High proportion unassembled suggest either assembly failure or high diversity of organisms with low coverage.</span></div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+  </div>
+  <div class="col50pc">
+    <!--TAXONSUMMARYBAR-->
+  </div>
+</div>
+<!--SUPPRESS_IF_NO_POSCOV-->
+<div class="fullwidth">
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_EUK--><span class="tooltiptext">Coverage evenness across eukaryotic 18S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks). For the eukaryotic model it is normal to see one or two regions with low coverage because of variable regions in the 18S rRNA gene that are not present in all organisms.</span></div>
+  </div>
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_PROK--><span class="tooltiptext">Coverage evenness across prokaryotic 16S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks).</span>
+    </div>
+  </div>
+</div>
+<!--SUPPRESS_IF_NO_POSCOV_END-->
+<!--SUPPRESS_IF_NO_TREE-->
+<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to expand)</a></h3>
+<div id="tree" class="more">
+<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes and EMIRGE full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner.</p>
+<p><b>Color key: </b><span style="color:blue;">Full-length sequences assembled by SPAdes</span>, <span style="color:green;">Full-length sequences reconstructed by EMIRGE</span>, <span>Closest-matching reference sequence from SILVA database</span></p>
+<!--SEQUENCES_TREE-->
+</div>
+<!--SUPPRESS_IF_NO_TREE_END-->
+
+<h2>Input parameters</h2>
+
+<table class="slimTable">
+  <tr>
+    <th>Input command</th>
+    <td><!--PROGCMD--></td>
+  </tr>
+  <tr>
+    <th>Forward read file</th>
+    <td><!--READSF_FULL--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Reverse read file</th>
+    <td><!--READSR_FULL--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+  <tr>
+    <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
+    <td><!--ID-->%</td>
+  </tr>
+  <tr>
+    <th>Working folder</th>
+    <td><!--CWD--></td>
+  </tr>
+  <tr>
+    <th>Database used</th>
+    <td><!--DBHOME--></td>
+  </tr>
+</table>
+
+<h2>Results</h2>
+
+<h3>Mapping statistics</h3>
+<table class="slimTable">
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Input PE-reads</th>
+    <td><!--READNR_PAIRS--></td>
+  </tr>
+  <tr>
+    <th>Mapped SSU read pairs</th>
+    <td><!--SSU_TOTAL_PAIRS--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+<!--SUPPRESS_IF_PE_READS-->
+  <tr>
+    <th>Input SE-reads</th>
+    <td><!--READNR--></td>
+  </tr>
+  <tr>
+    <th>Mapped SSU SE-reads</th>
+    <td><!--SSU_TOTAL_PAIRS--></td>
+  </tr>
+<!--SUPPRESS_IF_PE_READS_END-->
+  <tr>
+    <th><span class="withHoverText" title="Fraction of library mapping to SSU references">Mapping ratio</span></th>
+    <td><!--SSU_RATIO_PC-->%</td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES-->
+  <tr>
+    <th><span class="withHoverText" title="Fraction of extracted SSU reads assembled">Fraction assembled</span></th>
+    <td><!--ASSEM_RATIO-->%</td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Detected median insert size</th>
+    <td><!--INS_ME--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+  <tr>
+    <th>Used insert size</th>
+    <td><!--INS_USED--></td>
+  </tr>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+<!--SUPPRESS_IF_SE_READS-->
+  <tr>
+    <th>Insert size standard deviation</th>
+    <td><!--INS_STD--></td>
+  </tr>
+<!--SUPPRESS_IF_SE_READS_END-->
+</table>
+
+<h3><a href="#" id="outfiles-show" class="showLink" onclick="showHide('outfiles');return false;">Output files</a></h3>
+<div id="outfiles" class="more">
+  <table class="slimTable">
+<!--OUTPUT_FILES_TABLE-->
+  </table>
+</div>
+
+<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
+<div id="taxa" class="more">
+  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping hits to SILVA SSU rRNA database using BBmap.</p>
+  <table class="slimTable">
+    <tr>
+      <th>NTUs observed once</th>
+      <td><!--XTONS0--></td>
+    </tr>
+    <tr>
+      <th>NTUs observed twice</th>
+      <td><!--XTONS1--></td>
+    </tr>
+    <tr>
+      <th>NTUs observed three or more times</th>
+      <td><!--XTONS2--></td>
+    </tr>
+    <tr>
+      <th><span class="withHoverText" title="Statistical index of alpha diversity in sample, from Chao 1984">NTU Chao1 richness estimate</span></th>
+      <td><!--CHAO1--></td>
+    </tr>
+  </table>
+  <p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
+  <table>
+    <tr>
+      <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
+      <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
+    </tr>
+<!--READ_MAPPING_NTU_TABLE-->
+  </table>
+</div>
+
+<!--SUPPRESS_IF_SKIP_SPADES-->
+<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU rRNA assembly-based taxa</a></h3>
+<div id="spades" class="more">
+<p>Full-length SSU rRNA sequences assembled by SPAdes, matched to SILVA database with Vsearch.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">Cov</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between assembled SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
+  </tr>
+<!--ASSEMBLED_SSU_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
+
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
+<div id="emirge" class="more">
+<p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Ratio of rRNA reads represented by this sequence, reported by EMIRGE">Ratio</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between reconstructed SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
+  </tr>
+<!--EMIRGE_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+
+<!--SUPPRESS_IF_NO_TREE-->
+<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
+<div id="unassemtaxa" class="more">
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences, based on mapping hits to SILVA SSU rRNA database with BBmap.</p>
+<p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Higher taxon found by SSU mapping to SILVA reference database">Taxon</span></th>
+    <th><span class="withHoverText" title="No. reads (single) mapped to this taxonomic group">Reads</span></th>
+  </tr>
+<!--UNASSEMBLED_READS_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_NO_TREE_END-->
+
+<!--SUPPRESS_IF_NO_TREEMAP-->
+<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
+  <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
+  <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
+  <div id="chart_div" style="width: 900px; height: 500px;"></div>
+  <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
+<!--SUPPRESS_IF_NO_TREEMAP_END-->
+
+<h3><a href="#" id="cite-show" class="showLink" onclick="showHide('cite');return false;">Please cite...</a></h3>
+<div id="cite" class="more">
+<p>Gruber-Vodicka H., Pruesse E., Seah B.K.B. 2017. <!--VERSION-->. Online: https://github.com/HRGV/phyloFlash.</p>
+<h4>Cite dependencies when used</h4>
+  <ul>
+    <li>Quast C. et al. 2013. The SILVA ribosomal RNA gene database project: improved data processing and web-based tools. <i>Nucl. Acids Res.</i> 41: D590-D596. doi:<a href="http://dx.doi.org/10.1093/nar/gks1219">10.1093/nar/gks1219</a>. <a href="https://www.arb-silva.de">Homepage</a></li>
+    <li>Bushnell B. BBMap. Online: <a href="https://sourceforge.net/projects/bbmap/">https://sourceforge.net/projects/bbmap/</a></li>
+    <li>Bankevich A., et al. 2012. SPAdes: A New Genome Assembly Algorithm and Its Applications to Single-Cell Sequencing. <i>J. Comput. Biol.</i> 19 (5): 455-477. doi:<a href="http://dx.doi.org/10.1089/cmb.2012.0021spades">10.1089/cmb.2012.0021</a>. <a href="http://bioinf.spbau.ru/spades">Homepage</a>.</li>
+    <li>Katoh K., Standley D.M.. 2013. MAFFT Multiple Sequence Alignment Software Version 7: Improvements in Performance and Usability. <i>Mol. Biol. Evol.</i> 30 (4): 772-780. doi:<a href="http://dx.doi.org/10.1093/molbev/mst010">10.1093/molbev/mst010</a>. <a href="http://mafft.cbrc.jp/alignment/software/">Homepage</a></li>
+    <li>Rognes T. et al. 2016. VSEARCH: a versatile open source tool for metagenomics. <i>PeerJ</i> 4: e2584. doi:<a href="http://dx.doi.org/10.7717/peerj.2584">10.7717/peerj.2584</a>. <a href="https://github.com/torognes/vsearch">Homepage</a></li>
+    <li>Miller C.S. et al. 2011. EMIRGE: reconstruction of full-length ribosomal genes from microbial community short read sequencing data. <i>Genome Biol.</i> 12: R44. doi:<a href="http://dx.doi.org/10.1186/gb-2011-12-5-r44">10.1186/gb-2011-12-5-r44</a>. <a href="https://github.com/csmiller/EMIRGE">Homepage</a></li>
+    <li>Bedtools. Online: <a href="http://bedtools.readthedocs.io/en/latest/">http://bedtools.readthedocs.io/en/latest/</a></li>
+    <li>Seemann T. Barrnap. Online: <a href="https://github.com/tseemann/barrnap">https://github.com/tseemann/barrnap</a></li>
+    <li>Wheeler T.J., Eddy S.R. 2013. nhmmer: DNA homology search with profile HMMs. <i>Bioinformatics</i> 29 (19): 2487-2489. doi:<a href="http://dx.doi.org/10.1093/bioinformatics/btt403">10.1093/bioinformatics/btt403</a> <a href="http://hmmer.org/">Homepage</a></li>
+  </ul>
+</div>
+
+</body>
+</html>

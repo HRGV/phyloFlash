@@ -321,14 +321,14 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
     for (lib in libs) tryCatch({
         fileName <- paste(lib, ".phyloFlash.NTUabundance.csv", sep="");
         info("Reading: ",fileName);
-        fileData <- read.csv(fileName);
+        fileData <- read.csv(fileName,header=F);
         if (nrow(fileData) < 2) {
           warn("Skipping empty file: ", fileName)
           next;
         }
 
-        # rename "reads" column to lib name
-        colnames(fileData)[colnames(fileData)=="reads"] = lib;
+        # assign column names "NTU" and library name
+        colnames(fileData) <- c("NTU", lib);
 
         # merge into single dataframe
         if (!exists("NTUcounts")) {

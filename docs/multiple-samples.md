@@ -23,7 +23,7 @@ phyloFlash_heatmap.R -o heatmap.png *.csv
 Requires `R` and the following packages: `optparse`, `methods`, `grid`, `ggplot2`,
 `reshape2`, `ggdendro`, `gtable`.
 
-The script can also be run within the `R` environment.
+The script can also be run within the `R` environment with `source("/path/to/phyloFlash_heatmap.R")`. A short help message will appear when the script is loaded in the R environment.
 
 ## 2. Basic heatmap
 
@@ -81,9 +81,9 @@ Clustering parameters for either libraries or taxa can be modified.
 
 `-n MIN-NTU-COUNT` or `--min-ntu-count=MIN-NTU-COUNT` Change the threshold of counts per NTU to be included in the category "Other" in the heatmap. Default: 50
 
-`-m CLUSTER-SAMPLES` or `--cluster-samples=CLUSTER-SAMPLES` Change the clustering method used for samples, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. Default: `ward.D`
+`-m CLUSTER-SAMPLES` or `--cluster-samples=CLUSTER-SAMPLES` Change the clustering method used for samples, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. To turn off clustering and sort samples alphabetically, choose `alhpa`. Default: `ward.D`
 
-`-M CLUSTER-TAXA` or `--cluster-taxa=CLUSTER-TAXA` Change the clustering method used for taxa, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. Default: `ward.D`
+`-M CLUSTER-TAXA` or `--cluster-taxa=CLUSTER-TAXA` Change the clustering method used for taxa, choose between choose between `alpha`, `ward`, `single`, `complete`, `average`, `mcquitty`, `median` or `centroid`. To turn off clustering and to sort taxa alphabetically, choose `alpha`. Default: `ward.D`
 
 `--no-split` Do not split heatmap
 
