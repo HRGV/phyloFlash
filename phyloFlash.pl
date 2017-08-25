@@ -291,8 +291,8 @@ my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at
 my $taxon_report_lvl = 4;       # Taxonomic level to report counts
 
 my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting
-my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
+my %ssufull_hash;
 
 # mapping statistics parsed from BBmap output
 my $readnr = 0;
@@ -633,11 +633,14 @@ NTU\treads
         print {$fh} "---\n";
         print {$fh} "SSU assembly based taxa:\n";
         print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-
-        foreach my $arr (@ssuassem_results_sorted) {
-            my @out = @$arr;
-            my $spades_id = $out[0];
-            splice @out, 1, 0, $ssuassem_cov{$spades_id};
+        foreach my $seqid ( sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
+            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            my @out;
+            push @out, $seqid;
+            my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
             print {$fh} join("\t", @out)."\n";
         }
     }
@@ -647,10 +650,14 @@ NTU\treads
         print {$fh} "---\n";
         print {$fh} "SSU reconstruction based taxa:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-        foreach my $arr (@ssurecon_results_sorted) {
-            my @out = @$arr;
-            my $emirge_id = $out[0];
-            splice @out, 1, 0, $ssuassem_cov{$emirge_id};
+        foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
+            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            my @out;
+            push @out, $seqid;
+            my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
             print {$fh} join("\t", @out)."\n";
         }
     }
@@ -721,23 +728,16 @@ sub write_csv {
         # CSV file of assembled/reconstructed sequnces 
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
         $outfiles{"full_len_class"}{"made"}++;
-        print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
-        if ($skip_spades == 0) {
-            foreach my $arr (@ssuassem_results_sorted) {
-                my $otu = ${$arr}[0];
-                my @out = @$arr;
-                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-                print {$fh} join(",",csv_escape(@out)).$crlf;
+        print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n"; # Header
+        
+        # Sort descending by read counts
+        foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"}} keys %ssufull_hash) {
+            my @out;
+            push @out, $seqid;
+            foreach my $field (qw(counts cov dbHit taxon pcid alnlen evalue)) {
+                push @out, $ssufull_hash{$seqid}{$field};
             }
-        }
-        # Add sequences from EMIRGE, if available
-        if ($skip_emirge == 0) {
-            foreach my $arr (@ssurecon_results_sorted) {
-                my $otu = ${$arr}[0];
-                my @out = @$arr;
-                splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-                print {$fh} join(",",csv_escape(@out)).$crlf;
-            }
+            print {$fh} join (",", csv_escape(@out)).$crlf;
         }
         close($fh);
         
@@ -1344,7 +1344,7 @@ sub screen_remappings {
 sub flag_unmapped_sam {
     # Given a SAM file from remapping, and hash of original mapping, it will:
     # 1. Flag reads in hash of original mapping to whether mapped to spades or emirge
-    # 2. Count number of reads mapping to each reference to %ssuassem_cov
+    # 2. Count number of reads mapping to each reference to %ssufull_hash
     my ($which) = @_;
     my ($sam_in,$mappedname,$mapped_fwd,$mapped_rev);
     if ($which eq "SPAdes") {
@@ -1385,7 +1385,7 @@ sub flag_unmapped_sam {
                 $ssu_sam{$read}{$pair}{$mappedname}++;
                 # Add to read count for that reference sequence
                 my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
-                $ssuassem_cov{$refshort}++;
+                $ssufull_hash{$refshort}{"counts"}++;
                 # Count how many fwd and rev reads map to SPAdes
                 if ($pair eq "F" | $pair eq "U") {
                     $ssu_sam_mapstats{$mapped_fwd}++;
@@ -1398,11 +1398,7 @@ sub flag_unmapped_sam {
         }
     }
     msg ("total fwd reads remapping:".$ssu_sam_mapstats{$mapped_fwd});
-    msg ("total rev reads remapping:".$ssu_sam_mapstats{$mapped_rev});
-    foreach my $refshort (keys %ssuassem_cov) {
-        msg ("SSU assembled: $refshort");
-        msg ("Coverage: ".$ssuassem_cov{$refshort});
-    }
+    msg ("total rev reads remapping:".$ssu_sam_mapstats{$mapped_rev}) if $SEmode == 0;
     close($fh_in);
 }
 
@@ -1578,24 +1574,30 @@ sub vsearch_parse {
         chomp;
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
         s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
-        push @vsearch_matches, [split("\t",$_)];
+        push @vsearch_matches, [split("\t",$_)];                                # To be replaced by ssufull_hash
+        
+        # Split into individual fields
+        my @line = split /\t/, $_;
+        my $seqid = $line[0];
+        # Check whether hit is from SPAdes
+        my $source;
+        if ($line[0] =~ m/PFspades/) {
+            $source = "SPAdes";
+        } elsif ($line[0] =~ m/PFemirge/) {
+            $source = "EMIRGE";
+        }
+        
+        #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+        $ssufull_hash{$seqid}{"source"} = $source;
+        $ssufull_hash{$seqid}{"cov"} = $line[1];
+        $ssufull_hash{$seqid}{"dbHit"} = $line[2];
+        $ssufull_hash{$seqid}{"taxon"} = $line[3];
+        $ssufull_hash{$seqid}{"pcid"} = $line[4];
+        $ssufull_hash{$seqid}{"alnlen"} = $line[5];
+        $ssufull_hash{$seqid}{"evalue"} = $line[6];
+        
     }
     close($fh);
-
-    # Sort numerically descending the list of
-    # assembled SSU sequences by coverage value
-
-    @ssuassem_results_sorted =
-        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
-        grep { @{$_}[0] =~ /^$libraryNAME.PFspades/ }
-        @vsearch_matches;
-
-    # Sort numerically descending the list of reconstructed
-    # SSU sequences by mapping ratio
-    @ssurecon_results_sorted =
-        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
-        grep { @{$_}[0] =~ /^$libraryNAME.PFemirge/ }
-        @vsearch_matches;
 
     msg("done...");
 }
@@ -1998,8 +2000,6 @@ sub write_report_html {
         $xtons_aref,$chao1,
         $taxa_summary_href,
         $taxa_unassem_summary_href,
-        $ssuassem_results_sorted_aref,
-        $ssurecon_results_sorted_aref,
         ) = @_;
     my %outfiles = %$outfiles_href;
     my @xtons = @$xtons_aref;
@@ -2119,20 +2119,26 @@ sub write_report_html {
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
-        foreach (@$ssuassem_results_sorted_aref) {
-            my @split_entry = @$_;
-            # Parse the database entry number of the reference sequence to get Genbank accession
-            my @get_genbank = split (/\./,$split_entry[2]);
-            push @table_assem_seq, "  <tr>\n";
-            push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";    # Link to Genbank entry using accession no.
-            push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_assem_seq, "  </tr>\n";
+        
+        foreach my $seqid (sort { $ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
+            # Check that sequence was assembled by spades
+            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            # Parse database entry number of hit to get Genbank accession
+            my ($gbk, @discard) = split /\./, $ssufull_hash{$seqid}{"dbHit"};
+            $ssufull_hash{$seqid}{"gbklink"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".
+                                               $gbk.
+                                               "\">".
+                                               $ssufull_hash{$seqid}{"dbHit"}.
+                                               "</a>";
+            # Build an output line
+            #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+            my @fields = qw(counts cov gbklink taxon pcid alnlen evalue);
+            push @table_assem_seq, "  <tr>\n";                  # Start table row
+            push @table_assem_seq, "    <td>".$seqid."</td>\n"; # Push sequence ID to line
+            foreach my $field (@fields) {                       # Push individual fields to line
+                push @table_assem_seq, "    <td>".$ssufull_hash{$seqid}{$field}."</td>\n";
+            }
+            push @table_assem_seq, "  </tr>\n";                 # End table row
         }
         $flags{"ASSEMBLED_SSU_TABLE"} = join "", @table_assem_seq;
     }
@@ -2141,20 +2147,26 @@ sub write_report_html {
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
         my @table_recon_seq;
-        foreach (@ssurecon_results_sorted) {
-            push @table_recon_seq, "  <tr>\n";
-            my @split_entry = @$_;
-            my $test = $split_entry[2];
-            my @get_genbank = split (/\./,$test);
-            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_recon_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_recon_seq, "  </tr>\n";
+        
+        foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
+            # Check that sequence was assembled by spades
+            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            # Parse database entry number of hit to get Genbank accession
+            my ($gbk, @discard) = split /\./, $ssufull_hash{$seqid}{"dbHit"};
+            $ssufull_hash{$seqid}{"gbklink"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".
+                                               $gbk.
+                                               "\">".
+                                               $ssufull_hash{$seqid}{"dbHit"}.
+                                               "</a>";
+            # Build an output line
+            #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+            my @fields = qw(counts cov gbklink taxon pcid alnlen evalue);
+            push @table_recon_seq, "  <tr>\n";                  # Start table row
+            push @table_recon_seq, "    <td>".$seqid."</td>\n"; # Push sequence ID to line
+            foreach my $field (@fields) {                       # Push individual fields to line
+                push @table_recon_seq, "    <td>".$ssufull_hash{$seqid}{$field}."</td>\n";
+            }
+            push @table_recon_seq, "  </tr>\n";                 # End table row
         }
         $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
     }
@@ -2273,7 +2285,7 @@ my @report_inputs = (
     $taxon_report_lvl,
     \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
-    \@ssuassem_results_sorted, \@ssurecon_results_sorted,
+    #\@ssuassem_results_sorted, \@ssurecon_results_sorted,
     );
 
 # Print report file and CSV output
