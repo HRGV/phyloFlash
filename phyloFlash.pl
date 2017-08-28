@@ -424,7 +424,7 @@ sub parse_cmdline {
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
-               'outfiles' => output_description(),
+               'outfiles' => \&output_description,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )

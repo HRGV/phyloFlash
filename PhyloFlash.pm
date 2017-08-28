@@ -1069,7 +1069,7 @@ sub initialize_outfiles_hash {
         filename    => "$libraryNAME.remap_emirge.bbmap.out",
         intable     => 0,
       },
-      "",
+      #"",
       #{
       #  description => "",
       #  discard     => 1,
