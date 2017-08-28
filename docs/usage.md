@@ -44,11 +44,21 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
 
 ## 2. Full description of program options
 
+### 2.0 Help and configuration
+
+`-check_env` Invokes checking of working environment and dependencies without data input. Use to test setup.
+
+`-help` Print brief help message
+
+`-man` Show manual
+
+`-outfiles` Show detailed list of output and temporary files and exit.
+
 ### 2.1. Standard input arguments
 
-`-lib LIBNAME` Library name for the phyloFlash run. This must be a word consisting of only letters, numbers, underscore and/or hyphen. This is used as the filename prefix for all output files.
+`-lib LIBNAME` Library name to use as a filename prefix for the output files for this phyloFlash run. The name must be one word comprising only letters, numbers and `_` or `-` (no whitespace or other punctuation).
 
-`-read1 FILENAME` Forward reads in FASTA or FASTQ formats, maybe compressed with Gzip (.gz extension). If interleaved reads are provided, please use `--interleaved` flag in addition
+`-read1 FILENAME` Forward reads in FASTA or FASTQ formats. May be compressed with Gzip (.gz extension). If interleaved reads are provided, please use `--interleaved` flag in addition for paired-end processing.
 
 `-read2 FILENAME` Reverse reads, for paired-end reads. If this option is omitted, phyloFlash will run in *experimental* single-end mode.
 
@@ -66,28 +76,45 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
 
 ## 2.3. Customizing the run
 
+`-skip_spades` Do not use SPAdes to assemble full-length sequences from extracted reads
+
+`-emirge` Use EMIRGE to reconstruct full-length sequences from extracted reads. (Default: Off)
+
+`-poscov` Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of the 16S and 18S rRNA genes from a subsample of reads, as an estimate of coverage evenness. (Default: Off)
+
 `-id N` Minimum % identity of reads to map against reference database. Must be between 63 and 98. Set to a lower value for very divergent taxa. Default: 70.
 
 `-clusterid N` % identity threshold for reference sequence clustering step. Must be between 50 and 100. Default: 97.
 
+`-taxlevel N` Level in the taxonomy string to use for taxonomic units (NTUs), for the taxonomic summary and to estimate diversity. Must be an integer, and starts with 1 for the highest taxonomic level (Domain). Default: 4.
+
 `-maxinsert N` Maximum insert size allowed for paired end read mapping. Must be between 0 and 1200. Default: 1200.
 
-`-sc` Use if data are from single-cell MDA libraries, option is passed to the SPAdes assembler.
+`-sc` Use if data are from single-cell MDA libraries, option is passed to the SPAdes assembler. (Default: Off)
 
+`-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. (Default: Look in phyloFLash folder for highest SILVA version number)
 
 ### 2.3. Localization and compatibility options
 
-`-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant
+`-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant (Default: Off)
 
-`-decimalcomma` Use decimal comma instead of decimal point to fix locale problems for some European systems
+`-decimalcomma` Use decimal comma instead of decimal point to fix locale problems for some European systems (Default: Off)
 
-### 2.4. Configuring output report
+### 2.4. Configuring output
 
-Prettify the output with the following options:
+`-html` Produce an HTML-formatted version of the report file. This helps improve readability and individual sections of the report can be collapsed. (Default: On, turn off with `-nohtml`)
 
-`-html` Produce an HTML-formatted version of the report file. This helps improve readability and individual sections of the report can be collapsed.
+`-treemap` Include an interactive treemap of the NTU counts in the HTML report. This uses the Google Visualization API, which requires an Internet connection and that you agree to their [terms of service](https://developers.google.com/chart/terms), and is not open-source although it is free to use. (Default: Off)
 
-`-treemap` Include an interactive treemap of the NTU counts in the HTML report. This uses the Google Visualization API, which requires an Internet connection and that you agree to their [terms of service](https://developers.google.com/chart/terms), and is not open-source although it is free to use. (Experimental feature)
+`-log` Write status messages printed to STDERR also to a log file (Default: Off)
+
+`-zip` Compress output into a tar.gz archive file (Default: Off)
+
+`-keeptmp` Keep temporary/intermediate files (Default: Off)
+
+`-everything` Turn on all the optional analyses and output options. Options without defaults and any local settings must still be specified. Equivalent to `-emirge -poscov -treemap -zip -log`
+
+`-almosteverything` Like `-everything` except without `-emirge`
 
 ## 3. Testing phyloFlash
 
@@ -105,12 +132,14 @@ phyloFlash.pl -lib TEST -read1 test_files/test_F.fq.gz -read2 test_files/test_R.
 
 ## 5. Detailed description of output files
 
+Below is a detailed description of the key output files from phyloFlash. Full list of all the output and intermediate files produced during a phyloFlash run can be found by the command `phyloFlash.pl -outfiles`.
+
 ### 5.1. Report files
 
 These are the main human-readable output from phyloFlash.
 
- - `LIBNAME.phyloFlash` *phyloFlash* report file, a simple text file with reconstructed SSU composition  report, performance and SSU metrics, and rough taxon list based on read mappings  
- - `LIBNAME.phyloFlash.html` Report file formatted in HTML, if `-html` flag was used
+ - `LIBNAME.phyloFlash.html` phyloFlash report file in HTML format, with a report on the taxonomic composition of SSU rRNA reads, quality metrics for the library, and affiliation of the reconstructed/assembled full-length sequences.
+ - `LIBNAME.phyloFlash` plain text file version of the report
 
 ### 5.2. Unassembled sequence files
 
@@ -145,8 +174,7 @@ Assembled or reconstructed full-length SSU rRNA reads are output unless the `-sk
 
  - `LIBNAME.inserthistogram` Histogram of detected insert sizes in tab-separated format, if paired-end reads were input. PDF and PNG versions are created for the HTML report if the `-html` option is set
  - `LIBNAME.idhistogram` Histogram of the % identity of reads vs. reference database sequences, in tab-separated format. PDF and PNG versions are created for the HTML report if the `-html` option is set
- - `LIBNAME.hitstats` Mapping statistics of reads mapping to the reference database, in tab-separated format. The unambiguous mapping hit counts are used to generate the NTU report
- - `LIBNAME.phyloFlash.NTUabundance.csv` the list of uniqe higher level taxa (e.g. orders for bacteria) in the order of  their apperance
+ - `LIBNAME.phyloFlash.NTUabundance.csv` the list of uniqe higher level taxa (e.g. orders for bacteria) in the order of their appearance
 
  - `LIBNAME.scaffolds.arch.gff` 16S rRNA gene predictions for assembled OTUs based on archaeal SSU rRNA hmm profile  
  - `LIBNAME.scaffolds.bac.gff` 16S rRNA gene predictions for assembled OTUs based on bacterial SSU rRNA hmm profile  

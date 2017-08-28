@@ -9,8 +9,8 @@ order: 1
 
 ```bash
 # Download package
-wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz
-tar -xzf v2.0-beta6.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
+tar -xzf vXXX.tar.gz
 # cd into folder
 cd phyloFlash
 # Check for dependencies
@@ -26,11 +26,11 @@ Python installed. (OSX is for the brave, we have not tested this!)
 
 ## 2. Download package
 
-Download the most recent release [from Github](https://github.com/HRGV/phyloFlash/releases)
+Download the most recent release [from Github](https://github.com/HRGV/phyloFlash/releases), either from the website or at the command line with `wget`.
 
 ```bash
-wget https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz
-tar -xzf v2.0-beta6.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
+tar -xzf vXXX.tar.gz
 ```
 
 Alternatively clone the latest development version with Git:
@@ -56,7 +56,7 @@ Install the tools phyloFlash uses:
 These tools need to be in your `$PATH` environment variable, so that phyloFlash can find them. To see whether all required tools are available, just use the `-check_env` flag:
 
 ```bash
-cd phyloFlash-2.0
+cd phyloFlash-3.0
 /phyloFlash.pl -check_env
 ```
 
@@ -91,7 +91,7 @@ If you already have a local copy of the SILVA SSU NR99 database (in Fasta format
 ```bash
 ./phyloFlash_makedb.pl --univec_file /path/to/Univec --silva_file /path/to/SILVA_128_SSURef_Nr99_tax_silva_trunc.fasta.gz
 ```
-By default, `phyloFlash.pl` will look for a directory named "119" (the most recent SILVA release as of March 2015). You can change this by passing the `-dbhome <dir>` switch to phyloFlash.pl or by modifying the `DBHOME` variable in `phyloFlash.pl`.
+By default, `phyloFlash.pl` will look in the folder where it is installed for the subfolder with the highest SILVA version number. You can change this by passing the `-dbhome <dir>` switch to phyloFlash.pl or by modifying the `DBHOME` variable in `phyloFlash.pl`.
 
 ### 4.3. Set up a custom database with your own sequences
 

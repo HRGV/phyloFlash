@@ -47,7 +47,7 @@ our @EXPORT      = qw(
   fasta_copy_except
   fasta_copy_iupac_randomize
   cluster
-  initialize_infiles_hash
+  initialize_outfiles_hash
 );
 
 use IPC::Cmd qw(can_run);
@@ -638,14 +638,14 @@ returns the runtime of the timer in minuts
     }
 }
 
-=item initialize_infiles_hash ($libraryNAME, $readsf)
+=item initialize_outfiles_hash ($libraryNAME, $readsf)
 
 Initialize a hash of the output filenames, descriptions, and flags when given
 library name and name of read files. Returns hash reference.
 
 =cut
 
-sub initialize_infiles_hash {
+sub initialize_outfiles_hash {
     my ($libraryNAME,$readsf) = @_;
     # field "made" will keep track of whether file was created
     my %hash = (
