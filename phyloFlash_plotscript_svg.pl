@@ -1,7 +1,31 @@
 #!/usr/bin/env perl
 
+=head1 NAME
+
+phyloFlash_plotscript_svg.pl - Produce SVG-formatted plots for phyloFlash
+pipeline
+
+=head1 SYNOPSIS
+
+B<phyloFlash_plotscript_svg.pl> -tree F<<FILE>> -hist F<<FILE>> -bar F<<FILE>> -pie F<<FILE>>
+
+B<phyloFlash_plotscript_svg.pl> -help
+
+B<phyloFlash_plotscript_svg.pl> -man
+
+=head1 DESCRIPTION
+
+Internal script used by B<phyloFlash.pl> to produce SVG-formatted plots for
+HTML report file.
+
+Output files are simply input filename with .svg suffix, silently overwritten.
+
+=cut
+
 use strict;
 use warnings;
+use diagnostics;
+use Pod::Usage;
 use POSIX qw (ceil floor);
 use List::Util qw(min max);
 use Getopt::Long;
@@ -10,17 +34,136 @@ use Math::Trig qw(pi cylindrical_to_cartesian);
 # Plot insert size histogram and guide tree in SVG format without additional dependencies on R packages
 
 # Input arguments
-my ($treefile, $histofile, $barfile, $piefile, $title);
-my $pipemode;
+my ($treefile, $fastafile, $histofile, $barfile, $piefile, $title, $decimalcomma, $pipemode, $assemcov, $unassem_count);
 my ($nbreaks, $barminprop) = (undef, 0.2); # Default values for params
+my ($plotheight, $plotwidth, $plotcolor);
+if (!@ARGV) { # Help msg if no arguments given
+    pod2usage (2);
+    exit();
+}
 GetOptions("tree|t=s" => \$treefile,        # Guide tree from MAFFT
+           "treefasta=s" => \$fastafile,    # Fasta file used to produce guide tree - to rewrite the text labels
+           "assemcov=s" => \$assemcov,      # CSV file libNAME.phyloFlash.extractedSSUclassifications.csv
+           "unassemcount=i" => \$unassem_count, # Number of unassembled reads
            "hist|h=s" => \$histofile,       # Insert size histogram from BBmap (PE reads only)
            "bar|r=s" => \$barfile,          # Table of counts to make barplot
            "pie|p=s" => \$piefile,          # Table of counts to make donut/piechart
            "pipe=s" => \$pipemode,          # Pipe mode - take input from STDIN and write to STDOUT - specify type of output
            "title=s" => \$title,            # Title for plot
+           "height=i" => \$plotheight,      # Optional height for plot
+           "width=i" => \$plotwidth,        # Optional width for plot in pixels
+           "color=s" => \$plotcolor,        # Optional fill color for plot (currently implemented only for histogram)
+           "decimalcomma" => \$decimalcomma,# BBmap is locale-aware and may produce histogram files with decimal comma!
+                                            # Perl does not use locales unless requested so the other inputs should be safe
            "breakpoints|b=i" => \$nbreaks,  # Optional: manually specify number of breakpoints in histogram (e.g. 30)
-           ) or die ("$!");
+           "help" => sub { pod2usage(1) },
+           "man" => sub { pod2usage(-exitval=>0, -verbose=>2) },
+           ) or pod2usage(2);
+
+=head1 OPTIONS
+
+=over 15
+
+=item -tree F<<FILE>>
+
+Phylogenetic tree plot from Newick-formatted tree. Does not support node or
+branch labels, branch lengths required. Tree is oriented with root on left
+and leaf labels on right. Height of plot scales with number of leaves.
+
+Can be modified with -treefasta, -assemcov, and -unassemcount
+
+=item -treefasta F<<FILE>>
+
+Original Fasta file used to produce the tree, if the tree is a guide tree
+from MAFFT aligner. This is used to relabel the text labels in the SVG
+with the original text, because MAFFT automatically replaces spaces and
+other punctuation with underscores, and truncates the names.
+
+=item -assemcov F<<FILE>>
+
+CSV file containing coverage stats of assembled SSU sequences, from phyloFlash
+output, for drawing bubbles representing read coverage per assembled sequence
+on the tree.
+
+When supplied, beneath the node for each leaf representing an assembled SSU
+sequence will be a circle whose area represents the abundance of that sequence
+(i.e. number of reads mapping to it in the re-mapping step) in the read library.
+
+=item -unassemcount I<INT>
+
+Number of reads that are not mapping to any of the assembled SSU sequences.
+This is to draw a bubble representing coverage of unassembled reads, when
+coverage of assembled sequences is also supplied via -assemcov parameter.
+
+=item -hist F<<FILE>>
+
+Histogram plot from TAB-separated histogram output file, e.g. those produced by
+BBmap. Column 1: bin values, column 2: counts/frequencies. The counts must
+already be binned into counts or frequencies! The counts can be re-binned into
+new bins for plotting, but the user is responsible for making sure that the
+number of new bins < number of original bins.
+
+=item -bar F<<FILE>>
+
+Interactive bar plot from CSV file. Column 1: label, column 2: counts. The
+text labels are adjacent to the bars and their size and opacity are scaled to
+the bar height to avoid overlapping text labels. However on mouseover (when
+viewed in web browser) the box will be highlighted and the corresponding text
+label will enlarge to legible size.
+
+=item -pie F<<FILE>>
+
+Pie chart from CSV file. Column 1: Label, column 2: counts/percentage/ratio.
+Will automatically take total of the numbers provided. I.e. if using
+percentages, ensure that they add up to 100%.
+
+=item -pipe I<OUTPUT TYPE>
+
+Use "pipe" mode. Input is read from STDIN and written to STDOUT. Use this
+option to specify type of plot to produce: "tree", "hist", "bar", or "pie".
+Naturally this can only read and write one file at a time.
+
+=item -title="I<STRING>"
+
+Optional title for plot. Enclose string in quotation marks if title has spaces.
+Default: (empty)
+
+=item -height I<INT>
+
+=item -width I<INT>
+
+Optional width and height of plot in pixels.
+Defaults: Built-in defaults for each plot type.
+
+=item -color="I<STRING>"
+
+Optional fill color for plot. Currently implemented only for histogram.
+Default: Built-in defaults for each plot type
+
+=item -breakpoints I<INT>
+
+Specify number of breakpoints in histogram.
+Default: Sturges algorithm to calculate optimal breakpoints
+
+=item -decimalcomma
+
+Use comma as decimal separator (only used for histogram input). BBMap is locale-
+aware and uses decimal comma in certain locales (e.g. Germany and France).
+However, Perl does not unless explicitly requested. This option will replace
+decimal commas with decimal periods in histogram input files only.
+
+=item -help
+
+This help message
+
+=item -man
+
+Manual page (identical to this help message)
+
+=back
+
+=cut
+
 
 ## MAIN ########################################################################
 
@@ -44,7 +187,14 @@ if (defined $pipemode) {
 } else {
     # Otherwise in "file" mode read and write to specified files
     if (defined $histofile) {
-        do_histogram_plots($histofile, $title);
+        do_histogram_plots($histofile, $title, $plotwidth, $plotheight, $plotcolor);
+        #if (defined $plotheight || defined $plotwidth) {
+        #    # If custom plot height and/or width specified
+        #    do_histogram_plots($histofile, $title, $plotwidth, $plotheight);
+        #} else {
+        #    # Else use defaults (currently 240 x 240)
+        #    do_histogram_plots($histofile, $title, 240, 240);
+        #}
     }
     if (defined $treefile) {
         do_phylog_tree($treefile);
@@ -203,13 +353,13 @@ sub csv2hash {
     # CSV file to hash
     my ($infile, $delim) = @_;
     my %hash;
-    open (IN, "<", $infile) or die ("Cannot open file $infile for reading: $!");
-    while (<IN>) {
+    open (my $fhin, "<", $infile) or die ("Cannot open file $infile for reading: $!");
+    while (<$fhin>) {
         chomp;
         my @splitline = split "$delim";
         $hash{$splitline[0]} = $splitline[1];
     }
-    close(IN);
+    close($fhin);
     return (\%hash);
 }
 
@@ -464,7 +614,7 @@ sub hash2barchart {
         print $fh "<text ".
                   "x=\"$x_text\" ".
                   "y=\"$y_text\" ".
-                  "style=\"$text_style"."text-anchor:left;\" ".
+                  "style=\"$text_style"."text-anchor:start;\" ".
                   ">".
                   $attr_text. # Attribute effects on mouseover
                   $rect_vals{$rect}{"label"}.
@@ -485,17 +635,30 @@ sub hash2barchart {
 ### SUBROUTINES FOR HISTOGRAM #################################################
 
 sub do_histogram_plots {
+    # Get input parameters
     my ($infile,    # Input filename
         $title,     # Optional title
-        ) = @_;
+        $width,     # Optional SVG plot width - passed to viewBox
+        $height,    # Optional SVG plot height -passed to viewBox
+        $color,     # Optional SVG fill color
+       ) = @_;
+
+    # Check if options defined, else substitute defaults
+    $width = defined $width ? $width : 240;
+    $height = defined $height ? $height : 240;
+    $color = defined $color ? $color : "rgb(155,155,155)";
 
     # SVG and Plot parameters for histograms
-    my @viewBox_arr = (0, 0, 240, 240);         # Viewbox parameter for SVG header - x y width height
+    my @viewBox_arr = (0, 0, $width, $height);         # Viewbox parameter for SVG header - x y width height
     my $viewBox = join " ", @viewBox_arr;
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
-    my @box_coords = (40, 220, 20, 200); # Bounding box coordinates for plot area
-                                         # left right bottom top - NB: DIFFERENT FROM VIEWBOX -
-    my $fill_style = "fill:rgb(155,155,155);fill-opacity:0.5;stroke:none"; # Style for histogram bars
+    # Bounding box coordinates for plot area
+    my @box_coords = (40,               # Left margin -  leave space for labels
+                      $width - 20,      # Right margin
+                      20,               # Bottom margin
+                      $height - 40,     # Top margin - leave space for title
+                      ); #
+    my $fill_style = "fill:$color;fill-opacity:0.5;stroke:none"; # Style for histogram bars
 
     # Plot histogram
     my $infile_out = "$infile.svg";       # Append .svg to get output file name
@@ -506,7 +669,7 @@ sub do_histogram_plots {
     print $histo_fh $svg_open;                  # Print SVG header
     if (defined $title) {                       # Print title if defined
         print $histo_fh "<text ".
-                        "style=\"fill:black;font-size:14;text-anchor:middle;font-weight:bold;\" ".
+                        "style=\"fill:black;font-size:14px;text-anchor:middle;font-weight:bold;\" ".
                         "x=\"".($viewBox_arr[2]/2)."\" ".
                         "y=\"18\" ".
                         ">".
@@ -552,7 +715,7 @@ sub draw_histogram {
     }
     # Axis tick marks - should have ca. ten tick marks
     my @xax_ticks = tick_intervals(min(@$breaks_aref), max(@$breaks_aref));
-    my @yax_ticks = tick_intervals(min(@$counts_aref), max(@$counts_aref));
+    my @yax_ticks = tick_intervals(min(@$counts_aref), max(@$counts_aref),15);
     # Rescale to the bounding box coordinates
     my ($xax_ticks_rescale_aref, $yax_ticks_rescale_aref) = val2coord ($viewBox, $box_aref, \@boxval, \@xax_ticks, \@yax_ticks);
     # Axis style and positions
@@ -650,12 +813,20 @@ sub svg_axis_ticks {
 
 sub tick_intervals { # Value space
     # Determine intervals for tick marks of an axis, given the min and max vals
-    # should have ca. ten tick marks
-    my ($min, $max) = @_;
+    # should have ca. ten tick marks, and also scale with the plot height
+    my ($min,           # Minimum value for axis
+        $max,           # Maximum value for axis
+        $max_ticks,     # Optional maximum number of tick marks
+        ) = @_;
     # Interval is based on first significant digit
     my $int = 10**(floor(log($max - $min)/log(10) - 0.5));
     # Generate tick marks, with some buffer on ends
     my @ticks = ceil($min/$int + 0.5) .. floor($max/$int - 0.5);
+    # If there are more than ten tick marks, redo intervals
+    if (defined $max_ticks && scalar @ticks > $max_ticks) {
+        $int = 10**(floor(log($max - $min)/log(10) - 0.5) + 1);
+        @ticks = ceil($min/$int + 0.5) .. floor($max/$int - 0.5);
+    }
     @ticks = map {$_ * $int} @ticks;
     # Add min and max values to the tick marks
     unshift @ticks, $min;
@@ -669,15 +840,20 @@ sub read_hist {
     # keys - column 1
     # values - column 2 (no. observations)
     my ($file, $href) = @_;
-    open(IN, "<", $file) or die ("Cannot open $file: $!");
-    while (<IN>) {
+    open(my $fhin, "<", $file) or die ("Cannot open $file: $!");
+    while (<$fhin>) {
         chomp;
         unless (m/^#/) { # Skip comment lines
             my @splitline = split /\t/;
-            $href->{$splitline[0]} = $splitline[1] unless $splitline[1] == 0; # Skip zeroes
+            my ($col1, $col2) = ($splitline[0], $splitline[1]);
+            if (defined $decimalcomma) {
+                $col1 =~ s/,/\./;
+                $col2 =~ s/,/\./;
+            }
+            $href->{$col1} = $col2 unless $col2 == 0; # Skip zeroes
         }
     }
-    close(IN);
+    close($fhin);
 }
 
 sub hist_min_max_n { # VALUE SPACE
@@ -792,17 +968,16 @@ sub rect_params { # COORD SPACE
 sub do_phylog_tree { # Global vars
     my ($infile) = @_;
     my @treearr; # Array to store lines of tree
-    open(IN, "<", $infile) or die ("Cannot open for reading $infile: $!");
-    while (<IN>) {
+    open(my $fhin, "<", $infile) or die ("Cannot open for reading $infile: $!");
+    while (<$fhin>) {
         chomp;
         push @treearr, $_;
     }
-    close(IN);
+    close($fhin);
     my $treefile_out = "$infile.svg"; # Append .svg suffix to infile name for output
     my $treestr = join "", @treearr; # Concatenate all lines of Newick file into a single string
 
     draw_tree($treestr, $treefile_out);
-
 }
 
 sub draw_tree {
@@ -817,13 +992,14 @@ sub draw_tree {
     #dump_taxon_data($taxa_href); # diagnostics
 
     # SVG and Plot parameters for tree
-    my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 400);
+    my ($vb_x, $vb_y, $vb_width, $vb_height) = (0, 0, 600, 200);
     # Count number of taxa to calculate image height
     my $num_taxa = scalar (keys %$taxa_href);
     if ($num_taxa > 10) {   # Make image larger if number of taxa is large
-        $vb_height = 40*$num_taxa;
+        $vb_height = 30*$num_taxa;
     }
-    my $viewBox = join " ", ($vb_x, $vb_y, $vb_width, $vb_height); # Viewbox parameter for SVG header
+    # A fudge for the viewBox to add 50 pixels for control buttons
+    my $viewBox = join " ", ($vb_x, ($vb_y - 50), $vb_width, ($vb_height + 50 ) ); # Viewbox parameter for SVG header
     my $svg_open = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"$viewBox\" width=\"100%\" height=\"100%\">\n";
     my $linestyle = "stroke:rgb(0,0,0);stroke-width:1"; # Style for drawing lines
 
@@ -838,35 +1014,389 @@ sub draw_tree {
     # Scale font size by the length of the longest taxon label
     my $textlength = max (@namelens);
     my $fontsize;
-    if ($textlength < 150) { # If label is shorter than 150 chars, scale to max 8
+    if ($textlength < 150) { # If label is shorter than 150 chars, scale to max 10
                              # 150 chars at font size 4 will have width roughly 300
-        $fontsize = 8 - 4 * $textlength / 150;
-    } else { # Minimum font size is 4, else illegible
-        $fontsize = 4;
+        $fontsize = 10 - 6 * $textlength / 150;
+    } else { # Minimum font size is 6, else illegible
+        $fontsize = 6;
     }
-    my $textwidth = $fontsize/2 * $textlength;
+    my $textwidth = 1.1 * $fontsize/2 * $textlength;
 
     # Adjust proportion of plot taken up by tree branches according to the space occupied by tree
     my $treewidth = $vb_width - $textwidth;
     my $br_scalefactor = $treewidth/max(@brlens);
 
+    # Hash in read coverage data for assembled taxa and which kinds of
+    # full-length sequences are present, if csv file supplied supplied:
+    my $bubble_scalefactor; # Scaling factor for bubbles
+    my ($spades_flag, $emirge_flag); # Flags for whether these types of sequences present
+    if (defined $assemcov) {
+        ($bubble_scalefactor, $spades_flag, $emirge_flag)
+            = match_tree_taxon_to_read_coverage($taxa_href,
+                                                $assemcov,
+                                                $treewidth,
+                                                $vb_width,
+                                                $vb_height,
+                                                $unassem_count);
+    }
+
+    # If original Fasta file is supplied, match substituted names to originals
+    if (defined $fastafile) { # NB: $fastafile is a global var
+        my $rename_href = original_names_from_fasta($fastafile);
+        foreach my $ID (keys %$taxa_href) {
+            my $taxname = ${$taxa_href}{$ID}{"name"};
+            my $shortid;
+            # If SPAdes identifier
+            if ($taxname =~ m/^\d+_\w+_(PFspades_\d+)_/) {
+                $shortid = $1;
+            }
+            # If EMIRGE identifier
+            elsif ($taxname =~ m/^\d+_\w+_(PFemirge_\d+)_/) {
+                $shortid = $1;
+            }
+            # If reference sequence
+            elsif ($taxname =~ m/^\d+_(\w+)_\d+_\d+_/) {
+                $shortid = $1;
+            }
+            # Check whether a matching original header can be found
+            if (defined ${$rename_href}{$shortid}) {
+                ${$taxa_href}{$ID}{"original_name"} = ${$rename_href}{$shortid};
+            } else {
+                print STDERR "Original name not found for shortid $shortid\n";
+            }
+        }
+    }
+
     # Draw SVG and write to file
     open(my $fh, ">", $outfile) or die ("Cannot open $outfile for writing: $!");
     print $fh $svg_open;
-    foreach my $key (keys %{$nodes_href}) {
-        draw_node($key,$nodes_href, $br_scalefactor, $linestyle, $fh);
+    # Draw bubbles first so that they are below other tree elements
+    if (defined $assemcov) {
+        # Draw switches for turning bubbles on and off
+        draw_bubble_switches($spades_flag, $emirge_flag, $fh);
+        # Draw bubbles for each taxon in tree
+        foreach my $key (keys %{$taxa_href}) {
+            draw_bubbles($key,$taxa_href,$br_scalefactor,$bubble_scalefactor,$vb_height,$fh,);
+        }
     }
+    # Draw bubble representing unassembled reads if supplied
+    if (defined $unassem_count) {
+        draw_bubble_unassembled($unassem_count,$bubble_scalefactor,$vb_height, $vb_width, $fh);
+    }
+    # Draw branches for internal nodes
+    foreach my $key (keys %{$nodes_href}) {
+        draw_node($key,$nodes_href, $br_scalefactor, $vb_height, $linestyle, $fh);
+    }
+    # Draw taxon labels and leaf branches
     foreach my $key (keys %{$taxa_href}) {
-        draw_taxon($key,$taxa_href, $br_scalefactor, $linestyle, $fontsize, $fh);
+        draw_taxon($key,$taxa_href, $br_scalefactor, $vb_height, $linestyle, $fontsize, $fh);
     }
     print $fh "</svg>\n";
     close($fh);
+}
+
+sub draw_bubble_switches {
+    # Draw buttons on tree to turn the bubbles representing 
+    my ($spades,    # Draw for SPAdes?
+        $emirge,    # Draw for EMIRGE?
+        $fh,
+        ) = @_;
+    
+    # Start positions for each group of labels, SPAdes always on left:
+    my $sstart = 190;
+    my $estart = 325;
+    # If no SPAdes switches to draw, then move EMIRGE switches to the left
+    if ($spades == 0 && $emirge == 1) {
+        $estart = 190;
+    }
+    # Standard offset values for elements in the switch grouping
+    my @std_offsets = (0, 10, 25, 40, 55);
+    
+    # No caption if nothing to draw - in practice this will never happen with phyloFlash
+    if ($spades + $emirge > 0) {
+        print $fh "<g id=\"switches\">\n";
+        print $fh "\t<text x=\"20\" y=\"-20\" style=\"font-size:10px;text-anchor:start\" >Toggle reads mapped:</text>\n";
+    }
+    
+    # Draw box labels for SPAdes?
+    if ($spades == 1) {
+        # Calculate x-position offsets
+        my ($posLabel,$posOn,$posOnText,$posOff,$posOffText) = map {$_ + $sstart} @std_offsets;
+        # text label
+        print $fh "\t<text x=\"$posLabel\" y=\"-20\" style=\"fill:blue;font-size:9px;text-anchor:end;\" >SPAdes</text>\n";
+        # SPAdes ON
+        print $fh "\t<rect id=\"spadesBubbleOn\" x=\"$posOn\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(93,173,226);opacity:1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOnText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(254,254,254);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "I</text>\n";
+        # SPAdes OFF
+        print $fh "\t<rect id=\"spadesBubbleOff\" x=\"$posOff\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(93,173,226);opacity:0.1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOffText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(214,234,248);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"spadesBubbleOff.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"spadesBubbleOn.click\" />";
+        print $fh "O</text>\n";
+    }
+    
+    if ($emirge == 1) {
+        my ($posLabel,$posOn,$posOnText,$posOff,$posOffText) = map {$_ + $estart} @std_offsets;
+        print $fh "\t<text x=\"$posLabel\" y=\"-20\" style=\"fill:green;font-size:9px;text-anchor:end;\" >EMIRGE</text>\n";
+        #EMIRGE ON
+        print $fh "\t<rect id=\"emirgeBubbleOn\" x=\"$posOn\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(88,214,141);opacity:1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOnText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(254,254,254);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "I</text>\n";
+        #EMIRGE OFF
+        print $fh "\t<rect id=\"emirgeBubbleOff\" x=\"$posOff\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(88,214,141);opacity:0.1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOffText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(214,234,248);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"emirgeBubbleOff.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"emirgeBubbleOn.click\" />";
+        print $fh "O</text>\n";
+    }
+    
+    if ($spades + $emirge > 0) {
+        print $fh "</g>\n";
+    }
+
+}
+
+sub original_names_from_fasta {
+    # MAFFT substitutes special characters with underscore in the Newick
+    # guidetree. This looks ugly and also truncates names.
+    # If given the original Fasta file, substitute the reformatted tree labels
+    # with the original labels in Fasta file
+    
+    # Return ref to hash of accession numbers (key) and full labels (value)
+    my ($fastafile) = @_;
+    
+    my %hash;
+    # Open Fasta file and read 
+    my $fh_in;
+    open($fh_in, "<", $fastafile) or die ("Cannot open file $fastafile: $!");
+    while (my $line = <$fh_in>) {
+        if ($line =~ m/^>(.+)/) { # Get header lines
+            my $head = $1;
+            chomp $head;
+            # If EMIRGE reconstructed sequence extract identifier
+            if ($head =~ m/^\S+\.(PFemirge_\d+)_/) {
+                $hash{$1} = $head;
+            }
+            # If SPAdes assembled sequence extract identifier
+            elsif ($head =~ m/^\S+\.(PFspades_\d+)/) {
+                $hash{$1} = $head;
+            }
+            # If a reference sequence, get accession number without start/stop pos
+            elsif ($head =~ m/^(\w+)\.\d+\.\d+ /) {
+                $hash{$1} = $head;
+            }
+            # Otherwise report problem
+            else {
+                print STDERR "Malformed sequence header: $head\n in Fasta file $fastafile \n";
+            }
+        }
+    }
+    close($fh_in);
+    
+    return (\%hash);
+}
+
+sub match_tree_taxon_to_read_coverage {
+    # Parse Readcov value from CSV file
+    # Match SPAdes taxon name in CSV file to href taxon and save field
+    my ($taxa_href, $csv, $treewidth, $vb_width, $vb_height, $unassem_count) = @_;
+
+    my @covs;
+    my $spades_flag = 0; # Report whether any SPAdes taxa found
+    my $emirge_flag = 0; # Report whether any EMIRGE taxa found
+    
+    # Open CSV
+    my $fh_in;
+    open($fh_in, "<", $csv) or die ("Cannot open file $csv: $!");
+    while (<$fh_in>) {
+        next if m/^OTU,read_cov/; # Skip header line
+        my @split = split /,/;
+        if ($split[0] =~ m/(PFspades_\d+)/) {
+            $spades_flag = 1;
+            my $csvid = $1;
+            # Find the matching taxon name in tree
+            foreach my $key (keys %$taxa_href) {
+                if ($taxa_href->{$key}{"name"} =~ m/(PFspades_\d+)/) {
+                    my $treeid = $1;
+                    if ($treeid eq $csvid) {
+                        $taxa_href->{$key}{"readcov"} = $split[1];
+                        $taxa_href->{$key}{"source"} = "SPAdes";
+                        push @covs, $split[1];
+                    }
+                }
+            }
+        }
+        if ($split[0] =~ m/(PFemirge_\d+)/) {
+            $emirge_flag = 1;
+            my $csvid = $1;
+            # Find the matching taxon name in tree
+            foreach my $key (keys %$taxa_href) {
+                if ($taxa_href->{$key}{"name"} =~ m/(PFemirge_\d+)/) {
+                    my $treeid = $1;
+                    if ($treeid eq $csvid) {
+                        $taxa_href->{$key}{"readcov"} = $split[1];
+                        $taxa_href->{$key}{"source"} = "EMIRGE";
+                        push @covs, $split[1];
+                    }
+                }
+            }
+        }
+    }
+    close($fh_in);
+
+    # We want the bubble diams to be max 20% of the plot width
+    if (defined $unassem_count) {
+        # If a bubble is to be drawn for unassembeld reads
+        push @covs, $unassem_count;
+    }
+    my $maxcov = max(@covs);
+    my $maxradius_raw = sqrt ($maxcov / 3.14159265);
+    my $bubblefactor = 0.10 * $vb_width / $maxradius_raw;
+    return ($bubblefactor, $spades_flag, $emirge_flag);
+}
+
+sub draw_bubble_unassembled {
+    my ($unassem_count, # Number of unassembled reads - to draw the bubble
+        $bubble_sf,     # Scaling factor for bubble radii
+        $vb_height,     # Plot area height, to calculate vertical position
+        $vb_width,      # Plot area width, for to be calculate position the horizontal
+        $handle,        # File handle for printing
+        ) = @_;
+    my $bubbleradius = $bubble_sf * sqrt($unassem_count / 3.14159265);
+    my $cy = $vb_height - $bubbleradius;
+    my $cx = $vb_width - $bubbleradius;     # At right bottom corner
+    # Print bubble for unassembled reads
+    print $handle "<circle ".
+                  "id=\"circle_unassembled\" ".
+                  "cx=\"$cx\" ".
+                  "cy=\"$cy\" ".
+                  "r=\"".$bubbleradius."px\" ".
+                  "style=\"fill:rgb(255,200,200);fill-opacity:0.25;stroke:blue;stroke-opacity:0.1;\" />";
+    # Print label for the unassembled
+    print $handle "<text ".
+                  "x=\"$cx\" ".
+                  "y=\"".($vb_height-12)."\" ".
+                  "visibility=\"hidden\" ".
+                  "style=\"text-anchor:end;font-size:12px;fill:rgb(255,180,180);\" >";
+    # Animate text on mouseover of the corresponding taxon leaf
+    print $handle "<set ".
+                  "attributeName=\"visibility\" ".
+                  "to=\"visible\" ".
+                  "begin=\"circle_unassembled.mouseover\" ".
+                  "end=\"circle_unassembled.mouseout\" />";
+    print $handle "Unassembled SSU reads: $unassem_count".
+                  "</text>\n";
+}
+
+sub draw_bubbles {
+    # Draw bubbles corresponding to abundance of taxon, if taxon appears in tree
+    my ($taxonID,   # Taxon ID
+        $href,      # Ref to hash of taxa
+        $branch_sf, # Scaling factor for branches (so that bubble will appear at leaf)
+        $bubble_sf, # Scaling factor for bubble radii
+        $vb_height, # Plot area height, to calculate vertical position
+        $handle,    # File handle for printing
+        ) = @_;
+    if (defined $href->{$taxonID}{"readcov"}) {
+        my @param_names = qw(vpos cumul_brlen readcov source);
+        my @params;
+        foreach my $pname (@param_names) {
+            push @params, ${$href}{$taxonID}{$pname};
+        }
+        my ($vpos, $cumul_brlen, $readcov, $source) = @params;
+        # Rescale horizontal position
+        $cumul_brlen = $cumul_brlen * $branch_sf;
+        # Rescale vertical position
+        $vpos = $vpos * $vb_height/100;
+        # Calculate radius of bubble
+        my $bubbleradius = $bubble_sf * sqrt($readcov / 3.14159265);
+        
+        # Calculate position of text label (same vertical height, offset to the left)
+        my $textx = $cumul_brlen - ($bubbleradius / 2);
+        my $texty = $vpos;
+        
+        # Customize switch names, bubble colors, depending on source
+        # of the sequence (SPAdes vs EMIRGE)
+        my ($switchon, $switchoff, $bubblefill, $bubblestroke);
+        if ($source eq "SPAdes") {
+            $switchon = "spadesBubbleOn";
+            $switchoff = "spadesBubbleOff";
+            $bubblefill = "rgb(174,214,241)";   # Light blue
+            $bubblestroke = "rgb(27,79,114)"    # Dark blue
+        } elsif ($source eq "EMIRGE") {
+            $switchon = "emirgeBubbleOn";
+            $switchoff = "emirgeBubbleOff";
+            $bubblefill = "rgb(213,245,227)";   # Light green
+            $bubblestroke = "rgb(24,106,59)";   # Dark green
+        }
+        # Old color: rgb(255,235,205)
+        
+        # Print SVG tag
+        # Circle element
+        print $handle "<circle ".
+                      "id=\"circle_$taxonID\" ".
+                      "cx=\"$cumul_brlen\" ".
+                      "cy=\"$vpos\" ".
+                      "r=\"".$bubbleradius."px\" ".
+                      "visibility=\"visible\" ".
+                      "style=\"fill:$bubblefill;fill-opacity:0.25;stroke:$bubblestroke;stroke-opacity:0.1;\" >";
+        # Animate circle on mouseover of the corresponding taxon leaf
+        print $handle "<set ".
+                      "attributeName=\"fill-opacity\" ".
+                      "to=\"1\" ".
+                      "begin=\"$taxonID.mouseover\" ".
+                      "end=\"$taxonID.mouseout\" />";
+        # Show/hide visbility of circle when button clicked
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"visible\" ".
+                      "begin=\"$switchon.click\" />";
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"hidden\" ".
+                      "begin=\"$switchoff.click\" />";
+        print $handle "</circle>";
+        # Text label giving number of reads
+        print $handle "<text ".
+                      "x=\"$textx\" ".
+                      "y=\"$texty\" ".
+                      "visibility=\"hidden\" ".
+                      "style=\"font-size:10px;text-anchor:end;fill:rgb(255,128,0)\" ".
+                      ">";
+        # Animate text on mouseover of the corresponding taxon leaf
+        print $handle "<set ".
+                      "attributeName=\"visibility\" ".
+                      "to=\"visible\" ".
+                      "begin=\"$taxonID.mouseover\" ".
+                      "end=\"$taxonID.mouseout\" />";
+        # Display reads mapping to this seq
+        print $handle "Reads: $readcov";
+        print $handle "</text>\n";
+    }
 }
 
 sub draw_taxon {
     my ($taxonID,   # Taxon ID to draw
         $href,      # Hash reference for taxa hash
         $sf,        # Scaling factor for branch lengths to fit plot
+        $vb_height, # Height of plot
         $style,     # SVG line style
         $fontsize,  # Font size
         $handle,    # File handle for writing
@@ -877,8 +1407,23 @@ sub draw_taxon {
         push @params, ${$href}{$taxonID}{$pname};
     }
     my ($vpos, $cumul_brlen, $brlen, $name) = @params;
+    # Rescale branch lengths by scaling factor
     ($cumul_brlen, $brlen) = map {$_ * $sf} ($cumul_brlen, $brlen);
+    # Rescale vertical position by viewbox height ($vpos is expressed as percentage)
+    $vpos = $vpos * $vb_height / 100;
     my $prenode = $cumul_brlen - $brlen;
+    # Style for text label
+    my $textstyle = "font-size:".$fontsize."px;";
+
+    # Color the text label blue/green if it is an assembled or reconstructed sequence
+    if (${$href}{$taxonID}{"name"} =~ m/PFspades/) { 
+        $textstyle .= "fill:blue;";
+    } elsif (${$href}{$taxonID}{"name"} =~ m/PFemirge/) {
+        $textstyle .= "fill:green;";
+    }
+    # Use original name if available, else the name found in tree
+    $name = defined ${$href}{$taxonID}{"original_name"} ? ${$href}{$taxonID}{"original_name"} : $name;
+
     # Grouping tag
     print $handle "<g id=\"$taxonID\">\n";
     print $handle "\t<line ".
@@ -891,7 +1436,7 @@ sub draw_taxon {
     print $handle "\t<text ".
                   "x=\"$cumul_brlen\" ".
                   "y=\"$vpos\" ".
-                  "font-size=\"$fontsize\" ".
+                  "style=\"$textstyle\" ".
                   ">";
     print $handle $name;
     print $handle "</text>\n";
@@ -902,6 +1447,7 @@ sub draw_node {
     my ($nodeID,    # Target node to draw
         $href,      # Node hash
         $sf,        # branch length scale factor
+        $vb_height, # Height of plot
         $style,     # SVG line style
         $handle     # File handle for print
         ) = @_;
@@ -913,6 +1459,8 @@ sub draw_node {
     my($vpos,$leftdesc_vpos,$rightdesc_vpos,$cumul_brlen,$brlen) = @params;
     # Rescale branch lengths
     ($cumul_brlen,$brlen) = map {$_ * $sf} ($cumul_brlen, $brlen);
+    # Rescale vertical position ($vpos is expressed as percentage)
+    ($vpos,$leftdesc_vpos,$rightdesc_vpos) = map {$_ * $vb_height / 100} ($vpos,$leftdesc_vpos,$rightdesc_vpos);
     my $prenode = $cumul_brlen - $brlen;
     # Grouping tag
     print $handle "<g id=\"$nodeID\" style=\"$style\">\n";
@@ -963,7 +1511,6 @@ sub newick2tables {
     $nodes{"0"}{"cumul_brlen"} = 0;
 
     foreach my $line (@treesplit) {
-        #print STDERR "$line\n";
         if ($line =~ m/^\($/) { # Lone open paren
             ($nodecount, $currnode, $parent) = increment_node($nodecount, $currnode, $parent, \%nodes);
         } elsif ($line =~ m/^\((.+):([\d\.]+)/) { # Open paren with taxon
@@ -979,8 +1526,6 @@ sub newick2tables {
         } elsif ($line =~ m/^\);/) { # Close paren with semicolon
             ($currnode, $parent) = climbdown_node(0, $currnode, $parent, \%nodes); # Root node has brlen zero
         }
-        #print STDERR join "\t", ($nodecount, $currnode, $parent);
-        #print STDERR "\n";
     }
 
     sum_cumul_brlen(\%nodes, \%taxa);      # Sum cumulative branchlengths (this can only be done after reading tree in)
@@ -1126,3 +1671,25 @@ sub increment_taxon {
     return ($tc # $taxcount
             );
 }
+
+
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2017 by Brandon Seah <kbseah@mpi-bremen.de>
+
+LICENCE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut

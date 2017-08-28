@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!--This is a template file for phyloFlash v3.0 report output.
+    Comment tags in all-uppercase are flags to the write_report_html
+    function in phyloFlash.pl to substitute field values for a
+    given phyloFlash run. -->
 <html>
 <head>
 <title>phyloFlash results summary for library <!--LIBNAME--></title>
@@ -60,49 +64,65 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
 <style type="text/css">
   body {
-    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;}
+    font-family: "Helvetica", "Gill Sans", "Gill Sans MT", sans-serif;
+    max-width:1200px;
+    margin:auto;
+  }
 
+  /*Tabular output*/
   th {
     background-color: #dee;
-    padding: .5em .5em .5em .5em;
-    font-weight: bold;}
+    padding: .5em;
+    font-weight: bold;
+  }
   td {
-    padding: 0em .5em 0em .5em;}
-
+    padding: 0em .5em 0em .5em;
+  }
   table.slimTable th {
     padding: 0em .5em 0em .5em;
     font-weight: normal;
-    text-align: right;}
+    text-align: right;
+  }
 
   .withHoverText {
     text-decoration: none;
-    border-bottom: 1px grey dotted;}
+    border-bottom: 1px grey dotted;
+  }
 
+  /*Show/hide on click*/
   .more { display: none; }
   a.showLink { text-decoration: none; }
   a.showLink:link { color: grey; }
   a.showLink:visited { color: grey; }
   a.showLink:hover { color: white;
-    background-color: grey; }
+    background-color: grey;
+  }
 
-  .suppress {
-    display: none; }
+  /*Format code snippets*/
+  .code {
+    font-family:monospace;
+  }
 
+  /*Arrangement of graphical summary*/
   .fullwidth {
-    max-width: 1600px;
+    max-width: 1200px;
     width: 100%;
-    margin: 0;
+    margin: auto;
     padding: 0px;
-    border: 0px solid grey; }
-  .col1, .col2, .col3 {
+    border: 0px solid grey;
+  }
+  .col20pc, .col40pc, .col50pc {
     display: inline-block;
     vertical-align: top;
     padding: 0px;
     margin: 0;
-    border: 0px solid grey; }
-  .col1 { width:20%; }
-  .col2 { width:20%; }
-  .col3 { width:50%; }
+    border: 0px solid grey;
+  }
+  .col20pc { width:20%; }
+  .col40pc { width:40%; }
+  .col50pc { width:50%; }
+
+  /*Tooltip text for graphical summary*/
   .tooltip .tooltiptext {
     position: relative;
     display: inline-block;
@@ -115,9 +135,11 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     padding: 5px;
     font-size:12px;
     position: absolute;
-    z-index: 1; }
+    z-index: 1;
+  }
   .tooltip:hover .tooltiptext {
-    visibility:visible; }
+    visibility:visible;
+  }
 </style>
 </head>
 <body>
@@ -161,7 +183,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
       <path id="path3023" style="font-size:144px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#aa8800;fill-opacity:1;stroke:none;font-family:Liberation Sans;-inkscape-font-specification:Liberation Sans" d="m 442.68429,27.382875 c 1.89325,-2.244902 3.82167,-4.075947 5.78533,-5.493325 1.97294,-1.463143 4.04108,-2.572123 6.20442,-3.326836 2.16323,-0.754536 4.44462,-1.150144 6.84418,-1.186825 2.40884,-0.08255 5.03708,0.166631 7.8847,0.747634 4.77654,0.974625 8.54933,2.413994 11.31826,4.318595 2.81473,1.913993 4.85584,4.220119 6.12326,6.918569 1.32257,2.661992 1.97741,5.66604 1.96452,9.012143 0.0328,3.355684 -0.34427,6.962439 -1.13137,10.820411 l -10.13499,49.671894 -12.46964,-2.544289 9.643,-47.260632 c 0.64655,-3.169039 1.00682,-5.989895 1.08084,-8.46257 0.11981,-2.463223 -0.21208,-4.58809 -0.99569,-6.374602 -0.77436,-1.832388 -2.09228,-3.345165 -3.95377,-4.538333 -1.85226,-1.238946 -4.38582,-2.186543 -7.6008,-2.842506 -2.93947,-0.599747 -5.71111,-0.615062 -8.31487,-0.04615 -2.55796,0.578518 -4.88339,1.658897 -6.97631,3.241134 -2.04705,1.591647 -3.81098,3.67162 -5.2918,6.239869 -1.48088,2.568337 -2.57272,5.574815 -3.27553,9.019424 l -8.96827,43.953769 -12.40075,-2.530236 20.86035,-102.237261 12.40077,2.530169 -5.42594,26.592738 c -0.30927,1.51574 -0.64152,3.026712 -0.99666,4.532938 -0.3552,1.506315 -0.70996,2.893094 -1.06416,4.160268 -0.30839,1.276669 -0.57917,2.369582 -0.81257,3.278782 -0.22426,0.863189 -0.39175,1.450944 -0.5032,1.763068 l 0.20661,0.04244" />
     </g>
   </g>
-</svg><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a> - high throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
+</svg><!--VERSION--></a> by <a href="mailto:hgruber@mpi-bremen.de">Harald Gruber-Vodicka</a>, Elmar Pruesse, Brandon Seah</h3>
+<h3>High throughput phylogenetic screening using SSU rRNA gene(s) abundance(s)</h3>
 <p>Click on report section headers to expand, mouse-over underlined text to see explanations.</p>
 
 <h1>Library name: <!--LIBNAME--></h1>
@@ -169,26 +192,44 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <h2>Graphical Summary</h2>
 <p>Mouseover on panels to expand details.</p>
 <div class="fullwidth">
-  <div class="col1">
+  <div class="col20pc">
     <div class="tooltip"><!--IDHISTOGRAM--><span class="tooltiptext">Read-mapping %identity of reads vs. reference database. Lower %identity hits may indicate presence of divergent taxa not represented in the database.</span></div>
 <!--SUPPRESS_IF_SE_READS-->
     <div class="tooltip"><!--INSERTHISTOGRAM--><span class="tooltiptext">Insert sizes for read pairs. Distribution should generally be unimodal; more than one peak may indicate contamination from other libraries.</span></div>
 <!--SUPPRESS_IF_SE_READS_END-->
   </div>
-  <div class="col2">
+  <div class="col20pc">
     <div class="tooltip"><!--MAPRATIOPIE--><span class="tooltiptext">Proportion of reads mapped to SSU rRNA database. Typically < 1% for metagenomes, ca. 20% for metatranscriptomes without rRNA depletion or poly-A selection.</span></div>
 <!--SUPPRESS_IF_SKIP_SPADES-->
     <div class="tooltip"><!--ASSEMBLYRATIOPIE--><span class="tooltiptext">Proportion of reads assembled to full-length sequences. High proportion unassembled suggest either assembly failure or high diversity of organisms with low coverage.</span></div>
 <!--SUPPRESS_IF_SKIP_SPADES_END-->
   </div>
-  <div class="col3">
+  <div class="col50pc">
     <!--TAXONSUMMARYBAR-->
   </div>
 </div>
+<!--SUPPRESS_IF_NO_POSCOV-->
+<div class="fullwidth">
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_EUK--><span class="tooltiptext">Coverage evenness across eukaryotic 18S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks). For the eukaryotic model it is normal to see one or two regions with low coverage because of variable regions in the 18S rRNA gene that are not present in all organisms.</span></div>
+  </div>
+  <div class="col40pc">
+    <div class="tooltip"><!--POSCOVHIST_PROK--><span class="tooltiptext">Coverage evenness across prokaryotic 16S rRNA gene model from Barrnap, using Nhmmer from random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks).</span>
+    </div>
+  </div>
+</div>
+<!--SUPPRESS_IF_NO_POSCOV_END-->
+<!--SUPPRESS_IF_NO_TREE-->
+<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to expand)</a></h3>
+<div id="tree" class="more">
+<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes and EMIRGE full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner.</p>
+<p><b>Color key: </b><span style="color:blue;">Full-length sequences assembled by SPAdes</span>, <span style="color:green;">Full-length sequences reconstructed by EMIRGE</span>, <span>Closest-matching reference sequence from SILVA database</span></p>
+<!--SEQUENCES_TREE-->
+</div>
+<!--SUPPRESS_IF_NO_TREE_END-->
 
-<h2>Parameters</h2>
+<h2>Input parameters</h2>
 
-<h3>Input parameters</h3>
 <table class="slimTable">
   <tr>
     <th>Input command</th>
@@ -212,7 +253,13 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
     <th>Working folder</th>
     <td><!--CWD--></td>
   </tr>
+  <tr>
+    <th>Database used</th>
+    <td><!--DBHOME--></td>
+  </tr>
 </table>
+
+<h2>Results</h2>
 
 <h3>Mapping statistics</h3>
 <table class="slimTable">
@@ -273,11 +320,10 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
   </table>
 </div>
 
-<h2>Results</h2>
 <h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
-  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping to SSU rRNA database.</p>
-  <table>
+  <p>Approximate overview of taxonomic composition of ALL reads, based on mapping hits to SILVA SSU rRNA database using BBmap.</p>
+  <table class="slimTable">
     <tr>
       <th>NTUs observed once</th>
       <td><!--XTONS0--></td>
@@ -291,7 +337,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
       <td><!--XTONS2--></td>
     </tr>
     <tr>
-      <th><span class="withHoverText" title="Statistical index of alpha diversity in sample, from Chao 1984">NTU Chao1 richness estimate</th>
+      <th><span class="withHoverText" title="Statistical index of alpha diversity in sample, from Chao 1984">NTU Chao1 richness estimate</span></th>
       <td><!--CHAO1--></td>
     </tr>
   </table>
@@ -306,26 +352,49 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 
 <!--SUPPRESS_IF_SKIP_SPADES-->
-<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU assembly based taxa</a></h3>
+<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU rRNA assembly-based taxa</a></h3>
 <div id="spades" class="more">
+<p>Full-length SSU rRNA sequences assembled by SPAdes, matched to SILVA database with Vsearch.</p>
 <table>
   <tr>
     <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
-    <th><span class="withHoverText" title="Read coverage of assembled SSU sequence, from mapping">read_cov</span></th>
-    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">coverage</span></th>
-    <th><span class="withHoverText" title="Closest hit in SSU reference database">dbHit</span></th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th><span class="withHoverText" title="Length of pairwise alignment between assembled SSU sequence and reference">alnlen</span></th>
-    <th>evalue</th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Per-base kmer coverage of assembled SSU sequence, from assembler">Cov</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between assembled SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
   </tr>
 <!--ASSEMBLED_SSU_TABLE-->
 </table>
 </div>
+<!--SUPPRESS_IF_SKIP_SPADES_END-->
 
+<!--SUPPRESS_IF_SKIP_EMIRGE-->
+<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
+<div id="emirge" class="more">
+<p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Ratio of rRNA reads represented by this sequence, reported by EMIRGE">Ratio</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between reconstructed SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
+  </tr>
+<!--EMIRGE_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+
+<!--SUPPRESS_IF_NO_TREE-->
 <h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
-<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences.</p>
+<p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences, based on mapping hits to SILVA SSU rRNA database with BBmap.</p>
 <p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
 <table>
   <tr>
@@ -334,31 +403,6 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
   </tr>
 <!--UNASSEMBLED_READS_TABLE-->
 </table>
-</div>
-<!--SUPPRESS_IF_SKIP_SPADES_END-->
-
-<!--SUPPRESS_IF_SKIP_EMIRGE-->
-<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU reconstruction based taxa</a></h3>
-<div id="emirge" class="more">
-<table>
-  <tr>
-    <th>OTU</th>
-    <th>ratio</th>
-    <th>dbHit</th>
-    <th>taxonomy</th>
-    <th>\%id</th>
-    <th>alnlen</th>
-    <th>evalue</th>
-  </tr>
-<!--EMIRGE_TABLE-->
-</table>
-</div>
-<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
-
-<!--SUPPRESS_IF_NO_TREE-->
-<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Combined tree of sequences</a></h3>
-<div id="tree" class="more">
-<!--SEQUENCES_TREE-->
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
 
@@ -375,12 +419,15 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <p>Gruber-Vodicka H., Pruesse E., Seah B.K.B. 2017. <!--VERSION-->. Online: https://github.com/HRGV/phyloFlash.</p>
 <h4>Cite dependencies when used</h4>
   <ul>
+    <li>Quast C. et al. 2013. The SILVA ribosomal RNA gene database project: improved data processing and web-based tools. <i>Nucl. Acids Res.</i> 41: D590-D596. doi:<a href="http://dx.doi.org/10.1093/nar/gks1219">10.1093/nar/gks1219</a>. <a href="https://www.arb-silva.de">Homepage</a></li>
     <li>Bushnell B. BBMap. Online: <a href="https://sourceforge.net/projects/bbmap/">https://sourceforge.net/projects/bbmap/</a></li>
-    <li>Bankevich A., et al. 2012. SPAdes: A New Genome Assembly Algorithm and Its Applications to Single-Cell Sequencing. <i>J. Comput. Biol.</i> 19 (5): 455-477. doi:<a href="dx.doi.org/10.1089/cmb.2012.0021spades">10.1089/cmb.2012.0021</a>. <a href="http://bioinf.spbau.ru/spades">Homepage</a>.</li>
-    <li>Katoh K., Standley D.M.. 2013. MAFFT Multiple Sequence Alignment Software Version 7: Improvements in Performance and Usability. <i>Mol. Biol. Evol.</i> 30 (4): 772-780. doi:<a href="10.1093/molbev/mst010">10.1093/molbev/mst010</a>. <a href="http://mafft.cbrc.jp/alignment/software/">Homepage</a></li>
-    <li>Rognes T. et al. 2016. VSEARCH: a versatile open source tool for metagenomics. <i>PeerJ</i> 4: e2584. doi:<a href="10.7717/peerj.2584">10.7717/peerj.2584</a>. <a href="https://github.com/torognes/vsearch">Homepage</a></li>
-    <li>Miller C.S. et al. 2011. EMIRGE: reconstruction of full-length ribosomal genes from microbial community short read sequencing data. <i>Genome Biol.</i> 12: R44. doi:<a href="dx.doi.org/10.1186/gb-2011-12-5-r44">10.1186/gb-2011-12-5-r44</a>. <a href="https://github.com/csmiller/EMIRGE">Homepage</a></li>
+    <li>Bankevich A., et al. 2012. SPAdes: A New Genome Assembly Algorithm and Its Applications to Single-Cell Sequencing. <i>J. Comput. Biol.</i> 19 (5): 455-477. doi:<a href="http://dx.doi.org/10.1089/cmb.2012.0021spades">10.1089/cmb.2012.0021</a>. <a href="http://bioinf.spbau.ru/spades">Homepage</a>.</li>
+    <li>Katoh K., Standley D.M.. 2013. MAFFT Multiple Sequence Alignment Software Version 7: Improvements in Performance and Usability. <i>Mol. Biol. Evol.</i> 30 (4): 772-780. doi:<a href="http://dx.doi.org/10.1093/molbev/mst010">10.1093/molbev/mst010</a>. <a href="http://mafft.cbrc.jp/alignment/software/">Homepage</a></li>
+    <li>Rognes T. et al. 2016. VSEARCH: a versatile open source tool for metagenomics. <i>PeerJ</i> 4: e2584. doi:<a href="http://dx.doi.org/10.7717/peerj.2584">10.7717/peerj.2584</a>. <a href="https://github.com/torognes/vsearch">Homepage</a></li>
+    <li>Miller C.S. et al. 2011. EMIRGE: reconstruction of full-length ribosomal genes from microbial community short read sequencing data. <i>Genome Biol.</i> 12: R44. doi:<a href="http://dx.doi.org/10.1186/gb-2011-12-5-r44">10.1186/gb-2011-12-5-r44</a>. <a href="https://github.com/csmiller/EMIRGE">Homepage</a></li>
     <li>Bedtools. Online: <a href="http://bedtools.readthedocs.io/en/latest/">http://bedtools.readthedocs.io/en/latest/</a></li>
+    <li>Seemann T. Barrnap. Online: <a href="https://github.com/tseemann/barrnap">https://github.com/tseemann/barrnap</a></li>
+    <li>Wheeler T.J., Eddy S.R. 2013. nhmmer: DNA homology search with profile HMMs. <i>Bioinformatics</i> 29 (19): 2487-2489. doi:<a href="http://dx.doi.org/10.1093/bioinformatics/btt403">10.1093/bioinformatics/btt403</a> <a href="http://hmmer.org/">Homepage</a></li>
   </ul>
 </div>
 

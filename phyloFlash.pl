@@ -23,7 +23,7 @@ This tool rapidly approximates the phylogenetic composition of a
 Right now Illumina paired end or single HiSeq and MiSeq reads
 are supported.
 
-=head1 ARGUMENTS
+=head1 INPUT ARGUMENTS
 
 =over 15
 
@@ -34,9 +34,9 @@ only letters, numbers and "_" or "-" (no whitespace or other punctuation).
 
 =item -read1 F<file>
 
-File containing forward reads. Both FASTA and FASTQ formats are understood.
-The file may be compressed (.gz). If interleaved read data is provided, please
-use --interleaved flag for paired-end processing
+Forward reads in FASTA or FASTQ formats. May be compressed with Gzip (.gz
+extension). If interleaved reads are provided, please use I<--interleaved> flag
+in addition for paired-end processing.
 
 =item -read2 F<file>
 
@@ -56,17 +56,39 @@ Print brief help.
 
 Show manual.
 
+=item -outfiles
+
+Show detailed list of output and temporary files and exit.
+
 =back
 
-=head1 OPTIONS
+=head1 LOCAL SETTINGS
 
 =over 15
 
+=item -CPUs I<N>
+
+Set the number of threads to use. Defaults to all available CPU cores.
+
+=item -crlf
+
+Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
+
+=item -decimalcomma
+
+Use decimal comma instead of decimal point to fix locale problems.
+Default: Off
 
 =item -dbhome F<dir>
 
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
+
+=back
+
+=head1 INPUT AND ANALYSIS OPTIONS
+
+=over 15
 
 =item -interleaved
 
@@ -76,10 +98,6 @@ Interleaved readfile with R1 and R2 in a single file at read1
 
 Sets the expected readlength. Always use this if your read length
 differs from 100 (the default). Must be within 50..500.
-
-=item -CPUs I<N>
-
-Set the number of threads to use. Defaults to all available CPU cores.
 
 =item -readlimit I<N>
 
@@ -116,6 +134,42 @@ Default: 4 ("Order")
 Maximum insert size allowed for paired end read mapping. Must be within
 0..1200. Default: 1200
 
+=item -emirge
+
+Turn on EMIRGE reconstruction of SSU sequences
+Default: Off ("-noemirge")
+
+=item -skip_spades
+
+Turn off SPAdes assembly of SSU sequences
+
+=item -sc
+
+Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
+
+=item -poscov
+
+Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
+the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
+coverage evenness.
+Default: Off ("-noposcov")
+
+=item -everything
+
+Turn on all the optional analyses and output options. Options without defaults
+and any local settings must still be specified. Equivalent to "-emirge -poscov
+-treemap -zip -log"
+
+=item -almosteverything
+
+Like I<-everything> except without running EMIRGE.
+
+=back
+
+=head1 OUTPUT OPTIONS
+
+=over 15
+
 =item -html
 
 Generate output in HTML format.
@@ -131,32 +185,20 @@ https://developers.google.com/chart/terms), and is not open source,
 although it is free to use.
 Default: Off ("-notreemap")
 
-=item -crlf
-
-Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
-
-=item -decimalcomma
-
-Use decimal comma instead of decimal point to fix locale problems.
-Default: Off
-
-=item -emirge
-
-Turn on EMIRGE reconstruction of SSU sequences
-Default: Off ("-noemirge")
-
-=item -skip_spades
-
-Turn off SPAdes assembly of SSU sequences
-
-=item -sc
-
-Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
-
 =item -zip
 
 Compress output into a tar.gz archive file
 Default: Off ("-nozip")
+
+=item -keeptmp
+
+Keep temporary/intermediate files
+Default: No ("-nokeeptmp")
+
+=item -log
+
+Write status messages printed to STDERR also to a log file
+Default: Off ("-nolog")
 
 =back
 
@@ -181,8 +223,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 =cut
 
-use strict;
-use warnings;
 
 use FindBin;
 use lib $FindBin::RealBin;
@@ -227,9 +267,12 @@ my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
 my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
+my $poscov_flag = 0;            # Flag - use Nhmmer to estimate positional coverage? (Default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
+my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
+my $keeptmp     = 0;            # Do not delete temporary files (Default = 0, do delete temporary files)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
@@ -244,19 +287,16 @@ my %outfiles;           # Hash to keep track of output files
 my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
-my %taxa_from_hitmaps;          # Hash of read counts from first mapping, keyed by taxon string         # To be replaced
-my @taxa_from_hitmaps_sorted;   # Sorted list of read counts                                            # To be replaced
-my %taxa_from_hitmaps_unassem;          # Hash of read counts for unassembled reads, keyed by taxon string  # To be replaced
-my @taxa_from_hitmaps_unassem_sorted;   # Sorted list of read counts for unassembled reads                  # To be replaced
-
+# Hashes to keep count of NTUs
+my $taxa_full_href;             # Summary of read counts for full-length taxonomy strings (for treemap) - hash ref
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
 
 my $taxon_report_lvl = 4;       # Taxonomic level to report counts
 
 my @ssuassem_results_sorted;    # Sorted list of SSU sequences for reporting
-my %ssuassem_cov;               # Coverage of assembled SSU sequences
 my @ssurecon_results_sorted;
+my %ssufull_hash;
 
 # mapping statistics parsed from BBmap output
 my $readnr = 0;
@@ -319,6 +359,7 @@ sub process_required_tools {
   # binaries needed by phyloFlash
     require_tools(
         bbmap => "bbmap.sh",
+        reformat => "reformat.sh",
         barrnap => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
         vsearch => "vsearch",
         mafft => "mafft",
@@ -327,7 +368,6 @@ sub process_required_tools {
         grep => "grep",
         awk => "awk",
         cat => "cat",
-        plotscript => "$FindBin::RealBin/phyloFlash_plotscript.R",
         plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
     );
     if ($skip_spades == 0) {
@@ -338,12 +378,25 @@ sub process_required_tools {
                       emirge_amp => "emirge_amplicon.py",
                       emirge_rename_fasta => "emirge_rename_fasta.py");
     }
+    # Check operating system to decide which nhmmer to use
+    my $opsys = $^O;
+    msg ("Current operating system $opsys");
+    if ($opsys eq "darwin") {
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/darwin/nhmmer");
+    } elsif ($opsys eq "linux") {
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/linux/nhmmer");
+    } else {
+        msg ("Could not determine operating system, assuming linux");
+        require_tools (nhmmer => "$FindBin::RealBin/barrnap-HGV/binaries/linux/nhmmer");
+    }
 }
 
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
     my $emirge = 0;
+    my $everything = 0 ;
+    my $almosteverything = 0;
     GetOptions('read1=s' => \$readsf_full,
                'read2=s' => \$readsr_full,
                'lib=s' => \$libraryNAME,
@@ -363,14 +416,20 @@ sub parse_cmdline {
                'decimalcomma' => \$decimalcomma,
                'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
+               'poscov!' => \$poscov_flag,
                'sc' => \$sc,
-               'zip' => \$zip,
+               'zip!' => \$zip,
+               'log!' => \$save_log,
+               'keeptmp!' => \$keeptmp,
+               'everything' => \$everything,
+               'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
+               'outfiles' => output_description(),
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
         or pod2usage(2);
-    $skip_emirge = 0 if $emirge == 1;
+    $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
 
     # verify tools present
     if ($check_env == 1) {
@@ -469,10 +528,41 @@ sub parse_cmdline {
         if ($ARGV[0]);
 
     # populate hash to keep track of output files
-    my $outfiles_href = initialize_infiles_hash($libraryNAME,$readsf);
+    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
     %outfiles = %$outfiles_href;
     # use hash to keep track of output file description, filename,
     # whether it should be deleted at cleanup, and if file was actually created
+
+    # Activate all optional outputs if "everything" is asked for
+    if ($everything + $almosteverything > 0) {
+        ($poscov_flag,
+         $html_flag,
+         $treemap_flag,
+         $zip,
+         $save_log
+         ) = (1,1,1,1,1);
+        $skip_spades = 0; # Override any skip spades
+        if ($everything == 1) {
+            msg ("Running \"everything\" - overrides other command line options");
+            $skip_emirge = 0;
+        } else {
+            # "almost everything" does not turn on EMIRGE
+            msg ("Running \"everything\" except EMIRGE- overrides other command line options");
+        }
+    }
+}
+
+sub output_description {
+    my $example_outfiles = initialize_outfiles_hash("LIBNAME","READS");
+
+    print STDERR "Description of output files \n\n";
+    print STDERR "FILENAME\tDESCRIPTION\n";
+    foreach my $outfile (sort {$a cmp $b} keys %$example_outfiles) {
+        my @out = ($example_outfiles->{$outfile}{"filename"},
+                   $example_outfiles->{$outfile}{"description"},);
+        print STDERR join ("\t", @out)."\n";
+    }
+    exit;
 }
 
 sub print_report {
@@ -548,10 +638,12 @@ NTU\treads
 
     # sort keys numerically descending in hash of
     # mapping-based detected higher taxa
-    foreach my $taxonshortstring ( @taxa_from_hitmaps_sorted ) {
-        # Print the name of this higher taxon, and the
-        # corresponding no. of unambig hits mapped
-        print {$fh} join("\t",@$taxonshortstring)."\n";
+    my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
+    foreach my $key (@keys) {
+        if (${$taxa_summary_href}{$key} >= 3) {
+            my @out = ($key, ${$taxa_summary_href}{$key});
+            print {$fh} join("\t", @out)."\n";
+        }
     }
 
     if ($skip_spades == 0) {
@@ -559,21 +651,15 @@ NTU\treads
         print {$fh} "---\n";
         print {$fh} "SSU assembly based taxa:\n";
         print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-
-        foreach my $arr (@ssuassem_results_sorted) {
-            my @out = @$arr;
-            my $spades_id = $out[0];
-            splice @out, 1, 0, $ssuassem_cov{$spades_id};
-            print {$fh} join("\t",  @out)."\n";
-        }
-
-        ## Print the table of taxonomic affiliations for unassembled SSU reads
-        print {$fh} "---\n";
-        print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
-        foreach my $taxonshortstring ( @taxa_from_hitmaps_unassem_sorted ) {
-            # Print the name of this higher taxon, and the
-            # corresponding no. of unambig hits mapped
-            print {$fh} join("\t",@$taxonshortstring)."\n";
+        foreach my $seqid ( sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
+            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            my @out;
+            push @out, $seqid;
+            my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
+            print {$fh} join("\t", @out)."\n";
         }
     }
 
@@ -581,9 +667,29 @@ NTU\treads
         ## Print the table of SSU reconstruction-based taxa to report file
         print {$fh} "---\n";
         print {$fh} "SSU reconstruction based taxa:\n";
-        print {$fh} "OTU\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
-        foreach my $arr (@ssurecon_results_sorted) {
-            print {$fh} join("\t", @$arr)."\n";
+        print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+        foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
+            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            my @out;
+            push @out, $seqid;
+            my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
+            print {$fh} join("\t", @out)."\n";
+        }
+    }
+
+    if ($skip_emirge + $skip_spades < 2) {
+        ## Print the table of taxonomic affiliations for unassembled SSU reads
+        print {$fh} "---\n";
+        print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        foreach my $uatax (@taxsort) {
+            if (${$taxa_unassem_summary_href}{$uatax} >= 3) {
+                my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+                print {$fh} join ("\t", @out)."\n";
+            }
         }
     }
 
@@ -592,8 +698,8 @@ NTU\treads
 
 sub write_csv {
     msg("exporting results to csv");
-    my $fh;
 
+    # CSV file of phyloFlash run metadata
     my @report = csv_escape((
         "version",$version,
         "library name",$libraryNAME,
@@ -615,7 +721,7 @@ sub write_csv {
         "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",$chao1
     ));
-
+    my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
     $outfiles{"report_csv"}{"made"} = 1;
     while ($#report > 0) {
@@ -623,16 +729,9 @@ sub write_csv {
     }
     close($fh);
 
+    # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
     open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
-    print $fh "NTU,reads\n";
-    foreach my $arr ( @taxa_from_hitmaps_sorted ) {
-        print {$fh} join(",",csv_escape(@$arr)).$crlf;
-    }
-    close($fh);
-
-    open_or_die(\$fh, ">", $outfiles{"taxa_csv"}{"filename"});
-    $outfiles{"taxa_csv"}{"made"} = 1;
     # Sort results descending
     my @keys = sort {${$taxa_summary_href}{$b} <=> ${$taxa_summary_href}{$a}} keys %$taxa_summary_href;
     foreach my $key (@keys) {
@@ -641,85 +740,93 @@ sub write_csv {
     }
     close($fh);
 
-    if ($skip_spades + $skip_emirge < 2) {  # Check if SPAdes or Emirge were skipped
-      open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
-      $outfiles{"full_len_class"}{"made"}++;
-      print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n";
-      if ($skip_spades == 0) {
-        foreach my $arr (@ssuassem_results_sorted) {
-            my $otu = ${$arr}[0];
-            my @out = @$arr;
-            splice @out, 1, 0, $ssuassem_cov{$otu}; # Insert read coverage into output array
-            print {$fh} join(",",csv_escape(@out)).$crlf;
+    # If full-length seqeunces were assembled or reconstructed
+    if ($skip_spades + $skip_emirge < 2) {
+
+        # CSV file of assembled/reconstructed sequnces
+        open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
+        $outfiles{"full_len_class"}{"made"}++;
+        print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n"; # Header
+        
+        # Sort descending by read counts
+        foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"}} keys %ssufull_hash) {
+            my @out;
+            push @out, $seqid;
+            foreach my $field (qw(counts cov dbHit taxon pcid alnlen evalue)) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
+            print {$fh} join (",", csv_escape(@out)).$crlf;
         }
+        close($fh);
+
+        # CSV file of taxonomic affiliations for unassembled/unreconstructed reads
         my $fh2;
         open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
+        my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
+        foreach my $uatax (@taxsort) {
+            my @out = ($uatax, ${$taxa_unassem_summary_href}{$uatax});
+            print {$fh2} join (",", csv_escape(@out)).$crlf;
+        }
         $outfiles{"unassem_csv"}{"made"}++;
-        print $fh2 "NTU,reads\n";
-        foreach my $arr ( @taxa_from_hitmaps_unassem_sorted ) {
-            print {$fh2} join (",",csv_escape(@$arr)).$crlf;
-        }
-      }
-      if ($skip_emirge == 0) {
-        foreach my $arr (@ssurecon_results_sorted) {
-            print {$fh} join(",",csv_escape(@$arr)).$crlf;
-        }
-      }
-      close($fh);
+        close ($fh2);
     }
 }
 
 sub bbmap_fast_filter_sam_run {
     # input: $readsf, $readsr
-    # output: lib.$readsf.SSU.sam
-    #         lib.$readsf.SSU.{1,2}.fq
-    #         lib.bbmap.out
-    #         lib.inserthistogram
-    # tmp:    tmp.$libraryNAME.basecompositionhistogram
-    msg("filtering reads with SSU db using minimal identity of $id%");
+    # output: $libraryNAME.$readsf.SSU.sam
+    #         $libraryNAME.$readsf.SSU.{1,2}.fq
+    #         $libraryNAME.bbmap.out
+    #         $libraryNAME.inserthistogram
+    # tmp:    $libraryNAME.basecompositionhistogram
+    msg("filtering reads with SSU db using minimum identity of $id%");
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
     }
-
+    # Minimum mapping ID of 63%
     my $minID= $id / 100;
     if ($minID < 0.63) {
         $minID = 0.63
     }
-
-    my $args = "";
+    # Set up input arguments for BBmap
+    my @bbmap_args = ("fast=t",
+                      "minidentity=$minID",
+                      "-Xmx20g reads=$readlimit",
+                      "threads=$cpus",
+                      "po=f",
+                      "outputunmapped=f",
+                      "path=$DBHOME",
+                      "out=".$outfiles{"sam_map"}{"filename"}, # Also skip SAM header?
+                      "outm=".$outfiles{"reads_mapped_f"}{"filename"},
+                      "build=1",
+                      "in=$readsf_full",
+                      "bhist=".$outfiles{"basecompositionhist"}{"filename"},
+                      "ihist=".$outfiles{"inserthistogram"}{"filename"},
+                      "idhist=".$outfiles{"idhistogram"}{"filename"},
+                      "scafstats=".$outfiles{"hitstats"}{"filename"},
+                      );
+    # Additional input arguments for paired-end input
     if ($SEmode == 0) {
         if ($interleaved == 1) {
-            $args =
-            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert interleaved=t";
+            push @bbmap_args, ("outm2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert interleaved=t"
+                               );
         } else {
-            $args =
-            "  outm2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert in2=$readsr_full";
+            push @bbmap_args, ("outm2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert",
+                               "in2=$readsr_full",
+                               );
         }
         $outfiles{"reads_mapped_r"}{"made"}++;
     }
+    # Run BBmap
     run_prog("bbmap",
-             "  fast=t"
-             . " minidentity=$minID"
-             . " -Xmx20g reads=$readlimit"
-             . " threads=$cpus"
-             . " po=f"
-             . " outputunmapped=f"
-             . " path=$DBHOME"
-             . " out=".$outfiles{"sam_map"}{"filename"} # Also skip SAM header?
-             . " outm=".$outfiles{"reads_mapped_f"}{"filename"}
-             . " build=1"
-             . " in=$readsf_full"
-             . " bhist=tmp.$libraryNAME.basecompositionhistogram"
-             . " ihist=".$outfiles{"inserthistogram"}{"filename"}
-             . " idhist=".$outfiles{"idhistogram"}{"filename"}
-             . " scafstats=".$outfiles{"hitstats"}{"filename"}
-             . $args,
+             join (" ", @bbmap_args),
              undef,
-             "$libraryNAME.bbmap.out");
+             $outfiles{"bbmap_log"}{"filename"}
+             );
     # Record which files were created
-    foreach my $madekey (qw(sam_map reads_mapped_f inserthistogram idhistogram hitstats)) {
+    foreach my $madekey (qw(sam_map reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
@@ -741,9 +848,8 @@ sub bbmap_fast_filter_parse {
     my $forward_count = 0;
     # Variables for output
     my ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
-
+    # Read reported statistics from BBmap log file
     my $fh;
-    #open_or_die(\$fh, "<", $libraryNAME.'.bbmap.out');
     open_or_die(\$fh, "<", $infile);
     while (<$fh>) {
         if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
@@ -808,10 +914,14 @@ sub bbmap_fast_filter_parse {
         push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio;
     } elsif ($SEmode == 0) {
-        my $unmapped_seg = $readnr - $ssu_f_reads - $ssu_r_reads;
-        my $mapped_half = $ssu_f_reads + $ssu_r_reads - $ssu_pairs;
-        push @mapratio_csv, "Unmapped,".$unmapped_seg;
-        push @mapratio_csv, "Mapped pair,".$ssu_pairs;
+        # For PE reads, do not include Unmapped in piechart because it will be
+        # impossible to read the other slices anyway. Instead report mapping
+        # ratio in title.
+        my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
+        my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
+        my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
+        push @mapratio_csv, "Mapped pair,".$ssu_pairs*2;
+        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs*2;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
@@ -880,10 +990,7 @@ sub readsam {
             # Shorten taxonomy string and save into NTU table
             if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
                 my $taxonlongstring = $1;
-                # Truncate to 6 levels
-                my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6); # To be superseded
-                # Increment count for taxon
-                $taxa_from_hitmaps{$taxonshortstring}++;                          # To be superseded
+                $taxa_full_href->{$taxonlongstring}++; # Count full-length taxon for treemap
                 # Save full taxonomy string
                 push @taxa_full, $taxonlongstring;
             } else {
@@ -893,25 +1000,26 @@ sub readsam {
     }
     close($fh);
 
-    # Sort counts of taxa from hits, minimum of three hits                      # To be superseded
-    @taxa_from_hitmaps_sorted =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @xtons[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, $taxa_from_hitmaps{$_}] }
-        keys %taxa_from_hitmaps;
+    # Summarize taxonomy
+    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
 
-    # Calculate Chao1 statistic
-    $xtons[2] = $#taxa_from_hitmaps_sorted +1;
+    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
+    foreach my $taxon (keys %$taxa_summary_href) {
+        if ($taxa_summary_href->{$taxon} == 1) {        # 1-tons
+            $xtons[0]++;
+        } elsif ($taxa_summary_href->{$taxon} == 2) {   # 2-tons
+            $xtons[1]++;
+        } elsif ($taxa_summary_href->{$taxon} >= 3) {   # 3+-tons
+            $xtons[2]++;
+        }
+    }
     if ($xtons[1] > 0) {
         $chao1 =
-          $xtons[2] +
+          $xtons[2] +                               # Is there an error here? Should be sum of all spp. observed
           ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
     } else {
         $chao1 = 'n.d.';
     }
-
-    # Summarize taxonomy
-    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
 
     msg("done...");
 }
@@ -937,17 +1045,13 @@ sub summarize_taxonomy {
         ) = @_;
     my @input = @$in_aref; # Dereference array input
     my %taxhash;        # Hash to store counts per taxon at each taxonomic level
-    my %output;         # Hash to store output
 
     foreach my $taxstring (@input) {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
-    # Sort output in descending order
-    foreach my $key (sort {$taxhash{$b} <=> $taxhash{$a}} keys %taxhash) {
-        $output{$key} = $taxhash{$key};
-    }
-    return (\%output); # Return reference to output array
+
+    return (\%taxhash); # Return reference to output array
 }
 
 sub spades_run {
@@ -974,8 +1078,12 @@ sub spades_run {
                 ." -2 ".$outfiles{"reads_mapped_r"}{"filename"};
     }
 
+    # Limit number of SPAdes processors to 24 - if run on a server with all 64
+    # processors SPAdes will exceed max memory and crash
+    my $cpus_spades = $cpus > 24 ? 24 : $cpus;
+
     run_prog("spades",
-             "-o $libraryNAME.spades -t $cpus -m 20 -k $kmer "
+             "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
              . $args,
              $outfiles{"spades_log"}{"filename"},"&1"
          );
@@ -1012,6 +1120,7 @@ sub spades_parse {
                  $outfiles{"gff_".$_}{"filename"},
                  $outfiles{"barrnap_log"}{"filename"});
         $outfiles{"gff_".$_}{"made"}++;
+        $outfiles{"barrnap_log"}{"made"}++;
     }
 
     # now merge multi-hits on the same scaffold-and-strand by picking
@@ -1058,11 +1167,12 @@ sub spades_parse {
         return;
     }
 
-    open_or_die(\$fh, ">", "tmp.$libraryNAME.scaffolds.final.gff");
+    open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
     for my $key (sort keys %ssus) {
         print $fh join("\t",@{$ssus{$key}});
     }
     close($fh);
+    $outfiles{"gff_all"}{"made"}++;
 
     # fastaFromBed will build a .fai index from the source .fasta
     # However, it does not notice if the .fasta changed. So we
@@ -1074,148 +1184,240 @@ sub spades_parse {
     }
 
     # extract rrna fragments from spades scaffolds accoding to gff
+    my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                             "-bed",$outfiles{"gff_all"}{"filename"},
+                             "-fo",$outfiles{"spades_fasta"}{"filename"},
+                             "-s","-name",
+                             );
     run_prog("fastaFromBed",
-             "  -fi $libraryNAME.spades/scaffolds.fasta"
-             . " -bed tmp.$libraryNAME.scaffolds.final.gff"
-             . " -fo ".$outfiles{"spades_fasta"}{"filename"}
-             . " -s -name",
-             "tmp.$libraryNAME.fastaFromBed.out",
+             join (" ",@fastaFromBed_args),
+             $outfiles{"fastaFromBed_out"}{"filename"},
              "&1");
     $outfiles{"spades_fasta"}{"made"}++;
+    $outfiles{"fastaFromBed_out"}{"made"}++;
     msg("done...");
 }
 
-sub bbmap_spades_out {
-    # Map extracted reads back to the SPAdes output to see what proportion
-    # of reads can be explained by the assembled sequences
-    msg("mapping extracted SSU reads back on assembled SSU sequences");
-    my $args = ""; # Check whether running in PE or SE mode
+
+sub bbmap_remap {
+    # Map extracted reads back to the SPAdes or EMIRGE output to see what
+    # proportion of reads can be explained by the assembled sequences
+    my ($which,     # SPAdes or EMIRGE output?
+        ) = @_;
+    my ($ref,$outsam,$outlog);
+    if ($which eq "SPAdes") {
+        $ref = $outfiles{"spades_fasta"}{"filename"};
+        $outsam = $outfiles{"sam_remap_spades"}{"filename"};
+        $outlog = $outfiles{"bbmap_remap_log_spades"}{"filename"};
+        # Record that output files were made
+        $outfiles{"sam_remap_spades"}{"made"}++;
+        $outfiles{"bbmap_remap_log_spades"}{"made"}++;
+    } elsif ($which eq "EMIRGE") {
+        $ref = $outfiles{"emirge_fasta"}{"filename"};
+        $outsam = $outfiles{"sam_remap_emirge"}{"filename"};
+        $outlog = $outfiles{"bbmap_remap_log_emirge"}{"filename"};
+        # Record that output files were made
+        $outfiles{"sam_remap_emirge"}{"made"}++;
+        $outfiles{"bbmap_remap_log_emirge"}{"made"}++;
+    }
+    # Report for log
+    msg("mapping extracted SSU reads back on $which SSU sequences");
+    # Define input arguments to BBmap
+    my @remap_args = ("fast=t",
+                      "minidentity=0.98", # Note high identity
+                      "-Xmx20g",
+                      "threads=$cpus",
+                      "po=f",
+                      "outputunmapped=t", # This is important
+                      "ref=$ref",
+                      "nodisk",
+                      "in=".$outfiles{"reads_mapped_f"}{"filename"},
+                      "out=$outsam", # Also skip SAM header?
+                      );
+    # If running in PE mode, include reverse reads
     if ($SEmode == 0) {
         if ($interleaved == 1) {
-            $args =
-            "  interleaved=t "
-            . "pairlen=$maxinsert ";
+            push @remap_args, ("interleaved=t",
+                               "pairlen=$maxinsert",
+                               );
         } else {
-            $args =
-            "  in2=".$outfiles{"reads_mapped_r"}{"filename"}
-            . " pairlen=$maxinsert ";
+            push @remap_args, ("in2=".$outfiles{"reads_mapped_r"}{"filename"},
+                               "pairlen=$maxinsert",
+                               );
         }
     }
+    # Run BBmap
     run_prog("bbmap",
-         "  fast=t"
-         . " minidentity=0.98"
-         . " -Xmx20g"
-         . " threads=$cpus"
-         . " po=f"
-         . " outputunmapped=t" # This is important
-         . " ref=".$outfiles{"spades_fasta"}{"filename"}
-         . " nodisk"
-         . " in=".$outfiles{"reads_mapped_f"}{"filename"}
-         . " out=".$outfiles{"sam_remap"}{"filename"} # Also skip SAM header?
-         . $args,
-         undef,
-         $outfiles{"bbmap_remap_log"}{"filename"});
-    $outfiles{"sam_remap"}{"made"}++;
-    $outfiles{"bbmap_remap_log"}{"made"}++;
+             join (" ", @remap_args),
+             undef,
+             $outlog,
+             );
     msg("done...");
 }
 
-sub taxonomy_spades_unmapped {
-    # Filter output of mapping to SPAdes assembled SSU sequences
-    # Report taxonomy of "leftover" sequences
-    my $in = $outfiles{"sam_remap"}{"filename"};    # mapping of extracted reads vs assembled SSU seq
-    my $sam_href = \%ssu_sam;                       # data from first mapping vs. SILVA, read into memory
-    my $stats_href = \%ssu_sam_mapstats;
-    my $out_href = \%taxa_from_hitmaps_unassem;     # hash to store taxonomy results from unassembled reads
-    my $out_sorted_aref = \@taxa_from_hitmaps_unassem_sorted; # array of sorted taxonomy results from unassembled reads
-    my $cov_href = \%ssuassem_cov;                  # Hash to store read coverage of assembled SSU sequences
-    my @taxa_full;
-    msg ("extracting taxonomy of unassembled SSU reads");
-    my $fh;
-    open_or_die(\$fh, "<", $in);
-    while (my $line = <$fh>) {
-        next if ( $line =~ m/^@/ ); # Skip headers
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
-        # Check whether fwd or rev read
-        my $pair;
-        if ($bitflag & 0x1) { # If PE read
-            if ($SEmode != 0) { # Sanity check
-                msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
-            }
-            if ($bitflag & 0x40) {
-                $pair="F";
-            } elsif ($bitflag & 0x80) {
-                $pair="R";
-            }
+sub screen_remappings {
+    # Read SAM file from re-mapping and identify whether given read has mapped
+    # to a full length sequence from either SPAdes or EMIRGE
+
+    msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
+
+    # first SAM in %ssu_sam
+
+    my %sam_spades; # too good to be true
+    my %sam_emirge;
+    # If SPAdes results were mapped, read into memory
+    if ($skip_spades == 0) {
+        flag_unmapped_sam("SPAdes");
+    }
+    # If EMIRGE results were mapped, read into memory
+    if ($skip_emirge == 0) {
+        flag_unmapped_sam("EMIRGE");
+    }
+
+    my @unassem_taxa;
+    my $ssu_fwd_map = 0;
+    my $ssu_rev_map = 0;
+    my $total_assembled = 0;    # Count total that map to a full-length SSU
+
+    # Go through hash of initial mapping
+    # Count total reads, total assembled/reconstructed, and total unassembled/reconstructed
+    foreach my $read (keys %ssu_sam) {
+        # Iterate through all segments of read pairs
+        my @pairs;
+        if ($SEmode == 1) {
+            push @pairs, "U";
         } else {
-            $pair = "U";
+            push @pairs, ("F", "R");
         }
-        # Check whether read mapped to assembled SSU
-        if ($bitflag & 0x4) { # If not mapped, check corresponding read in original mapping
-            if (defined ${$sam_href}{$read}{$pair}{"ref"}) {
-                my $ref = ${$sam_href}{$read}{$pair}{"ref"};
-                # Shorten taxonomy string and save into NTU table
-                if (${$sam_href}{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                    my $taxonlongstring = $1;
-                    push @taxa_full, $taxonlongstring;
-                    # Truncate to 6 levels
-                    my $taxonshortstring = truncate_taxonstring($taxonlongstring, 6);           # To be superseded
-                    # Increment count for taxon
-                    ${$out_href}{$taxonshortstring}++;                                          # To be superseded
+
+        foreach my $pair (@pairs) {
+            # Check if read segment exists and add to total reads
+            if (defined $ssu_sam{$read}{$pair}) {
+                if ($pair eq "U" | $pair eq "F") {
+                    $ssu_fwd_map ++;
+                } elsif ($pair eq "R") {
+                    $ssu_rev_map ++ ;
+                }
+                # Check whether has been flagged as mappign to SPAdes or Emirge
+                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"}) {
+                    # Add to total of read segments mapping to a full-length seq
+                    $total_assembled ++;
                 } else {
-                    msg ("warning: malformed database entry $ref");
+                    # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
+                    if (defined $ssu_sam{$read}{$pair}{"ref"} ) {
+                        if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                            # Record the taxon to which it has mapped
+                            my $taxonlongstring = $1;
+                            push @unassem_taxa, $taxonlongstring;
+                        } else {
+                            msg ("Warning: Malformed database entry: ".$ssu_sam{$read}{$pair}{"ref"});
+                        }
+                    }
                 }
             }
-        } else {
-            # Add to read count
-            my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
-            ${$cov_href}{$refshort}++;
-            if ($pair eq "F" | $pair eq "U") {
-                ${$stats_href}{"assem_fwd_map"}++;
-            } elsif ($pair eq "R") {
-                ${$stats_href}{"assem_rev_map"}++;
-            }
-
         }
     }
 
-    # Sort taxon strings for unassembled reads affiliation
-    my @discard2;
-    @{$out_sorted_aref} =
-        sort { @$b[1] <=> @$a[1] }
-        grep { if (@$_[1] < 3) { @discard2[@$_[1]-1]++;} @$_[1] > 2 }
-        map  { [$_, ${$out_href}{$_}] }
-        keys %{$out_href};
+    # Summarize counts per NTU of unassembled reads
+    $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
 
-    close($fh);
+    # Calculate ratio of reads assembled and store in hash
+    my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
+    my $total_unassembled = $ssu_tot_map - $total_assembled;
+    $ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
+    $ssu_sam_mapstats{"assem_tot_map"} = $total_assembled;      # Total mapping to full-length
+    $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
+    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
+    $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
 
-    # Summarize taxonomy
-    $taxa_unassem_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
-
-    # Calculate ratio of reads assembled
-    my $assem_tot_map = ${$stats_href}{"assem_fwd_map"};
-    if (defined ${$stats_href}{"assem_rev_map"}) {
-        $assem_tot_map += ${$stats_href}{"assem_rev_map"};
+    # Calculate totals for each tool used
+    if (defined $ssu_sam_mapstats{"spades_fwd_map"}) {
+        my $spades_tot_map = $ssu_sam_mapstats{"spades_fwd_map"};
+        if (defined $ssu_sam_mapstats{"spades_rev_map"}) {
+            $spades_tot_map += $ssu_sam_mapstats{"spades_rev_map"};
+        }
+        $ssu_sam_mapstats{"spades_tot_map"} = $spades_tot_map;
     }
-    my $ssu_tot_map = ${$stats_href}{"ssu_fwd_map"};
-    if (defined ${$stats_href}{"ssu_rev_map"}) {
-        $ssu_tot_map += ${$stats_href}{"ssu_rev_map"};
+    if (defined $ssu_sam_mapstats{"emirge_fwd_map"}) {
+        my $emirge_tot_map = $ssu_sam_mapstats{"emirge_fwd_map"};
+        if (defined $ssu_sam_mapstats{"emirge_rev_map"}) {
+            $emirge_tot_map +=  $ssu_sam_mapstats{"emirge_rev_map"};
+        }
+        $ssu_sam_mapstats{"emirge_tot_map"} = $emirge_tot_map;
     }
-    ${$stats_href}{"assem_ratio"} = $assem_tot_map / $ssu_tot_map;
-    ${$stats_href}{"assem_ratio_pc"} = sprintf ("%.3f", ${$stats_href}{"assem_ratio"} * 100) ;
 
     # Write CSV of reads assembled for piechart
-    my $ssu_unassem = $ssu_tot_map - $assem_tot_map;
     my @assemratio_csv;
-    push @assemratio_csv, "Unassembled,".$ssu_unassem;
-    push @assemratio_csv, "Assembled,".$assem_tot_map;
+    push @assemratio_csv, "Unassembled,".$total_unassembled;
+    push @assemratio_csv, "Assembled,".$total_assembled;
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"assemratio_csv"}{"filename"});
     $outfiles{"assemratio_csv"}{"made"}++;
     print $fh_csv join ("\n", @assemratio_csv);
     close($fh_csv);
 
-    msg ("done ... ");
+    msg ("Done");
+}
+
+sub flag_unmapped_sam {
+    # Given a SAM file from remapping, and hash of original mapping, it will:
+    # 1. Flag reads in hash of original mapping to whether mapped to spades or emirge
+    # 2. Count number of reads mapping to each reference to %ssufull_hash
+    my ($which) = @_;
+    my ($sam_in,$mappedname,$mapped_fwd,$mapped_rev);
+    if ($which eq "SPAdes") {
+        $sam_in = $outfiles{"sam_remap_spades"}{"filename"};
+        $mappedname = "mapped2spades";
+        $mapped_fwd = "spades_fwd_map";
+        $mapped_rev = "spades_rev_map";
+    } elsif ($which eq "EMIRGE") {
+        $sam_in = $outfiles{"sam_remap_emirge"}{"filename"};
+        $mappedname = "mapped2emirge";
+        $mapped_fwd = "emirge_fwd_map";
+        $mapped_rev = "emirge_rev_map";
+    }
+    msg ("Reading results of remapping to $which results");
+    my $fh_in;
+    open_or_die(\$fh_in, "<", $sam_in);
+    while (my $line = <$fh_in>) {
+        next if ($line =~ m/^@/); # Skip headers
+        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        # Check whether fwd or rev
+        my $pair;
+        if ($bitflag & 0x1) { # If PE read
+            if ($SEmode != 0) { # Sanity check
+                msg ("Error: bitflag in SAM file conflicts with SE mode flag");
+            }
+            if ($bitflag & 0x40) {
+                $pair = "F";
+            } elsif ($bitflag & 0x80) {
+                $pair = "R";
+            }
+        } else {
+            $pair = "U";
+        }
+        # Check whether read has mapped to reference
+        unless ($bitflag & 0x4) { # negate condition because bitflag 0x4 means "segment unmapped"
+            if (defined $ssu_sam{$read}{$pair}) {
+                # Mark that read maps to SPAdes or EMIRGE
+                $ssu_sam{$read}{$pair}{$mappedname}++;
+                # Add to read count for that reference sequence
+                my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
+                $ssufull_hash{$refshort}{"counts"}++;
+                # Count how many fwd and rev reads map to SPAdes
+                if ($pair eq "F" | $pair eq "U") {
+                    $ssu_sam_mapstats{$mapped_fwd}++;
+                } elsif ($pair eq "R") {
+                    $ssu_sam_mapstats{$mapped_rev}++;
+                }
+            } else {
+                print STDERR "Cannot find read $read in original SAM file\n";
+            }
+        }
+    }
+    msg ("total fwd reads remapping:".$ssu_sam_mapstats{$mapped_fwd});
+    msg ("total rev reads remapping:".$ssu_sam_mapstats{$mapped_rev}) if $SEmode == 0;
+    close($fh_in);
 }
 
 sub emirge_run {
@@ -1223,7 +1425,8 @@ sub emirge_run {
     msg("creating phylotypes with Emirge");
 
     my $cmd = "emirge";
-    my $args = "-1 $libraryNAME.$readsf.SSU.1.fq ";
+    my @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"});
+    my $args = "-1 ".$outfiles{"reads_mapped_f"}{"filename"}." ";
 
     if ($SEmode == 1) {
         msg("only one read file provided - running in single end mode");
@@ -1253,6 +1456,11 @@ sub emirge_run {
             msg("Warning: More than $amplimit SSU reads - using Emirge Amplicon");
         }
 
+        @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"},
+                        "-2",$outfiles{"reads_mapped_r"}{"filename"},
+                        "-i $ins_used",
+                        "-s $ins_std",
+                        );
         $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}
                 . " -2 ".$outfiles{"reads_mapped_r"}{"filename"}
                 . " -i $ins_used -s $ins_std ";
@@ -1261,26 +1469,33 @@ sub emirge_run {
         run_prog("cat",
                  $outfiles{"reads_mapped_f"}{"filename"}." ".
                  $outfiles{"reads_mapped_r"}{"filename"},
-                 "tmp.$libraryNAME.SSU_all.fq");
-        # ename the reads with a running number to make emirge happy
+                 $outfiles{"reads_mapped_cat"}{"filename"});
+        $outfiles{"reads_mapped_cat"}{"made"}++;
+        # rename the reads with a running number to make emirge happy
         # using awk for speed, these files can be huge
 
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-                 . " tmp.$libraryNAME.SSU_all.fq",
-                 "tmp.$libraryNAME.renamed.SSU_all.fq");
+                 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 $outfiles{"reads_mapped_cat_rename"}{"filename"});
+        $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
-        $args = " -1 tmp.$libraryNAME.renamed.SSU_all.fq ";
+        @emirge_args = ("-1",$outfiles{"reads_mapped_cat_rename"}{"filename"});
+        $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";
     }
 
+    unshift @emirge_args, "$libraryNAME.emirge"; # Add library name to arguments
+    push @emirge_args, ("-f ${DBHOME}/${emirge_db}.fasta",
+                        "-b ${DBHOME}/${emirge_db}.bt",
+                        "-l $readlength",
+                        "-a $cpus",
+                        "--phred33",
+                        );
     run_prog($cmd,
-             " $libraryNAME.emirge "
-             . $args
-             . " -f ${DBHOME}/${emirge_db}.fasta"
-             . " -b ${DBHOME}/${emirge_db}.bt "
-             . " -l $readlength -a $cpus --phred33 "
-             , $outfiles{"emirge_log"}{"filename"}
-             , "&1");
+             join (" ", @emirge_args),
+             $outfiles{"emirge_log"}{"filename"},
+             "&1",
+             );
     $outfiles{"emirge_log"}{"made"}++;
     msg("done...");
 }
@@ -1290,11 +1505,12 @@ sub emirge_parse {
     msg("getting Emirge phylotypes and their abundances...");
     run_prog("emirge_rename_fasta",
              "./$libraryNAME.emirge/iter.40/",
-             "tmp.$libraryNAME.emirge.result.fasta");
+             $outfiles{"emirge_raw_fasta"}{"filename"});
+    $outfiles{"emirge_raw_fasta"}{"made"}++;
 
     my $fh_in;
     my $fh_out;
-    open_or_die(\$fh_in, "<","tmp.$libraryNAME.emirge.result.fasta");
+    open_or_die(\$fh_in, "<", $outfiles{"emirge_raw_fasta"}{"filename"});
     open_or_die(\$fh_out, ">", $outfiles{"emirge_fasta"}{"filename"});
     $outfiles{"emirge_fasta"}{"made"}++;
     while (<$fh_in>) {
@@ -1347,11 +1563,12 @@ sub vsearch_best_match {
              . " -threads $cpus --strand plus --notrunclabels"
              . " -notmatched ".$outfiles{"notmatched_fasta"}{"filename"}
              . " -dbmatched ".$outfiles{"dbhits_all_fasta"}{"filename"},
-             "tmp.$libraryNAME.all.vsearch.out",
+             $outfiles{"vsearch_out"}{"filename"},
              "&1");
         $outfiles{"vsearch_csv"}{"made"}++;
         $outfiles{"dbhits_all_fasta"}{"made"}++;
         $outfiles{"notmatched_fasta"}{"made"}++;
+        $outfiles{"vsearch_out"}{"made"}++;
 
        # query, target: labels
        # id: "100* matching colums / (alignment length - terminal gaps)"
@@ -1375,24 +1592,30 @@ sub vsearch_parse {
         chomp;
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
         s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
-        push @vsearch_matches, [split("\t",$_)];
+        push @vsearch_matches, [split("\t",$_)];                                # To be replaced by ssufull_hash
+        
+        # Split into individual fields
+        my @line = split /\t/, $_;
+        my $seqid = $line[0];
+        # Check whether hit is from SPAdes
+        my $source;
+        if ($line[0] =~ m/PFspades/) {
+            $source = "SPAdes";
+        } elsif ($line[0] =~ m/PFemirge/) {
+            $source = "EMIRGE";
+        }
+        
+        #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+        $ssufull_hash{$seqid}{"source"} = $source;
+        $ssufull_hash{$seqid}{"cov"} = $line[1];
+        $ssufull_hash{$seqid}{"dbHit"} = $line[2];
+        $ssufull_hash{$seqid}{"taxon"} = $line[3];
+        $ssufull_hash{$seqid}{"pcid"} = $line[4];
+        $ssufull_hash{$seqid}{"alnlen"} = $line[5];
+        $ssufull_hash{$seqid}{"evalue"} = $line[6];
+        
     }
     close($fh);
-
-    # Sort numerically descending the list of
-    # assembled SSU sequences by coverage value
-
-    @ssuassem_results_sorted =
-        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
-        grep { @{$_}[0] =~ /^$libraryNAME.PFspades/ }
-        @vsearch_matches;
-
-    # Sort numerically descending the list of reconstructed
-    # SSU sequences by mapping ratio
-    @ssurecon_results_sorted =
-        sort { @{$b}[1] <=> @{$a}[1] or @{$a}[3] cmp @{$b}[3] }
-        grep { @{$_}[0] =~ /^$libraryNAME.PFemirge/ }
-        @vsearch_matches;
 
     msg("done...");
 }
@@ -1406,10 +1629,11 @@ sub vsearch_cluster {
              . " -centroids ".$outfiles{"dhbits_nr97_fasta"}{"filename"}
              . " -notrunclabels"
              . " --threads $cpus",
-             "tmp.$libraryNAME.clusterdbhits.out",
+             $outfiles{"vsearch_clusterdb_out"}{"filename"},
              "&1");
     $outfiles{"dbhits_all_fasta"}{"made"}++;
     $outfiles{"dhbits_nr97_fasta"}{"made"}++;
+    $outfiles{"vsearch_clusterdb_out"}{"made"}++;
     msg("done...");
 }
 
@@ -1442,9 +1666,10 @@ sub mafft_run {
     run_prog("mafft",
              "--treeout ".$outfiles{"ssu_coll_fasta"}{"filename"},
              $outfiles{"ssu_coll_aln_fasta"}{"filename"},
-             "tmp.$libraryNAME.SSU.collection.alignment.mafftout");
+             $outfiles{"ssu_coll_aln_mafftout"}{"filename"});
     $outfiles{"ssu_coll_aln_fasta"}{"made"}++;
-    $outfiles{"ssu_coll_tree"}{"made"}++;
+    $outfiles{"ssu_coll_tree"}{"made"}++; # Tree filename is input filename with suffix
+    $outfiles{"ssu_coll_aln_mafftout"}{"made"}++;
 
     # fix missing ; at and of MaFFT newick tree
     my $fh;
@@ -1455,29 +1680,137 @@ sub mafft_run {
     msg("done...");
 }
 
+sub nhmmer_model_pos {
+    # Use nhmmer to find how evenly the SSU reads are distributed across the
+    # length of the gene. Cannot use mapping position from SAM file because
+    # SSU reads in DB are of different lengths and some are fragments.
+    # Use the HMM models and nhmmer binary packaged (conveniently) with barrnap-HGV
+    msg ("subsampling SSU reads and running nhmmer to check coverage evenness across gene");
+
+    # Inputs
+    # File containing HMM models for archaea, bacteria, and eukaryotes SSU
+    my $hmm = "$FindBin::RealBin/barrnap-HGV/db/ssu/ssu_ABE.hmm";
+    my $sam = $outfiles{"sam_map"}{"filename"}; # SAM file of mapping
+    my $subsample = $outfiles{"readsf_subsample"}{"filename"};
+    my $samplelimit = 10000; # Take sample of max this number of reads
+
+    # Subsample reads with reformat.sh
+    my @reformat_args = ("in=$sam","out=$subsample","srt=$samplelimit");
+    run_prog ("reformat",
+              join (" ", @reformat_args),
+              undef,
+              $outfiles{"reformat_out"}{"filename"}
+              );
+    $outfiles{"readsf_subsample"}{"made"}++;
+    $outfiles{"reformat_out"}{"made"}++;
+
+    # Run nhmmer
+    my @nhmmer_args = ("--cpu $cpus",
+                       "--tblout", $outfiles{"nhmmer_tblout"}{"filename"},
+                       $hmm, $subsample);
+    run_prog ("nhmmer",
+              join (" ", @nhmmer_args),
+              "/dev/null", # Discard human-readable output
+              undef
+              );
+    $outfiles{"nhmmer_tblout"}{"made"}++;
+
+    # Parse nhmmer output
+    my %hash;
+    my $fh_tbl;
+    open_or_die(\$fh_tbl,"<",$outfiles{"nhmmer_tblout"}{"filename"});
+    while (<$fh_tbl>) {
+        next if m/^#/;                  # Ignore comment lines
+        my @spl = split /\s+/, $_;      # Split on whitespace
+        my ($readname,                  # Name of read from Fasta file
+            $pos,                       # Position of alignment on model
+            $score                      # HMMer score
+            ) = ($spl[0], $spl[4], $spl[13]);
+        # Figure out model type
+        my $type;
+        if ($spl[2] eq "18S_rRNA") {
+            $type = "euk";
+        } elsif ($spl[2] eq "16S rRNA") {
+            if ($spl[3] eq "RF01959") {
+                $type = "arc";
+            } elsif ($spl[3] eq "RF00177") {
+                $type = "bac";
+            }
+        }
+        if (defined $hash{$readname}) {
+            if ($hash{$readname}{"score"} < $score) {
+                # Update recorded values if new hit for same read has better score
+                $hash{$readname}{"score"} = $score;
+                $hash{$readname}{"pos"} = $pos;
+                $hash{$readname}{"type"} = $type;
+            }
+        } else {
+            # Record values if read not yet hashed
+            $hash{$readname}{"score"} = $score;
+            $hash{$readname}{"pos"} = $pos;
+            $hash{$readname}{"type"} = $type;
+        }
+    }
+    close($fh_tbl);
+
+    # Count number of hits to make histogram
+    my %prok_pos;
+    my %euk_pos;
+    foreach my $readname (keys %hash) {
+        if (defined $hash{$readname}{"type"} && $hash{$readname}{"type"} eq "euk") {
+            $euk_pos{$hash{$readname}{"pos"}}++;
+        } else {
+            $prok_pos{$hash{$readname}{"pos"}}++;
+        }
+    }
+    # Write result to prokaryote histogram
+    my $fh_prok;
+    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
+    foreach my $key (sort {$a <=> $b} keys %prok_pos) {
+        print $fh_prok $key."\t". $prok_pos{$key}."\n";
+    }
+    close($fh_prok);
+    $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+    # Write results for eukaryote histogram
+    my $fh_euk;
+    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
+    foreach my $key (sort {$a <=> $b} keys %euk_pos) {
+        print $fh_euk $key."\t". $euk_pos{$key}."\n";
+    }
+    close($fh_euk);
+    $outfiles{"nhmmer_euk_histogram"}{"made"}++;
+
+    msg ("done");
+}
+
 sub clean_up {
     # cleanup of intermediate files and folders
-    msg("cleaning temp files...");
-    if ($skip_spades == 0) {
-        system ("rm ./$libraryNAME.spades -r");
-    }
-    if ($skip_emirge == 0) {
-        system ("rm ./$libraryNAME.emirge -r");
-    }
-    system ("rm tmp.$libraryNAME.* -r");
+    if ($keeptmp == 1) {
+        msg ("Retaining temp files and folders...");
+    } elsif ($keeptmp == 0) {
+        msg("Cleaning temp files...");
 
-    # Remove files that are earmarked for destruction
-    # (Change earmarking in PhyloFlash.pm)
-    foreach my $key (keys %outfiles) {
-        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
-            system ("rm -r ".$outfiles{$key}{"filename"});
+        # Delete SPAdes and/or EMIRGE output folders
+        if ($skip_spades == 0) {
+            system ("rm $libraryNAME.spades -r");
+        }
+        if ($skip_emirge == 0) {
+            system ("rm $libraryNAME.emirge -r");
+        }
+
+        # Remove files that are earmarked for destruction
+        # (Change earmarking in PhyloFlash.pm)
+        foreach my $key (keys %outfiles) {
+            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
+                system ("rm -r ".$outfiles{$key}{"filename"});
+            }
         }
     }
 
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
-        my $tarfile = $libraryNAME.".phyloFlash.tar.gz";
+        my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
         msg ("Compressing results into tar.gz archive $tarfile");
         foreach my $key (keys %outfiles) {
             if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
@@ -1489,117 +1822,190 @@ sub clean_up {
         system ("rm -r $to_tar");
     }
 
-    msg("done...");
+    msg("Done...");
 }
 
 sub run_plotscript_SVG {
-    msg ("generating histogram and tree graphics in SVG format");
+    msg ("generating graphics for report in SVG format");
     # Plot mapping ID histogram
+    my @idhist_args = ( "--hist",
+                        $outfiles{"idhistogram"}{"filename"},
+                        " --title=\"Mapping identity (%)\" ",
+                      );
+    if (defined $decimalcomma) {
+        push @idhist_args, "--decimalcomma";
+    }
     run_prog("plotscript_SVG",
-         " --hist ".$outfiles{"idhistogram"}{"filename"}
-         ." --title=\"Mapping identity (%)\" ",
-         #. "$decimalcomma ",
-         "tmp.$libraryNAME.plotscript.out",
+         join (" ", @idhist_args),
+         $outfiles{"plotscript_out"}{"filename"},
          "&1");
     $outfiles{"idhistogram_svg"}{"made"}++;
 
     # Piechart of proportion mapped
+    my @map_args = ("-pie",
+                    $outfiles{"mapratio_csv"}{"filename"},
+                    #"-title=\"$SSU_ratio_pc % reads mapped\""
+                    );
+    if ($SEmode == 0) {
+        push @map_args, "-title=\"$SSU_ratio_pc % pairs mapped\"";
+    } else {
+        push @map_args, "-title=\"$SSU_ratio_pc % reads mapped\"";
+    }
+
     run_prog("plotscript_SVG",
-         " --pie ".$outfiles{"mapratio_csv"}{"filename"}
-         ." --title=\"Reads mapped\" ",
-         #. "$decimalcomma ",
-         "tmp.$libraryNAME.plotscript.out",
-         "&1");
+             join(" ", @map_args),
+             $outfiles{"plotscript_out"}{"filename"},
+             "&1");
     $outfiles{"mapratio_svg"}{"made"}++;
 
     # Piechart of proportion assembled, if SPAdes run
     unless ($skip_spades == 1) {
+        my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
+        my @pie_args = ("--pie",
+                        $outfiles{"assemratio_csv"}{"filename"},
+                        " --title=\"Reads assembled\"",
+                        );
         run_prog("plotscript_SVG",
-             "--pie ".$outfiles{"assemratio_csv"}{"filename"}
-             ." --title=\"Reads assembled\" ",
-             #. "$decimalcomma ",
-             "tmp.$libraryNAME.plotscript.out",
-             "&1");
+                 join (" ", @pie_args),
+                 $outfiles{"plotscript_out"}{"filename"},
+                 "&1");
         $outfiles{"assemratio_svg"}{"made"}++;
     }
+
     # Plot insert size histogram unless running in SE mode
     if ($SEmode != 1) { # If not running in SE mode ...
+        my @inshist_args = ("--hist ",
+                            $outfiles{"inserthistogram"}{"filename"},
+                            " --title=\"Insert size (bp)\" ",
+                            );
+        if (defined $decimalcomma) {
+            push @inshist_args, "--decimalcomma";
+        }
+
         run_prog("plotscript_SVG",
-                 "--hist ".$outfiles{"inserthistogram"}{"filename"}
-                 ." --title=\"Insert size (bp)\" ",
-                 #. "$decimalcomma ",
-                 "tmp.$libraryNAME.plotscript.out",
+                 join (" ", @inshist_args),
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"inserthistogram_svg"}{"made"}++;
     }
 
+    # Plot positional coverage plots for 18S and 16S rRNA genes unless skipped
+    if ($poscov_flag == 1) {
+        # Eukaryotic gene model
+        my @args_euk = ("-hist",
+                        $outfiles{"nhmmer_euk_histogram"}{"filename"},
+                        "-height 150",
+                        "-width 480",
+                        "-title=\"Coverage on 18S model\"",
+                        "-color=\"blue\"",
+                        );
+        run_prog("plotscript_SVG",
+                 join (" ", @args_euk),
+                 $outfiles{"plotscript_out"}{"filename"},
+                 "&1");
+        $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        # Prokaryotic gene model
+        my @args_prok = ("-hist",
+                         $outfiles{"nhmmer_prok_histogram"}{"filename"},
+                         "-height 150",
+                         "-width 480",
+                         "-title=\"Coverage on 16S model\"",
+                         "-color=\"blue\"",
+                         );
+        run_prog("plotscript_SVG",
+                 join (" ", @args_prok),
+                 $outfiles{"plotscript_out"}{"filename"},
+                 "&1");
+        $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+    }
+
     # Plot tree if spades/emirge unless both skipped
     unless ($skip_spades + $skip_emirge == 2) {
+        my @treeplot_args = ("-tree",
+                             $outfiles{"ssu_coll_tree"}{"filename"},
+                             );
+         # Add "bubbles" corresponding to read coverage
+        if (defined $outfiles{"full_len_class"}{"made"}) {
+            push @treeplot_args, ("-assemcov",
+                                  $outfiles{"full_len_class"}{"filename"},
+                                  "-treefasta",
+                                  $outfiles{"ssu_coll_fasta"}{"filename"},
+                                  "-unassemcount",
+                                  $ssu_sam_mapstats{"ssu_unassem"},
+                                  );
+        }
         run_prog("plotscript_SVG",
-                 "--tree ".$outfiles{"ssu_coll_tree"}{"filename"},
-                 #. "$decimalcomma ",
-                 "tmp.$libraryNAME.plotscript.out",
+                 join(" ",@treeplot_args),
+                 $outfiles{"plotscript_out"}{"filename"},
                  "&1");
         $outfiles{"ssu_coll_tree_svg"}{"made"}++;
     }
 
     # Generate barplot of taxonomy at level XX
+    my @barplot_args = ("-bar",
+                        $outfiles{"ntu_csv"}{"filename"},
+                        "-title=\"Taxonomic summary from reads mapped\"",
+                        );
     run_prog("plotscript_SVG",
-             "--bar ".$outfiles{"taxa_csv"}{"filename"}
-             ." --title=\"Taxonomic summary from reads mapped\" ",
-             "tmp.$libraryNAME.plotscript.out",
+             join(" ", @barplot_args),
+             $outfiles{"plotscript_out"}{"filename"},
              "&1");
-    $outfiles{"taxa_csv_svg"}{"made"}++;
+    $outfiles{"ntu_csv_svg"}{"made"}++;
+
+    # Mark plotscript out tmp file as made
+    $outfiles{"plotscript_out"}{"made"}++,
+
+    msg("done");
 }
 
 sub generate_treemap_data_rows {
-  # Generate data rows for drawing treemap chart
-  my %parents_HoH; # Hash of count vals by parent and child taxa
-  my @output; # Array to store output
-  # Parse taxstrings into hash of child-parent relationships
+    # Generate data rows for drawing treemap chart
+    my %parents_HoH; # Hash of count vals by parent and child taxa
+    my @output; # Array to store output
+    # Parse taxstrings into hash of child-parent relationships
 
-  foreach my $taxstring (keys %taxa_from_hitmaps) {
-    my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
-    my $taxlen = scalar @taxsplit; # Get length of tax string
-    while (scalar @taxsplit > 1) {
-      my $countval = 0; # Initialize count value as dummy "zero" by default
-      if (scalar @taxsplit == $taxlen) { # If leaf node, set count value to real value
-          $countval = $taxa_from_hitmaps{$taxstring};
-      }
-      my $child_taxstring = join ";", @taxsplit;
-      my $dummy = pop @taxsplit; # Get parent node
-      my $parent_taxstring = join ";", @taxsplit;
-      # Remove non-word and non-semicolon chars to avoid problems with Javascript
-      $child_taxstring =~ s/[^\w;_]/_/g;
-      $parent_taxstring =~ s/[^\w;_]/_/g;
-      # Update the parent-child hash if this taxon not already represented
-      if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
-        $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
-      }
+    foreach my $taxstring (keys %$taxa_full_href) {
+        my @taxsplit = split ";", $taxstring; # Get taxonomy string, split by semicolons
+        my $taxlen = scalar @taxsplit; # Get length of tax string
+        while (scalar @taxsplit > 1) {
+            my $countval = 0; # Initialize count value as dummy "zero" by default
+            if (scalar @taxsplit == $taxlen) { # If leaf node, set count value to real value
+                $countval = $taxa_full_href->{$taxstring};
+            }
+            my $child_taxstring = join ";", @taxsplit;
+            my $dummy = pop @taxsplit; # Get parent node
+            my $parent_taxstring = join ";", @taxsplit;
+            # Remove non-word and non-semicolon chars to avoid problems with Javascript
+            $child_taxstring =~ s/[^\w;_]/_/g;
+            $parent_taxstring =~ s/[^\w;_]/_/g;
+            # Update the parent-child hash if this taxon not already represented
+            if (!exists $parents_HoH{$parent_taxstring}{$child_taxstring}) {
+                $parents_HoH{$parent_taxstring}{$child_taxstring} = $countval;
+            }
+        }
     }
-  }
 
-  # Write output in dataRow format for treemap chart
-  # Root and top-level taxa
-  push @output, "[\'Cellular organisms\',\t,\t0],\n";
-  push @output, "[\'Bacteria\',\t\'Cellular organisms\',\t0],\n";
-  push @output, "[\'Archaea\',\t\'Cellular organisms\',\t0],\n";
-  push @output,"[\'Eukaryota\',\t\'Cellular organisms\',\t0],\n";
-  # Go through sorted hash and write parent-child data rows
-  foreach my $parent (sort {$a cmp $b} keys %parents_HoH) {
-    foreach my $child (sort {$a cmp $b} keys %{$parents_HoH{$parent}}) {
-      # Concatenate output as string
-      my $outstring = "[\'".$child."\',\t\'".$parent."\',\t".$parents_HoH{$parent}{$child}."],\n";
-      push @output, $outstring;
-      }
-  }
-  # Return array of output lines
-  return @output;
+    # Write output in dataRow format for treemap chart
+    # Root and top-level taxa
+    push @output, "[\'Cellular organisms\',\t,\t0],\n";
+    push @output, "[\'Bacteria\',\t\'Cellular organisms\',\t0],\n";
+    push @output, "[\'Archaea\',\t\'Cellular organisms\',\t0],\n";
+    push @output, "[\'Eukaryota\',\t\'Cellular organisms\',\t0],\n";
+    # Go through sorted hash and write parent-child data rows
+    foreach my $parent (sort {$a cmp $b} keys %parents_HoH) {
+        foreach my $child (sort {$a cmp $b} keys %{$parents_HoH{$parent}}) {
+            # Concatenate output as string
+            my $outstring = "[\'".$child."\',\t\'".$parent."\',\t".$parents_HoH{$parent}{$child}."],\n";
+            push @output, $outstring;
+        }
+    }
+    # Return array of output lines
+    return @output;
 }
 
 sub write_report_html {
     # Get input parameters
-    my ($version,$progcmd,$cwd,
+    my ($version,$progcmd,$cwd,$DBHOME,
         $libraryNAME, $id, $SEmode,
         $readsf_full,$readsr_full,
         $readnr,$readnr_pairs,
@@ -1612,8 +2018,6 @@ sub write_report_html {
         $xtons_aref,$chao1,
         $taxa_summary_href,
         $taxa_unassem_summary_href,
-        $ssuassem_results_sorted_aref,
-        $ssurecon_results_sorted_aref,
         ) = @_;
     my %outfiles = %$outfiles_href;
     my @xtons = @$xtons_aref;
@@ -1627,12 +2031,10 @@ sub write_report_html {
         "LIBNAME" => $libraryNAME,
         "PROGCMD" => $progcmd,
         "CWD" => $cwd,
+        "DBHOME" => $DBHOME,
         "ID" => $id,
         "READSF_FULL" => $readsf_full,
         "READNR" => $readnr,
-        "IDHISTOGRAM" => "<embed width=240 height=240 src=\"".$outfiles{"idhistogram_svg"}{"filename"}."\" />\n",
-        "MAPRATIOPIE" => "<embed width=240 height=240 src=\"".$outfiles{"mapratio_svg"}{"filename"}."\" />\n",
-        "TAXONSUMMARYBAR" => "<embed width=500 src=\"".$outfiles{"taxa_csv_svg"}{"filename"}."\" />\n",
         "SSU_RATIO" => $SSU_ratio, # Not in report?
         "SSU_RATIO_PC" => $SSU_ratio_pc,
         "SSU_TOTAL_PAIRS" => $SSU_total_pairs,
@@ -1670,6 +2072,15 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_NO_TREEMAP"} = 1 ;
         $suppress_end_flags{"SUPPRESS_IF_NO_TREEMAP_END"} = 1 ;
     }
+    if ($poscov_flag == 0) {
+        $suppress_flags{"SUPPRESS_IF_NO_POSCOV"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_NO_POSCOV_END"} = 1;
+    }
+
+    # Slurp in the SVG plots to embed in HTML file
+    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
+    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"});
+    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"});
 
     # Table of output files produced
     my @table_outfiles;
@@ -1705,37 +2116,81 @@ sub write_report_html {
 
     # Params defined only for PE reads
     if ($SEmode == 0) {
-        $flags{"INSERTHISTOGRAM"} = "<embed width=240 height=240 src=\"".$outfiles{"inserthistogram_svg"}{"filename"}."\" />\n";
         $flags{"INS_ME"} = $ins_me;
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
         $flags{"READNR_PAIRS"} = $readnr_pairs;
+        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"});
     }
+
+    # Slurp in positional coverage histograms, if defined
+    if ($poscov_flag == 1) {
+        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
+        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
+    }
+
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
-        $flags{"ASSEMBLYRATIOPIE"} = "<embed width=240 height=240 src=\"".$outfiles{"assemratio_svg"}{"filename"}."\" />\n";
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"SEQUENCES_TREE"} = "<embed src=\"".$outfiles{"ssu_coll_tree_svg"}{"filename"}."\" width=1200px />\n";
+        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"});
+        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"});
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
-        foreach (@$ssuassem_results_sorted_aref) {
-            my @split_entry = @$_;
-            # Parse the database entry number of the reference sequence to get Genbank accession
-            my @get_genbank = split (/\./,$split_entry[2]);
-            push @table_assem_seq, "  <tr>\n";
-            push @table_assem_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_assem_seq, "    <td>".$ssuassem_cov{$split_entry[0]}."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_assem_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";    # Link to Genbank entry using accession no.
-            push @table_assem_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_assem_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_assem_seq, "  </tr>\n";
+        
+        foreach my $seqid (sort { $ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
+            # Check that sequence was assembled by spades
+            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            # Parse database entry number of hit to get Genbank accession
+            my ($gbk, @discard) = split /\./, $ssufull_hash{$seqid}{"dbHit"};
+            $ssufull_hash{$seqid}{"gbklink"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".
+                                               $gbk.
+                                               "\">".
+                                               $ssufull_hash{$seqid}{"dbHit"}.
+                                               "</a>";
+            # Build an output line
+            #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+            my @fields = qw(counts cov gbklink taxon pcid alnlen evalue);
+            push @table_assem_seq, "  <tr>\n";                  # Start table row
+            push @table_assem_seq, "    <td>".$seqid."</td>\n"; # Push sequence ID to line
+            foreach my $field (@fields) {                       # Push individual fields to line
+                push @table_assem_seq, "    <td>".$ssufull_hash{$seqid}{$field}."</td>\n";
+            }
+            push @table_assem_seq, "  </tr>\n";                 # End table row
         }
         $flags{"ASSEMBLED_SSU_TABLE"} = join "", @table_assem_seq;
+    }
 
+    # Params defined only for reconstructed (EMIRGE) reads
+    if ($skip_emirge == 0) {
+        $flags {"INS_USED"} = $ins_used;
+        my @table_recon_seq;
+        
+        foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
+            # Check that sequence was assembled by spades
+            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            # Parse database entry number of hit to get Genbank accession
+            my ($gbk, @discard) = split /\./, $ssufull_hash{$seqid}{"dbHit"};
+            $ssufull_hash{$seqid}{"gbklink"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".
+                                               $gbk.
+                                               "\">".
+                                               $ssufull_hash{$seqid}{"dbHit"}.
+                                               "</a>";
+            # Build an output line
+            #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+            my @fields = qw(counts cov gbklink taxon pcid alnlen evalue);
+            push @table_recon_seq, "  <tr>\n";                  # Start table row
+            push @table_recon_seq, "    <td>".$seqid."</td>\n"; # Push sequence ID to line
+            foreach my $field (@fields) {                       # Push individual fields to line
+                push @table_recon_seq, "    <td>".$ssufull_hash{$seqid}{$field}."</td>\n";
+            }
+            push @table_recon_seq, "  </tr>\n";                 # End table row
+        }
+        $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
+    }
+
+    # Params defined if either SPAdes or EMIRGE are run
+    if ($skip_spades + $skip_emirge < 2) {
         # Table of unassembled SSU reads affiliations
         my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
         my @table_unassem_lines;
@@ -1748,26 +2203,6 @@ sub write_report_html {
             }
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
-    }
-    # Params defined only for reconstructed (EMIRGE) reads
-    if ($skip_emirge == 0) {
-        $flags {"INS_USED"} = $ins_used;
-        my @table_recon_seq;
-        foreach (@ssurecon_results_sorted) {
-            push @table_recon_seq, "  <tr>\n";
-            my @split_entry = @$_;
-            my $test = $split_entry[2];
-            my @get_genbank = split (/\./,$test);
-            push @table_recon_seq, "    <td>".$split_entry[0]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[1]."</td>\n";
-            push @table_recon_seq, "    <td><a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".$get_genbank[0]."\">".$split_entry[2]."</a></td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[3]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[4]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[5]."</td>\n";
-            push @table_recon_seq, "    <td>".$split_entry[6]."</td>\n";
-            push @table_recon_seq, "  </tr>\n";
-        }
-        $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
     }
 
     # Open template and process output
@@ -1795,6 +2230,15 @@ sub write_report_html {
     close($fh_in);
 }
 
+sub write_logfile {
+    # This should always be run last
+    msg("Saving log to file");
+    my $fh;
+    open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
+    print $fh join "\n", @PhyloFlash::msg_log;
+    close($fh);
+}
+
 ######################### MAIN ###########################
 welcome();
 parse_cmdline();
@@ -1803,11 +2247,12 @@ check_environment();
 
 my $timer = new Timer;
 
+# Run BBmap against the SILVA database
 bbmap_fast_filter_sam_run();
-## Replaced: bbmap_hitstats_parse();
 
 # Parse statistics from BBmap initial mapping
 my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
@@ -1819,17 +2264,23 @@ if (defined $skipflag && $skipflag == 1) {
 # Parse sam file
 readsam();
 
+# Find positional coverage along prok and euk SSU rRNA models using nhmmer
+# from a subsample of reads
+nhmmer_model_pos() if ($poscov_flag == 1 );
+
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
     spades_run();
     spades_parse();
-    bbmap_spades_out();
-    taxonomy_spades_unmapped();
+    bbmap_remap("SPAdes");
+    #bbmap_spades_out();
+    #taxonomy_spades_unmapped();
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
     emirge_run();
     emirge_parse();
+    bbmap_remap("EMIRGE");
 }
 # If at least one of either SPAdes or Emirge is activated, parse results
 if ($skip_spades + $skip_emirge < 2) {
@@ -1837,13 +2288,14 @@ if ($skip_spades + $skip_emirge < 2) {
     vsearch_parse();
     vsearch_cluster();
     mafft_run();
+    screen_remappings();
 }
 
 $runtime = $timer->minutes; # Log run time
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version, $progcmd, $cwd, $libraryNAME, $id, $SEmode,
+    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,
     $readsf_full, $readsr_full, $readnr, $readnr_pairs,
     $ins_me,$ins_std,$ins_used,
     $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
@@ -1851,7 +2303,7 @@ my @report_inputs = (
     $taxon_report_lvl,
     \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
-    \@ssuassem_results_sorted, \@ssurecon_results_sorted,
+    #\@ssuassem_results_sorted, \@ssurecon_results_sorted,
     );
 
 # Print report file and CSV output
@@ -1859,15 +2311,18 @@ print_report();
 write_csv();
 
 # SVG formatted graphics and HTML report
+# Must be run after write_csv()
 if ($html_flag) {
     run_plotscript_SVG();
     write_report_html(@report_inputs);
 }
 
 # Clean up temporary files
-#clean_up();
+clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
+
+write_logfile() if ($save_log == 1);
