@@ -37,14 +37,14 @@ Limit number of processors used to 8:
 phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -CPUs 8
 ```
 
-Format results prettily as HTML:
+Compress all the output files into a tar.gz archive:
 ```
-phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
+phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -zip
 ```
 
 ## 2. Full description of program options
 
-### 2.0 Help and configuration
+You can access help on the command line with the following options:
 
 `-check_env` Invokes checking of working environment and dependencies without data input. Use to test setup.
 
@@ -74,7 +74,7 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
 
 `-amplimit N` Set the limit of SSU read pairs to switch from emirge.py to emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py has been problematic to run (use values >100000). Default: 500000.
 
-## 2.3. Customizing the run
+### 2.3. Customizing the run
 
 `-skip_spades` Do not use SPAdes to assemble full-length sequences from extracted reads
 
@@ -94,13 +94,13 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -html
 
 `-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. (Default: Look in phyloFLash folder for highest SILVA version number)
 
-### 2.3. Localization and compatibility options
+### 2.4. Localization and compatibility options
 
 `-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant (Default: Off)
 
 `-decimalcomma` Use decimal comma instead of decimal point to fix locale problems for some European systems (Default: Off)
 
-### 2.4. Configuring output
+### 2.5. Configuring output
 
 `-html` Produce an HTML-formatted version of the report file. This helps improve readability and individual sections of the report can be collapsed. (Default: On, turn off with `-nohtml`)
 
