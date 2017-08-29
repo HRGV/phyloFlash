@@ -46,11 +46,20 @@ Use the `-sc` switch for MDA datasets (single cell) or other hard to assemble re
 
 Use the `-zip` switch to compress output files into tar.gz archive, and `-log` to save run messages to a log file
 
+Example phyloFlash report from the provided test data can be viewed [here](test.phyloFlash.html).
+
+## What does phyloFlash do?
+
+ - Summarize taxonomic diversity of a metagenome/transcriptome library from SSU rRNA read affiliations
+ - Assemble/reconstruct full-length SSU rRNA sequences suitable for phylogenetic analysis
+ - Quick comparison of multiple samples by their taxonomic composition using a heatmap
+
 ## Contents
 
  - [Installation](install.md)
  - [Usage](usage.md)
  - [Comparing multiple samples](multiple-samples.md)
+ - [Output report](output.md)
  - [FAQ](FAQ.md)
 
 ## About
