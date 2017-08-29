@@ -17,7 +17,7 @@ phyloFlash produces a graphical summary of each run in the HTML report file. Thi
 
 Detailed descriptions of each panel in the graphical summary are visible as tooltip text upon mouseover. 
 
-<img src="report_screenshot_annotated_001.png" alt="Annotated screenshot describing graphical summary, 001" style="width: 650px; display: block; margin-left: auto; margin-right:auto;"/>
+![Annotated screenshot describing graphical summary](report_screenshot_annotated_001.png)
 
 1. Name of the library, supplied by the `-lib` option
 2. Read-mapping %identity of reads vs. reference database from the initial read mapping. Lower %identity hits may indicate presence of divergent taxa not represented in the database.
@@ -27,7 +27,7 @@ Detailed descriptions of each panel in the graphical summary are visible as tool
 6. Bar chart of the taxonomic units (NTUs) from the initial read mapping to the SILVA database, arranged in descending order of abundance. The taxonomic level of the NTUs is set by the `-taxlvl` parameter. The number of reads assigned to each taxon is displayed on the bar. Text labels are scaled to the bar heights, but on mouseover of the bars, the corresponding text labels will expand to legible size. Colors are randomly assigned, for aesthetics only.
 7. Coverage evenness across eukaryotic 18S rRNA and prokaryotic 16S rRNA gene models from Barrnap, using Nhmmer and a random subsample of mapped reads. This helps to detect contamination from tag sequencing libraries (sharp coverage peaks). For the eukaryotic model it is normal to see one or two regions with low coverage because of variable regions in the 18S rRNA gene that are not present in all organisms. (Only shown if `-poscov` option is used)
 
-<img src="report_screenshot_annotated_002.png" alt="Annotated screenshot describing graphical summary, 002" style="width: 650px; display: block; margin-left: auto; margin-right:auto;"/>
+![Annotated screenshot describing graphical summary](report_screenshot_annotated_002.png)
 
 8. Tree of full-length SSU rRNA sequences and their closest hits in the SILVA database (guide tree from MAFFT alignment). Relative branch lengths help to assess whether taxa detected in sample are close to known organisms or not. Click on the header to expand the tree. (Only shown if full-length sequences are assembled or reconstructed, i.e. `-skip_spades` and `-noemirge` are not activated)
 9. Colored bubbles representing the number of reads mapping to each assembled/reconstructed full-length sequence can be turned on and off with the toggle switches. If both SPAdes and EMIRGE are used, the mapping is done separately for each set of full-length sequences produced by the different tools. This allows a comparison between the tools, e.g. in the example shown, SPAdes assembles a sequence that is not reconstructed by EMIRGE. 
