@@ -21,23 +21,31 @@ Transcriptomes typically have a much higher proportion of rRNA reads than genome
 
 # What output will I get?
 
-The default **phyloFlash** pipeline provides the following output:
+The **phyloFlash** pipeline provides the following output:
 
 An overview of the taxonomic composition in three ways:
- - Taxonomic affiliation of reference DB sequences which have hits
- - Full-length SSU rRNA sequences assembled by SPAdes, and their closest reference DB hits
- - Full-length SSU rRNA sequences reconstructed by EMIRGE, and their closest reference DB hits
+ - Taxonomic affiliation of reference database sequences which have hits
+ - Full-length SSU rRNA sequences assembled by SPAdes, and their closest reference database hits
+ - Full-length SSU rRNA sequences reconstructed by EMIRGE, and their closest reference database hits (if `-emirge` option is used)
+
+The extracted SSU rRNA reads will be mapped back to the full-length sequences to determine the proportion that was successfully assembled or reconstructed. A low ratio of assembled:unassembled could be caused by high taxonomic diversity in a sample, or other problems with assembly (e.g. several closely-related taxa that make assembly difficult).
 
 You'll also get output parameters that will help you evaluate quality of your sequences (see below)
 
 # How does phyloFlash show library quality?
 
- - Insert size histogram - should be more or less unimodal
+ - Insert size histogram - should be more or less unimodal. Multiple peaks may be caused by contamination from other sequencing libraries.
  - Identify possible contamination, e.g. *Propionibacterium* is a common contaminant from human skin
+ - Coverage on SSU rRNA HMM models (18S and 16S rRNA) - should be relatively even across the gene. High coverage or gaps in coverage may be a sign of contamination from amplicon libraries.
+ - Mapping identity to database sequences - identities below 90% suggest the presence of novel or divergent taxa that are not well-represented in the database.
+
+# Why use the SSU rRNA gene, and not single-copy markers / whole genomes / kmers?
+
+Many other tools use genomic reference data to summarize the taxonomic composition of microbial metagenomes. phyloFlash uses only the SSU rRNA marker because it is the most well-represented and well-curated phylogenetic marker gene. Tools using genome-based reference data are limited by the underrepresentation of uncultivated, environmental taxa. These taxa are also underrepresented in marker gene databases, but the latter have had several decade's head start in accumulating comparative data. Using the SSU rRNA gene also allows us to take advantage of the curated taxonomy from the [SILVA](https://www.arb-silva.de/) project, whereas the taxonomic annotation of genome sequences deposited in public databases is typically user-reported and not always consistent.
 
 # How can I use the results?
 
-You can browse the results as a text file or HTML formatted report (use `-html` flag), with graphics, to look at the results from one sample.
+You can browse the results as a text file or HTML formatted report (with embedded graphics) to look at the results from one sample.
 
 To compare multiple samples you can [generate a heatmap](multiple-samples.md) of taxa vs. samples, which is especially useful with large numbers of samples.
 
@@ -47,9 +55,9 @@ Reads which map to SSU rRNA are extracted into Fastq formatted read files by phy
 
 # Should I run SPAdes and EMIRGE, or skip them?
 
-phyloFlash incorporates two different tools for getting full-length rRNA sequences from unassembled metagenomic/transcriptomic reads - one is the SPAdes assembler, the other is EMIRGE which uses an expectation maximization method to reconstruct rRNA sequences.
+phyloFlash incorporates two different tools for getting full-length rRNA sequences from unassembled metagenomic/transcriptomic reads - one is the SPAdes assembler (on by default), the other is EMIRGE (off by default) which uses an expectation maximization method to reconstruct rRNA sequences.
 
-If you don't need full-length sequences, you may want to turn them off `-skip_spades` and `-skip_emirge` so that phyloFlash runs faster. However full-length sequences are useful to have because NTUs alone may give a misleadingly high impression of taxonomic diversity.
+If you don't need full-length sequences, you may want to turn off SPAdes (`-skip_spades`) so that phyloFlash runs faster. In that case, only the initial mapping to SILVA and the taxonomic summary will be produced. However full-length sequences are useful to have because NTUs alone may give a misleadingly high impression of taxonomic diversity.
 
 EMIRGE in particular can be tricky to install because of its own software dependencies, and you when you first try the pipeline you may want to skip EMIRGE if you don't already have it installed on your system.
 

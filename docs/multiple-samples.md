@@ -2,7 +2,7 @@
 layout: page
 title: Comparing Multiple Samples
 permalink: /multiple-samples/
-order: 3
+order: 4
 ---
 
 **phyloFlash** runs from multiple libraries can be compared with a heatmap with the `phyloFlash_heatmap.R` script.

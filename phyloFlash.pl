@@ -34,9 +34,9 @@ only letters, numbers and "_" or "-" (no whitespace or other punctuation).
 
 =item -read1 F<file>
 
-File containing forward reads. Both FASTA and FASTQ formats are understood.
-The file may be compressed (.gz). If interleaved read data is provided, please
-use --interleaved flag for paired-end processing
+Forward reads in FASTA or FASTQ formats. May be compressed with Gzip (.gz
+extension). If interleaved reads are provided, please use I<--interleaved> flag
+in addition for paired-end processing.
 
 =item -read2 F<file>
 
@@ -56,6 +56,10 @@ Print brief help.
 
 Show manual.
 
+=item -outfiles
+
+Show detailed list of output and temporary files and exit.
+
 =back
 
 =head1 LOCAL SETTINGS
@@ -68,7 +72,7 @@ Set the number of threads to use. Defaults to all available CPU cores.
 
 =item -crlf
 
-Use CRLF as line terminator in CVS output (to become RFC4180 compliant).
+Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
 
 =item -decimalcomma
 
@@ -420,6 +424,7 @@ sub parse_cmdline {
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
+               'outfiles' => \&output_description,
                'help' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
@@ -523,7 +528,7 @@ sub parse_cmdline {
         if ($ARGV[0]);
 
     # populate hash to keep track of output files
-    my $outfiles_href = initialize_infiles_hash($libraryNAME,$readsf);
+    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
     %outfiles = %$outfiles_href;
     # use hash to keep track of output file description, filename,
     # whether it should be deleted at cleanup, and if file was actually created
@@ -545,6 +550,19 @@ sub parse_cmdline {
             msg ("Running \"everything\" except EMIRGE- overrides other command line options");
         }
     }
+}
+
+sub output_description {
+    my $example_outfiles = initialize_outfiles_hash("LIBNAME","READS");
+
+    print STDERR "Description of output files \n\n";
+    print STDERR "FILENAME\tDESCRIPTION\n";
+    foreach my $outfile (sort {$a cmp $b} keys %$example_outfiles) {
+        my @out = ($example_outfiles->{$outfile}{"filename"},
+                   $example_outfiles->{$outfile}{"description"},);
+        print STDERR join ("\t", @out)."\n";
+    }
+    exit;
 }
 
 sub print_report {
@@ -680,7 +698,7 @@ NTU\treads
 
 sub write_csv {
     msg("exporting results to csv");
-    
+
     # CSV file of phyloFlash run metadata
     my @report = csv_escape((
         "version",$version,
@@ -710,7 +728,7 @@ sub write_csv {
         print {$fh} shift(@report).",".shift(@report).$crlf;
     }
     close($fh);
-    
+
     # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
     open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
@@ -721,11 +739,11 @@ sub write_csv {
         print {$fh} join(",",csv_escape(@out)).$crlf;
     }
     close($fh);
-    
+
     # If full-length seqeunces were assembled or reconstructed
     if ($skip_spades + $skip_emirge < 2) {
-        
-        # CSV file of assembled/reconstructed sequnces 
+
+        # CSV file of assembled/reconstructed sequnces
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
         $outfiles{"full_len_class"}{"made"}++;
         print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n"; # Header
@@ -740,7 +758,7 @@ sub write_csv {
             print {$fh} join (",", csv_escape(@out)).$crlf;
         }
         close($fh);
-        
+
         # CSV file of taxonomic affiliations for unassembled/unreconstructed reads
         my $fh2;
         open_or_die (\$fh2, ">", $outfiles{"unassem_csv"}{"filename"});
@@ -1002,7 +1020,7 @@ sub readsam {
     } else {
         $chao1 = 'n.d.';
     }
-    
+
     msg("done...");
 }
 
@@ -1032,7 +1050,7 @@ sub summarize_taxonomy {
         my $taxshort = truncate_taxonstring ($taxstring, $lvl);
         $taxhash{$taxshort}++;
     }
-    
+
     return (\%taxhash); # Return reference to output array
 }
 
@@ -1206,7 +1224,7 @@ sub bbmap_remap {
     msg("mapping extracted SSU reads back on $which SSU sequences");
     # Define input arguments to BBmap
     my @remap_args = ("fast=t",
-                      "minidentity=0.98", # Note high identity 
+                      "minidentity=0.98", # Note high identity
                       "-Xmx20g",
                       "threads=$cpus",
                       "po=f",
@@ -1240,11 +1258,11 @@ sub bbmap_remap {
 sub screen_remappings {
     # Read SAM file from re-mapping and identify whether given read has mapped
     # to a full length sequence from either SPAdes or EMIRGE
-    
+
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
-    
+
     # first SAM in %ssu_sam
-    
+
     my %sam_spades; # too good to be true
     my %sam_emirge;
     # If SPAdes results were mapped, read into memory
@@ -1255,7 +1273,7 @@ sub screen_remappings {
     if ($skip_emirge == 0) {
         flag_unmapped_sam("EMIRGE");
     }
-    
+
     my @unassem_taxa;
     my $ssu_fwd_map = 0;
     my $ssu_rev_map = 0;
@@ -1271,7 +1289,7 @@ sub screen_remappings {
         } else {
             push @pairs, ("F", "R");
         }
-        
+
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
             if (defined $ssu_sam{$read}{$pair}) {
@@ -1299,7 +1317,7 @@ sub screen_remappings {
             }
         }
     }
-    
+
     # Summarize counts per NTU of unassembled reads
     $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
 
@@ -1311,7 +1329,7 @@ sub screen_remappings {
     $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
     $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
     $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
-    
+
     # Calculate totals for each tool used
     if (defined $ssu_sam_mapstats{"spades_fwd_map"}) {
         my $spades_tot_map = $ssu_sam_mapstats{"spades_fwd_map"};
@@ -1327,7 +1345,7 @@ sub screen_remappings {
         }
         $ssu_sam_mapstats{"emirge_tot_map"} = $emirge_tot_map;
     }
-    
+
     # Write CSV of reads assembled for piechart
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$total_unassembled;
@@ -1771,7 +1789,7 @@ sub clean_up {
         msg ("Retaining temp files and folders...");
     } elsif ($keeptmp == 0) {
         msg("Cleaning temp files...");
-        
+
         # Delete SPAdes and/or EMIRGE output folders
         if ($skip_spades == 0) {
             system ("rm $libraryNAME.spades -r");
@@ -1788,7 +1806,7 @@ sub clean_up {
             }
         }
     }
-    
+
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
@@ -1833,7 +1851,7 @@ sub run_plotscript_SVG {
     } else {
         push @map_args, "-title=\"$SSU_ratio_pc % reads mapped\"";
     }
-    
+
     run_prog("plotscript_SVG",
              join(" ", @map_args),
              $outfiles{"plotscript_out"}{"filename"},
@@ -1936,7 +1954,7 @@ sub run_plotscript_SVG {
 
     # Mark plotscript out tmp file as made
     $outfiles{"plotscript_out"}{"made"}++,
-    
+
     msg("done");
 }
 
@@ -2186,7 +2204,7 @@ sub write_report_html {
         } # Push into flags hash
         $flags{"UNASSEMBLED_READS_TABLE"} = join "", @table_unassem_lines;
     }
-    
+
     # Open template and process output
     my ($fh_in, $fh_out);
     open_or_die(\$fh_in, "<", $template);
