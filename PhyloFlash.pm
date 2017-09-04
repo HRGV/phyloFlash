@@ -27,16 +27,18 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = 2.00;
+our $VERSION     = 3.00;
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   get_cpus
   msg
+  @msg_log
   err
   version_sort
   file_is_newer
   get_subdirs
   open_or_die
+  slurpfile
   csv_escape
   require_tools
   check_environment
@@ -45,6 +47,7 @@ our @EXPORT      = qw(
   fasta_copy_except
   fasta_copy_iupac_randomize
   cluster
+  initialize_outfiles_hash
 );
 
 use IPC::Cmd qw(can_run);
@@ -57,17 +60,17 @@ or reported by F<sysctl> (Darwin/OSX)
 =cut
 sub get_cpus {
     if ($Config{"osname"} eq "linux") {
-	open(my $fh, "<", "/proc/cpuinfo") or return 1;
-	return scalar (map /^processor/, <$fh>)
+        open(my $fh, "<", "/proc/cpuinfo") or return 1;
+        return scalar (map /^processor/, <$fh>)
     }
     elsif ($Config{"osname"} eq "darwin") {
-	can_run("sysctl") or return 1;
-	my $ncpu = `sysctl -n hw.ncpu`;
-	chomp($ncpu);
-	return $ncpu;
+        can_run("sysctl") or return 1;
+        my $ncpu = `sysctl -n hw.ncpu`;
+        chomp($ncpu);
+        return $ncpu;
     }
     else {
-	return 1;
+        return 1;
     }
 }
 
@@ -77,10 +80,12 @@ sub get_cpus {
 Logs a message to STDERR with time stamp prefix.
 
 =cut
+our @msg_log; # Global var to store log
 sub msg {
     my $t = localtime;
     my $line = wrap ("[".$t->hms."] ", "           ",
                      join "\n", @_);
+    push @msg_log, $line;
     print STDERR $line."\n";
 }
 
@@ -110,7 +115,7 @@ the part of the filename preceding the first digit. E.g.:
 sub version_sort {
     # this will fail with Perl <5.13.2. Versions before that lack the
     # non-destructive subsitition flag /r used in the map line below.
-    return  map { $_->[0] }  
+    return  map { $_->[0] }
             sort { - ($a->[1] cmp $b->[1]) }
             map { [ $_, ($_ =~ s/.*\/[^\d]*//r) =~ s[(\d+)][pack "N", $1]ger ] }
             @_;
@@ -173,6 +178,25 @@ sub open_or_die {
 
     open($$fh, $mode, $fname)
         or err("Failed to $msg '$fname': $!");
+}
+
+=item slurpfile ($filename)
+
+Opens a file, slurps contents into string, and returns string.
+
+=cut
+
+sub slurpfile {
+    my ($file) = @_;
+    my $return;
+    {
+        my $fh_slurp;
+        open_or_die(\$fh_slurp, "<", $file);
+        local $/ = undef;
+        $return = <$fh_slurp>;
+        close($fh_slurp);
+    }
+    return ($return);
 }
 
 =item csv_escape ($var)
@@ -490,7 +514,7 @@ sub fasta_copy_except {
     }
 }
 
-=item cluster ($source, $dest, $id) 
+=item cluster ($source, $dest, $id)
 
 Runs vsearch's cluster_fast algorithm to extract centroids
 from $source into $dest at a cluster size of $id.
@@ -614,6 +638,448 @@ returns the runtime of the timer in minuts
     }
 }
 
+=item initialize_outfiles_hash ($libraryNAME, $readsf)
+
+Initialize a hash of the output filenames, descriptions, and flags when given
+library name and name of read files. Returns hash reference.
+
+=cut
+
+sub initialize_outfiles_hash {
+    my ($libraryNAME,$readsf) = @_;
+    # field "made" will keep track of whether file was created
+    my %hash = (
+      "idhistogram_svg",
+      {
+        description => "SVG graphic of mapping identity histogram",
+        discard     => 0,
+        filename    => "$libraryNAME.idhistogram.svg",
+        intable     => 0,
+      },
+      "gff_arch",
+      {
+        description => "GFF file for Barrnap run of Archaea model",
+        discard     => 1,
+        filename    => "$libraryNAME.scaffolds.arch.gff",
+        intable     => 0,
+      },
+      "spades_fasta",
+      {
+        description => "FASTA file of sequences assembled by SPAdes",
+        discard     => 0,
+        filename    => "$libraryNAME.spades_rRNAs.final.fasta",
+        intable     => 0,
+      },
+      "hitstats",
+      {
+        description => "Hitstats output from BBmap",
+        discard     => 0,
+        filename    => "$libraryNAME.hitstats",
+        intable     => 0,
+      },
+      "inserthistogram",
+      {
+        description => "Insert size histogram from BBmap",
+        discard     => 0,
+        filename    => "$libraryNAME.inserthistogram",
+        intable     => 1,
+      },
+      "ssu_coll_aln_fasta",
+      {
+        description => "FASTA file of alignment of all full-length sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.SSU.collection.alignment.fasta",
+        intable     => 1,
+      },
+      "report_csv",
+      {
+        description => "phyloFlash report in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.report.csv",
+        intable     => 1,
+      },
+      "gff_euk",
+      {
+        description => "GFF file for Barrnap run of Eukaryote model",
+        discard     => 1,
+        filename    => "$libraryNAME.scaffolds.euk.gff",
+        intable     => 0,
+      },
+      "reads_mapped_r",
+      {
+        description => "Reads (rev) mapping to SSU rRNA database",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU.2.fq",
+        intable     => 1,
+      },
+      "ssu_coll_tree",
+      {
+        description => "Newick guide tree from MAFFT alignment of all full-length sequences and closest database hits",
+        discard     => 0,
+        filename    => "$libraryNAME.SSU.collection.fasta.tree",
+        intable     => 1,
+      },
+      "spades_log",
+      {
+        description => "Log file from SPAdes assembler",
+        discard     => 1,
+        filename    => "$libraryNAME.spades.out",
+        intable     => 0,
+      },
+      "full_len_class",
+      {
+        description => "Taxonomic classification of full-length sequences, in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.extractedSSUclassifications.csv",
+        intable     => 1,
+      },
+      "report",
+      {
+        description => "phyloFlash report in plain text",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash",
+        intable     => 1,
+      },
+      "inserthistogram_svg",
+      {
+        description => "SVG graphic of insert size histogram",
+        discard     => 0,
+        filename    => "$libraryNAME.inserthistogram.svg",
+        intable     => 0,
+      },
+      "dhbits_nr97_fasta",
+      {
+        description => "FASTA file of sequences in database with hits to reconstructed sequences clustered at 0.97 identity",
+        discard     => 0,
+        filename    => "$libraryNAME.all.dbhits.NR97.fa",
+        intable     => 0,
+      },
+      "vsearch_csv",
+      {
+        description => "CSV file of Vsearch output",
+        discard     => 0,
+        filename    => "$libraryNAME.all.vsearch.csv",
+        intable     => 0,
+      },
+      "report_html",
+      {
+        description => "phyloFlash report in HTML format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.html",
+        intable     => 1,
+      },
+      "unassem_csv",
+      {
+        description => "Taxonomic composition of unassembled SSU reads in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.unassembled.NTUabundance.csv",
+        intable     => 1,
+      },
+      "mapratio_csv",
+      {
+        description => "Mapping ratio file in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.mapratio.csv",
+        intable     => 0,
+      },
+      "gff_bac",
+      {
+        description => "GFF file for Barrnap run of Bacteria model",
+        discard     => 1,
+        filename    => "$libraryNAME.scaffolds.bac.gff",
+        intable     => 0,
+      },
+      "emirge_log",
+      {
+        description => "Log file from EMIRGE sequence reconstruction",
+        discard     => 1,
+        filename    => "$libraryNAME.emirge.out",
+        intable     => 0,
+      },
+      "assemratio_csv",
+      {
+        description => "CSV file of ratio assembled to unassembled",
+        discard     => 0,
+        filename    => "$libraryNAME.assemratio.csv",
+        intable     => 0,
+      },
+      "emirge_fasta",
+      {
+        description => "FASTA file of sequences reconstructed by EMIRGE",
+        discard     => 0,
+        filename    => "$libraryNAME.emirge.final.fasta",
+        intable     => 0,
+      },
+      "ssu_coll_aln_mafftout",
+      {
+        description => "MAFFT output from aligning all full-length sequences",
+        discard     => 1,
+        filename    => "$libraryNAME.SSU.collection.alignment.mafftout",
+        intable     => 0,
+      },
+      "ntu_csv",
+      {
+        description => "NTU abundances from initial mapping, in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.NTUabundance.csv",
+        intable     => 1,
+      },
+      "ntu_csv_svg",
+      {
+        description => "SVG graphic of taxonomic composition from initial read mapping",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.NTUabundance.csv.svg",
+        intable     => 1,
+      },
+      "idhistogram",
+      {
+        description => "Mapping identity histogram from BBmap",
+        discard     => 0,
+        filename    => "$libraryNAME.idhistogram",
+        intable     => 1,
+      },
+      "sam_map",
+      {
+        description => "SAM file of initial read mapping to SSU rRNA database",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU.sam",
+        intable     => 1,
+      },
+      "barrnap_log",
+      {
+        description => "Log file from Barrnap",
+        discard     => 1,
+        filename    => "$libraryNAME.barrnap.out",
+        intable     => 0,
+      },
+      "mapratio_svg",
+      {
+        description => "SVG graphic of mapping ratio file in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.mapratio.csv.svg",
+        intable     => 0,
+      },
+      "ssu_coll_tree_svg",
+      {
+        description => "SVG graphic of guide tree from MAFFT alignment of all full-length sequences and closest database hits",
+        discard     => 0,
+        filename    => "$libraryNAME.SSU.collection.fasta.tree.svg",
+        intable     => 1,
+      },
+      "dbhits_all_fasta",
+      {
+        description => "FASTA file of all sequences in database with hits to reconstructed sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.all.final.phyloFlash.dbhits.fa",
+        intable     => 0,
+      },
+      "notmatched_fasta",
+      {
+        description => "FASTA file of full-length sequences without any database hits",
+        discard     => 0,
+        filename    => "$libraryNAME.all.final.phyloFlash.notmatched.fa",
+        intable     => 0,
+      },
+      "assemratio_svg",
+      {
+        description => "SVG graphic of assembly ratio",
+        discard     => 0,
+        filename    => "$libraryNAME.assemratio.csv.svg",
+        intable     => 0,
+      },
+      "reads_mapped_f",
+      {
+        description => "Reads (fwd) mapping to SSU rRNA database",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU.1.fq",
+        intable     => 1,
+      },
+      "bbmap_log",
+      {
+        description => "Log file from BBmap of initial mapping",
+        discard     => 0,
+        filename    => "$libraryNAME.bbmap.out",
+        intable     => 0,
+      },
+      "ssu_coll_fasta",
+      {
+        description => "FASTA file of all full-length sequences and their closest database hits",
+        discard     => 0,
+        filename    => "$libraryNAME.SSU.collection.fasta",
+        intable     => 1,
+      },
+      "all_final_fasta",
+      {
+        description => "FASTA file of full-length SSU sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.all.final.fasta",
+        intable     => 1,
+      },
+      "phyloFlash_log",
+      {
+        description => "phyloFlash log file",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.log",
+        intable     => 0,
+      },
+      "phyloFlash_archive",
+      {
+        description => "tar.gz archive of phyloFlash results",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.tar.gz",
+        intable     => 0,
+      },
+      "readsf_subsample",
+      {
+        description => "Subsample of the forward SSU reads for running nhmmer",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.readsf.subsample.fasta",
+        intable     => 0,
+      },
+      "nhmmer_tblout",
+      {
+        description => "Tabular output from aligning SSU HMM models with nhmmer on sample of reads",
+        discard     => 0, # Keep while testing
+        filename    => "$libraryNAME.nhmmer.tblout",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram",
+      {
+        description => "Histogram of alignment position counts against prokaryotic HMM models",
+        discard     => 0, # keep while testing
+        filename    => "$libraryNAME.nhmmer.prok.histogram",
+        intable     => 0,
+      },
+      "nhmmer_prok_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against prokaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.prok.histogram.svg",
+        intable     => 0,
+      },
+      "nhmmer_euk_histogram",
+      {
+        description => "Histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram",
+        intable     => 0,
+      },
+      "nhmmer_euk_histogram_svg",
+      {
+        description => "SVG graphic of histogram of alignment position counts against eukaryotic HMM model",
+        discard     => 0,
+        filename    => "$libraryNAME.nhmmer.euk.histogram.svg",
+        intable     => 0,
+      },
+      "plotscript_out",
+      {
+        description => "Output stream from Plotscript",
+        discard     => 1,
+        filename    => "$libraryNAME.plotscript.out",
+        intable     => 0,
+      },
+      "basecompositionhist",
+      {
+        description => "Base composition histogram from BBmap, from initial mapping of reads vs database",
+        discard     => 1,
+        filename    => "$libraryNAME.basecompositionhistogram",
+        intable     => 0,
+      },
+      "gff_all",
+      {
+        description => "GFF of all gene models combined, for extracting SSU sequence from Fasta with fastaFromBed",
+        discard     => 1,
+        filename    => "$libraryNAME.scaffolds.final.gff",
+        intable     => 0,
+      },
+      "fastaFromBed_out",
+      {
+        description => "Output stream from fastaFromBed",
+        discard     => 1,
+        filename    => "$libraryNAME.fastaFromBed.out",
+        intable     => 0,
+      },
+      "reads_mapped_cat",
+      {
+        description => "Concatenation of both Fwd and Rev reads mapping to SSU rRNA database, for EMIRGE if read lengths are > 150 bp",
+        discard     => 1,
+        filename    => "$libraryNAME.SSU.all.fq",
+        intable     => 0,
+      },
+      "reads_mapped_cat_rename",
+      {
+        description => "Concatenation of both Fwd and Rev reads mapping to SSU rRNA database, renamed, for EMIRGE if read lengths are > 150 bp",
+        discard     => 1,
+        filename    => "$libraryNAME.renamed.SSU.all.fq",
+        intable     => 0,
+      },
+      "emirge_raw_fasta",
+      {
+        description => "Raw output Fasta file from EMIRGE iteration 40",
+        discard     => 1,
+        filename    => "$libraryNAME.emirge.result.fasta",
+        intable     => 0,
+      },
+      "vsearch_out",
+      {
+        description => "Output stream from Vsearch",
+        discard     => 1,
+        filename    => "$libraryNAME.all.vsearch.out",
+        intable     => 0,
+      },
+      "vsearch_clusterdb_out",
+      {
+        description => "Output stream from Vsearch cluster_fast",
+        discard     => 1,
+        filename    => "$libraryNAME.clusterdbhits.out",
+        intable     => 0,
+      },
+      "reformat_out",
+      {
+        description => "Output stream from reformat.sh",
+        discard     => 1,
+        filename    => "$libraryNAME.reformat.out",
+        intable     => 0,
+      },
+      "sam_remap_spades",
+      {
+        description => "SAM file of re-mapping extracted reads to SPAdes full-length sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU_spades.sam",
+        intable     => 0,
+      },
+      "bbmap_remap_log_spades",
+      {
+        description => "Log file from BBmap of re-mapping to SPAdes sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.remap_spades.bbmap.out",
+        intable     => 0,
+      },
+      "sam_remap_emirge",
+      {
+        description => "SAM file of re-mapping extracted reads to EMIRGE full-length sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.$readsf.SSU_emirge.sam",
+        intable     => 0,
+      },
+      "bbmap_remap_log_emirge",
+      {
+        description => "Log file from BBmap of re-mapping to EMIRGE sequences",
+        discard     => 0,
+        filename    => "$libraryNAME.remap_emirge.bbmap.out",
+        intable     => 0,
+      },
+      #"",
+      #{
+      #  description => "",
+      #  discard     => 1,
+      #  filename    => "",
+      #  intable     => 0,
+      #},
+    );
+    return (\%hash);
+}
+
 =back
 
 =head1 COPYRIGHT AND LICENSE
@@ -635,6 +1101,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.
 If not, see L<http://www.gnu.org/licenses/>.
+
 =cut
 
 1; # keep require happy
