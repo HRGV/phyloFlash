@@ -1832,7 +1832,7 @@ sub run_plotscript_SVG {
                         $outfiles{"idhistogram"}{"filename"},
                         " --title=\"Mapping identity (%)\" ",
                       );
-    if (defined $decimalcomma) {
+    if ($decimalcomma == 1) {
         push @idhist_args, "--decimalcomma";
     }
     run_prog("plotscript_SVG",
@@ -1878,7 +1878,7 @@ sub run_plotscript_SVG {
                             $outfiles{"inserthistogram"}{"filename"},
                             " --title=\"Insert size (bp)\" ",
                             );
-        if (defined $decimalcomma) {
+        if ($decimalcomma == 1) {
             push @inshist_args, "--decimalcomma";
         }
 
