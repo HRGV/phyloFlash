@@ -21,6 +21,17 @@ tar -xzf vXXX.tar.gz
 cd phyloFlash-XXX
 ./phyloFlash.pl -check_env
 
+# Get missing depencies - the easiest way is via conda/bioconda https://conda.io/miniconda.html
+# First add bioconda to the conda channels and then grab what you need
+conda config --add channels bioconda
+ 
+conda install emirge
+conda install bbmap
+conda install vsearch
+conda install spades
+conda install mafft
+conda install bedtools
+
 # Install reference database
 ./phyloFlash_makedb.pl --remote
 
