@@ -1535,25 +1535,17 @@ sub vsearch_best_match {
 
     # join emirge and spades hits into one file
     # (vsearch takes a while to load, one run saves us time)
-    if ($skip_spades == 1 && $skip_emirge == 0) {
-        run_prog("cat",
-                 "   ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
+    my @input_fasta;
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
     }
-    elsif ($skip_emirge == 1 && $skip_spades == 0){
-        run_prog("cat",
-                 "   ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
     }
-    elsif ($skip_emirge == 0 && $skip_spades == 0){
-        run_prog("cat",
-                 "   ".$outfiles{"emirge_fasta"}{"filename"}
-                 ." ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
-    }
+    run_prog("cat",
+             join(" ", @input_fasta),
+             $outfiles{"all_final_fasta"}{"filename"});
+    $outfiles{"all_final_fasta"}{"made"}++;
 
     if (-s $outfiles{"all_final_fasta"}{"filename"}) {
        run_prog("vsearch",
@@ -2283,8 +2275,8 @@ if ($skip_emirge == 0) {
     emirge_parse() if $emirge_return == 0;
     bbmap_remap("EMIRGE") if $emirge_return == 0;
 }
-# If at least one of either SPAdes or Emirge is activated, parse results
-if ($skip_spades + $skip_emirge < 2) {
+# If at least one of either SPAdes or Emirge has produced full-length seq, parse results
+if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"}) {
     vsearch_best_match();
     vsearch_parse();
     vsearch_cluster();
