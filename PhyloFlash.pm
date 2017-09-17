@@ -43,6 +43,7 @@ our @EXPORT      = qw(
   require_tools
   check_environment
   run_prog
+  run_prog_nodie
   file_download
   fasta_copy_except
   fasta_copy_iupac_randomize
@@ -311,6 +312,53 @@ sub run_prog {
         or err("Tool execution failed!.",
                "Error was '$!' and return code '$?'");
 
+    # FIXME: print tail of stderr if redirected
+}
+
+=item run_prog_nodie ($progname, $args, $redir_stdout, $redir_sterr)
+
+Runs a tool by the name given in require_tools.
+Does not abort the script if returned with error code
+
+=over 15
+
+=item $progname
+
+the name of the tool
+
+=item $args
+
+command line arguments to be passed
+
+=item $redir_stdout
+
+file or file descriptor to redirect stdout to
+
+=item $redir_stdin
+
+same for stderr
+
+=back
+
+=cut
+sub run_prog_nodie {
+    my ($prog, $args, $redir_stdout, $redir_stderr) = @_;
+
+    if (not exists $progs{$prog}) {
+        msg("trying to launch unknown tool \"$prog\". pls add to %progs");
+        $progs{$prog} = can_run($prog) or err("Failed to find $prog");
+    }
+    my $cmd = $progs{$prog}." ".$args;
+    $cmd .= " >".$redir_stdout if ($redir_stdout);
+    $cmd .= " 2>".$redir_stderr if ($redir_stderr);
+
+    msg("running subcommand:","$cmd");
+    my $return = system($cmd);
+    if ($return != 0) {
+        msg ("Tool execution failed!.",
+             "Error was '$!' and return code '$?'");
+    }
+    return ($return);
     # FIXME: print tail of stderr if redirected
 }
 

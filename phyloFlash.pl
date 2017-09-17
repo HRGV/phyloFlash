@@ -747,7 +747,7 @@ sub write_csv {
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
         $outfiles{"full_len_class"}{"made"}++;
         print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n"; # Header
-        
+
         # Sort descending by read counts
         foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"}} keys %ssufull_hash) {
             my @out;
@@ -1082,14 +1082,15 @@ sub spades_run {
     # processors SPAdes will exceed max memory and crash
     my $cpus_spades = $cpus > 24 ? 24 : $cpus;
 
-    run_prog("spades",
-             "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
-             . $args,
-             $outfiles{"spades_log"}{"filename"},"&1"
-         );
+    my $return = run_prog_nodie("spades",
+                                "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
+                                . $args,
+                                $outfiles{"spades_log"}{"filename"},"&1"
+                                );
     $outfiles{"spades_log"}{"made"}++;
 
     msg("done...");
+    return ($return);
 }
 
 sub spades_parse {
@@ -1491,13 +1492,14 @@ sub emirge_run {
                         "-a $cpus",
                         "--phred33",
                         );
-    run_prog($cmd,
-             join (" ", @emirge_args),
-             $outfiles{"emirge_log"}{"filename"},
-             "&1",
-             );
+    my $return = run_prog_nodie($cmd,
+                                join (" ", @emirge_args),
+                                $outfiles{"emirge_log"}{"filename"},
+                                "&1",
+                                );
     $outfiles{"emirge_log"}{"made"}++;
     msg("done...");
+    return ($return);
 }
 
 sub emirge_parse {
@@ -1593,7 +1595,7 @@ sub vsearch_parse {
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
         s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
         push @vsearch_matches, [split("\t",$_)];                                # To be replaced by ssufull_hash
-        
+
         # Split into individual fields
         my @line = split /\t/, $_;
         my $seqid = $line[0];
@@ -1604,7 +1606,7 @@ sub vsearch_parse {
         } elsif ($line[0] =~ m/PFemirge/) {
             $source = "EMIRGE";
         }
-        
+
         #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
         $ssufull_hash{$seqid}{"source"} = $source;
         $ssufull_hash{$seqid}{"cov"} = $line[1];
@@ -1613,7 +1615,7 @@ sub vsearch_parse {
         $ssufull_hash{$seqid}{"pcid"} = $line[4];
         $ssufull_hash{$seqid}{"alnlen"} = $line[5];
         $ssufull_hash{$seqid}{"evalue"} = $line[6];
-        
+
     }
     close($fh);
 
@@ -2137,7 +2139,7 @@ sub write_report_html {
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
-        
+
         foreach my $seqid (sort { $ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
             # Check that sequence was assembled by spades
             next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
@@ -2165,7 +2167,7 @@ sub write_report_html {
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
         my @table_recon_seq;
-        
+
         foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
             # Check that sequence was assembled by spades
             next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
@@ -2270,17 +2272,16 @@ nhmmer_model_pos() if ($poscov_flag == 1 );
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
-    spades_run();
-    spades_parse();
-    bbmap_remap("SPAdes");
-    #bbmap_spades_out();
-    #taxonomy_spades_unmapped();
+    my $spades_return = spades_run();
+    spades_parse() if $spades_return == 0;
+    bbmap_remap("SPAdes") if $spades_return == 0;
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
-    emirge_run();
-    emirge_parse();
-    bbmap_remap("EMIRGE");
+    my $emirge_return = emirge_run();
+    # Parse output from emirge if it exits without errors
+    emirge_parse() if $emirge_return == 0;
+    bbmap_remap("EMIRGE") if $emirge_return == 0;
 }
 # If at least one of either SPAdes or Emirge is activated, parse results
 if ($skip_spades + $skip_emirge < 2) {
