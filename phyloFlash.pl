@@ -1905,8 +1905,8 @@ sub run_plotscript_SVG {
         $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
     }
 
-    # Plot tree if spades/emirge unless both skipped
-    unless ($skip_spades + $skip_emirge == 2) {
+    # Plot tree if spades/emirge unless no alignment was output
+    if (defined $outfiles{"ssu_coll_tree"}{"made"}) {
         my @treeplot_args = ("-tree",
                              $outfiles{"ssu_coll_tree"}{"filename"},
                              );
