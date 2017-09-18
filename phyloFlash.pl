@@ -1846,16 +1846,18 @@ sub run_plotscript_SVG {
 
     # Piechart of proportion assembled, if SPAdes run
     unless ($skip_spades == 1) {
-        my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
-        my @pie_args = ("--pie",
-                        $outfiles{"assemratio_csv"}{"filename"},
-                        " --title=\"Reads assembled\"",
-                        );
-        run_prog("plotscript_SVG",
-                 join (" ", @pie_args),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"assemratio_svg"}{"made"}++;
+        if (defined $outfiles{"assemratio_csv"}{"made"}) {
+            my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
+            my @pie_args = ("--pie",
+                            $outfiles{"assemratio_csv"}{"filename"},
+                            " --title=\"Reads assembled\"",
+                            );
+            run_prog("plotscript_SVG",
+                     join (" ", @pie_args),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"assemratio_svg"}{"made"}++;
+        }
     }
 
     # Plot insert size histogram unless running in SE mode
@@ -2118,8 +2120,8 @@ sub write_report_html {
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"});
-        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"});
+        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
+        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
