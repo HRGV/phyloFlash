@@ -30,7 +30,7 @@ GetOptions ("acc=s" => \$acc,
 # Variables
 my @fastq_urls; # List of Fastq URLs
 my @fastq_basenames;
-my $phyloFlash = "phyloFlash.pl"; # assume phyloFlash script in path
+my $phyloFlash = "$FindBin::RealBin/phyloFlash.pl"; # assume phyloFlash script in same folder
 my $wget = "wget --no-verbose";   # Wget binary and options
 
 ## MAIN ########################################################################
