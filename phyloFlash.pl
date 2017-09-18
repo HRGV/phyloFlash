@@ -1634,28 +1634,21 @@ sub vsearch_cluster {
 sub mafft_run {
     msg("creating alignment and tree...");
 
-    if ($skip_spades == 0 && $skip_emirge == 1) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 . " ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-        $outfiles{"ssu_coll_fasta"}{"made"}++;
-
-    } elsif ($skip_spades == 1 && $skip_emirge == 0) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 ." ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-         $outfiles{"ssu_coll_fasta"}{"made"}++;
-
-    } elsif ($skip_spades == 0 && $skip_emirge == 0) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 ." ".$outfiles{"spades_fasta"}{"filename"}
-                 ." ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-         $outfiles{"ssu_coll_fasta"}{"made"}++;
+    my @input_fasta;
+    # Add closest DB hits to assem/recon sequences
+    push @input_fasta, $outfiles{"dhbits_nr97_fasta"}{"filename"};
+    # Add assem/recon sequences if they were produced
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
     }
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
+    }
+    # Cat all to one file for alignment 
+    run_prog("cat",
+             join(" ", @input_fasta),
+             $outfiles{"ssu_coll_fasta"}{"filename"});
+    $outfiles{"ssu_coll_fasta"}{"made"}++;
 
     run_prog("mafft",
              "--treeout ".$outfiles{"ssu_coll_fasta"}{"filename"},
