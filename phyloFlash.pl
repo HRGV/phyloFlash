@@ -1263,15 +1263,14 @@ sub screen_remappings {
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
 
     # first SAM in %ssu_sam
-
     my %sam_spades; # too good to be true
     my %sam_emirge;
     # If SPAdes results were mapped, read into memory
-    if ($skip_spades == 0) {
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
         flag_unmapped_sam("SPAdes");
     }
     # If EMIRGE results were mapped, read into memory
-    if ($skip_emirge == 0) {
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
         flag_unmapped_sam("EMIRGE");
     }
 
