@@ -1165,38 +1165,41 @@ sub spades_parse {
 
     if (scalar keys %ssus == 0) {
         msg("no contig in spades assembly found to contain rRNA");
-        return;
+        return 1;
+    } else {
+        open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
+        for my $key (sort keys %ssus) {
+            print $fh join("\t",@{$ssus{$key}});
+        }
+        close($fh);
+        $outfiles{"gff_all"}{"made"}++;
+    
+        # fastaFromBed will build a .fai index from the source .fasta
+        # However, it does not notice if the .fasta changed. So we
+        # delete the .fai if it is older than the .fasta.
+        if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+             file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+                           "$libraryNAME.spades/scaffolds.fasta.fai")) {
+            unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+        }
+    
+        # extract rrna fragments from spades scaffolds accoding to gff
+        my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                                 "-bed",$outfiles{"gff_all"}{"filename"},
+                                 "-fo",$outfiles{"spades_fasta"}{"filename"},
+                                 "-s","-name",
+                                 );
+        run_prog("fastaFromBed",
+                 join (" ",@fastaFromBed_args),
+                 $outfiles{"fastaFromBed_out"}{"filename"},
+                 "&1");
+        $outfiles{"spades_fasta"}{"made"}++;
+        $outfiles{"fastaFromBed_out"}{"made"}++;
+        msg("done...");
+        return 0;
     }
 
-    open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
-    for my $key (sort keys %ssus) {
-        print $fh join("\t",@{$ssus{$key}});
-    }
-    close($fh);
-    $outfiles{"gff_all"}{"made"}++;
 
-    # fastaFromBed will build a .fai index from the source .fasta
-    # However, it does not notice if the .fasta changed. So we
-    # delete the .fai if it is older than the .fasta.
-    if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-         file_is_newer("$libraryNAME.spades/scaffolds.fasta",
-                       "$libraryNAME.spades/scaffolds.fasta.fai")) {
-        unlink("$libraryNAME.spades/scaffolds.fasta.fai");
-    }
-
-    # extract rrna fragments from spades scaffolds accoding to gff
-    my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
-                             "-bed",$outfiles{"gff_all"}{"filename"},
-                             "-fo",$outfiles{"spades_fasta"}{"filename"},
-                             "-s","-name",
-                             );
-    run_prog("fastaFromBed",
-             join (" ",@fastaFromBed_args),
-             $outfiles{"fastaFromBed_out"}{"filename"},
-             "&1");
-    $outfiles{"spades_fasta"}{"made"}++;
-    $outfiles{"fastaFromBed_out"}{"made"}++;
-    msg("done...");
 }
 
 
@@ -2259,8 +2262,12 @@ nhmmer_model_pos() if ($poscov_flag == 1 );
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
     my $spades_return = spades_run();
-    spades_parse() if $spades_return == 0;
-    bbmap_remap("SPAdes") if $spades_return == 0;
+    if ($spades_return == 0) {
+        my $spades_parse_return = spades_parse();
+        if ($spades_parse_return == 0) {
+            bbmap_remap("SPAdes");
+        }
+    }
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
