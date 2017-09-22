@@ -14,12 +14,23 @@ Quick-start
 
 ```bash
 # Download phyloFlash
-wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
-tar -xzf vXXX.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/pf3.0b1.tar.gz
+tar -xzf pf3.0b1.tar.gz
 
 # Check for dependencies
-cd phyloFlash-XXX
+cd phyloFlash-pf3.0b1
 ./phyloFlash.pl -check_env
+
+# Get missing depencies - the easiest way is to install conda/bioconda - https://conda.io/miniconda.html
+# First add bioconda to the conda channels and then grab what you need
+conda config --add channels bioconda
+ 
+conda install emirge
+conda install bbmap
+conda install vsearch
+conda install spades
+conda install mafft
+conda install bedtools
 
 # Install reference database
 ./phyloFlash_makedb.pl --remote
