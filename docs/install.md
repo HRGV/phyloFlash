@@ -60,6 +60,19 @@ cd phyloFlash-3.0
 /phyloFlash.pl -check_env
 ```
 
+A quick way to install dependencies is with [Bioconda](https://bioconda.github.io/), which uses the Conda package management system.
+
+```bash
+conda config --add channels bioconda
+
+conda install emirge
+conda install bbmap
+conda install vsearch
+conda install spades
+conda install mafft
+conda install bedtools
+```
+
 ## 4. Setting up the reference database
 
 phyloFlash uses modified versions of the SILVA SSU database of small-subunit ribosomal RNA sequences that is maintained by the [ARB SILVA project](www.arb-silva.de).
