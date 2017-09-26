@@ -21,7 +21,7 @@ tar -xzf pf3.0b1.tar.gz
 cd phyloFlash-pf3.0b1
 ./phyloFlash.pl -check_env
 
-# Get missing depencies - the easiest way is to install conda/bioconda - https://conda.io/miniconda.html
+# Get missing dependencies - the easiest way is to install conda/bioconda - https://conda.io/miniconda.html
 # First add bioconda to the conda channels and then grab what you need
 conda config --add channels bioconda
  

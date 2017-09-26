@@ -747,7 +747,7 @@ sub write_csv {
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
         $outfiles{"full_len_class"}{"made"}++;
         print $fh "OTU,read_cov,coverage,dbHit,taxonomy,%id,alnlen,evalue\n"; # Header
-        
+
         # Sort descending by read counts
         foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"}} keys %ssufull_hash) {
             my @out;
@@ -1082,14 +1082,15 @@ sub spades_run {
     # processors SPAdes will exceed max memory and crash
     my $cpus_spades = $cpus > 24 ? 24 : $cpus;
 
-    run_prog("spades",
-             "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
-             . $args,
-             $outfiles{"spades_log"}{"filename"},"&1"
-         );
+    my $return = run_prog_nodie("spades",
+                                "-o $libraryNAME.spades -t $cpus_spades -m 20 -k $kmer "
+                                . $args,
+                                $outfiles{"spades_log"}{"filename"},"&1"
+                                );
     $outfiles{"spades_log"}{"made"}++;
 
     msg("done...");
+    return ($return);
 }
 
 sub spades_parse {
@@ -1164,38 +1165,41 @@ sub spades_parse {
 
     if (scalar keys %ssus == 0) {
         msg("no contig in spades assembly found to contain rRNA");
-        return;
+        return 1;
+    } else {
+        open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
+        for my $key (sort keys %ssus) {
+            print $fh join("\t",@{$ssus{$key}});
+        }
+        close($fh);
+        $outfiles{"gff_all"}{"made"}++;
+    
+        # fastaFromBed will build a .fai index from the source .fasta
+        # However, it does not notice if the .fasta changed. So we
+        # delete the .fai if it is older than the .fasta.
+        if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+             file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+                           "$libraryNAME.spades/scaffolds.fasta.fai")) {
+            unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+        }
+    
+        # extract rrna fragments from spades scaffolds accoding to gff
+        my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                                 "-bed",$outfiles{"gff_all"}{"filename"},
+                                 "-fo",$outfiles{"spades_fasta"}{"filename"},
+                                 "-s","-name",
+                                 );
+        run_prog("fastaFromBed",
+                 join (" ",@fastaFromBed_args),
+                 $outfiles{"fastaFromBed_out"}{"filename"},
+                 "&1");
+        $outfiles{"spades_fasta"}{"made"}++;
+        $outfiles{"fastaFromBed_out"}{"made"}++;
+        msg("done...");
+        return 0;
     }
 
-    open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
-    for my $key (sort keys %ssus) {
-        print $fh join("\t",@{$ssus{$key}});
-    }
-    close($fh);
-    $outfiles{"gff_all"}{"made"}++;
 
-    # fastaFromBed will build a .fai index from the source .fasta
-    # However, it does not notice if the .fasta changed. So we
-    # delete the .fai if it is older than the .fasta.
-    if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-         file_is_newer("$libraryNAME.spades/scaffolds.fasta",
-                       "$libraryNAME.spades/scaffolds.fasta.fai")) {
-        unlink("$libraryNAME.spades/scaffolds.fasta.fai");
-    }
-
-    # extract rrna fragments from spades scaffolds accoding to gff
-    my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
-                             "-bed",$outfiles{"gff_all"}{"filename"},
-                             "-fo",$outfiles{"spades_fasta"}{"filename"},
-                             "-s","-name",
-                             );
-    run_prog("fastaFromBed",
-             join (" ",@fastaFromBed_args),
-             $outfiles{"fastaFromBed_out"}{"filename"},
-             "&1");
-    $outfiles{"spades_fasta"}{"made"}++;
-    $outfiles{"fastaFromBed_out"}{"made"}++;
-    msg("done...");
 }
 
 
@@ -1262,15 +1266,14 @@ sub screen_remappings {
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
 
     # first SAM in %ssu_sam
-
     my %sam_spades; # too good to be true
     my %sam_emirge;
     # If SPAdes results were mapped, read into memory
-    if ($skip_spades == 0) {
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
         flag_unmapped_sam("SPAdes");
     }
     # If EMIRGE results were mapped, read into memory
-    if ($skip_emirge == 0) {
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
         flag_unmapped_sam("EMIRGE");
     }
 
@@ -1491,13 +1494,14 @@ sub emirge_run {
                         "-a $cpus",
                         "--phred33",
                         );
-    run_prog($cmd,
-             join (" ", @emirge_args),
-             $outfiles{"emirge_log"}{"filename"},
-             "&1",
-             );
+    my $return = run_prog_nodie($cmd,
+                                join (" ", @emirge_args),
+                                $outfiles{"emirge_log"}{"filename"},
+                                "&1",
+                                );
     $outfiles{"emirge_log"}{"made"}++;
     msg("done...");
+    return ($return);
 }
 
 sub emirge_parse {
@@ -1533,25 +1537,17 @@ sub vsearch_best_match {
 
     # join emirge and spades hits into one file
     # (vsearch takes a while to load, one run saves us time)
-    if ($skip_spades == 1 && $skip_emirge == 0) {
-        run_prog("cat",
-                 "   ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
+    my @input_fasta;
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
     }
-    elsif ($skip_emirge == 1 && $skip_spades == 0){
-        run_prog("cat",
-                 "   ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
     }
-    elsif ($skip_emirge == 0 && $skip_spades == 0){
-        run_prog("cat",
-                 "   ".$outfiles{"emirge_fasta"}{"filename"}
-                 ." ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"all_final_fasta"}{"filename"});
-        $outfiles{"all_final_fasta"}{"made"}++;
-    }
+    run_prog("cat",
+             join(" ", @input_fasta),
+             $outfiles{"all_final_fasta"}{"filename"});
+    $outfiles{"all_final_fasta"}{"made"}++;
 
     if (-s $outfiles{"all_final_fasta"}{"filename"}) {
        run_prog("vsearch",
@@ -1593,7 +1589,7 @@ sub vsearch_parse {
         # lib.PFspades_1_1.23332\tAH12345.1.1490 Bacteria;...\t...
         s/PF(\w+)_([^_]+)_([^\t]+)\t(\w+\.\d+\.\d+)\s/PF$1_$2\t$3\t$4\t/;
         push @vsearch_matches, [split("\t",$_)];                                # To be replaced by ssufull_hash
-        
+
         # Split into individual fields
         my @line = split /\t/, $_;
         my $seqid = $line[0];
@@ -1604,7 +1600,7 @@ sub vsearch_parse {
         } elsif ($line[0] =~ m/PFemirge/) {
             $source = "EMIRGE";
         }
-        
+
         #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
         $ssufull_hash{$seqid}{"source"} = $source;
         $ssufull_hash{$seqid}{"cov"} = $line[1];
@@ -1613,7 +1609,7 @@ sub vsearch_parse {
         $ssufull_hash{$seqid}{"pcid"} = $line[4];
         $ssufull_hash{$seqid}{"alnlen"} = $line[5];
         $ssufull_hash{$seqid}{"evalue"} = $line[6];
-        
+
     }
     close($fh);
 
@@ -1640,28 +1636,21 @@ sub vsearch_cluster {
 sub mafft_run {
     msg("creating alignment and tree...");
 
-    if ($skip_spades == 0 && $skip_emirge == 1) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 . " ".$outfiles{"spades_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-        $outfiles{"ssu_coll_fasta"}{"made"}++;
-
-    } elsif ($skip_spades == 1 && $skip_emirge == 0) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 ." ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-         $outfiles{"ssu_coll_fasta"}{"made"}++;
-
-    } elsif ($skip_spades == 0 && $skip_emirge == 0) {
-        run_prog("cat",
-                 $outfiles{"dhbits_nr97_fasta"}{"filename"}
-                 ." ".$outfiles{"spades_fasta"}{"filename"}
-                 ." ".$outfiles{"emirge_fasta"}{"filename"},
-                 $outfiles{"ssu_coll_fasta"}{"filename"});
-         $outfiles{"ssu_coll_fasta"}{"made"}++;
+    my @input_fasta;
+    # Add closest DB hits to assem/recon sequences
+    push @input_fasta, $outfiles{"dhbits_nr97_fasta"}{"filename"};
+    # Add assem/recon sequences if they were produced
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
     }
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
+        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
+    }
+    # Cat all to one file for alignment 
+    run_prog("cat",
+             join(" ", @input_fasta),
+             $outfiles{"ssu_coll_fasta"}{"filename"});
+    $outfiles{"ssu_coll_fasta"}{"made"}++;
 
     run_prog("mafft",
              "--treeout ".$outfiles{"ssu_coll_fasta"}{"filename"},
@@ -1832,7 +1821,7 @@ sub run_plotscript_SVG {
                         $outfiles{"idhistogram"}{"filename"},
                         " --title=\"Mapping identity (%)\" ",
                       );
-    if (defined $decimalcomma) {
+    if ($decimalcomma == 1) {
         push @idhist_args, "--decimalcomma";
     }
     run_prog("plotscript_SVG",
@@ -1860,16 +1849,18 @@ sub run_plotscript_SVG {
 
     # Piechart of proportion assembled, if SPAdes run
     unless ($skip_spades == 1) {
-        my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
-        my @pie_args = ("--pie",
-                        $outfiles{"assemratio_csv"}{"filename"},
-                        " --title=\"Reads assembled\"",
-                        );
-        run_prog("plotscript_SVG",
-                 join (" ", @pie_args),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"assemratio_svg"}{"made"}++;
+        if (defined $outfiles{"assemratio_csv"}{"made"}) {
+            my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
+            my @pie_args = ("--pie",
+                            $outfiles{"assemratio_csv"}{"filename"},
+                            " --title=\"Reads assembled\"",
+                            );
+            run_prog("plotscript_SVG",
+                     join (" ", @pie_args),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"assemratio_svg"}{"made"}++;
+        }
     }
 
     # Plot insert size histogram unless running in SE mode
@@ -1878,7 +1869,7 @@ sub run_plotscript_SVG {
                             $outfiles{"inserthistogram"}{"filename"},
                             " --title=\"Insert size (bp)\" ",
                             );
-        if (defined $decimalcomma) {
+        if ($decimalcomma == 1) {
             push @inshist_args, "--decimalcomma";
         }
 
@@ -1919,8 +1910,8 @@ sub run_plotscript_SVG {
         $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
     }
 
-    # Plot tree if spades/emirge unless both skipped
-    unless ($skip_spades + $skip_emirge == 2) {
+    # Plot tree if spades/emirge unless no alignment was output
+    if (defined $outfiles{"ssu_coll_tree"}{"made"}) {
         my @treeplot_args = ("-tree",
                              $outfiles{"ssu_coll_tree"}{"filename"},
                              );
@@ -2132,12 +2123,12 @@ sub write_report_html {
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"});
-        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"});
+        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
+        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
 
         # Table of assembled SSU sequences
         my @table_assem_seq;
-        
+
         foreach my $seqid (sort { $ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
             # Check that sequence was assembled by spades
             next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
@@ -2165,7 +2156,7 @@ sub write_report_html {
     if ($skip_emirge == 0) {
         $flags {"INS_USED"} = $ins_used;
         my @table_recon_seq;
-        
+
         foreach my $seqid (sort {$ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
             # Check that sequence was assembled by spades
             next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
@@ -2270,20 +2261,23 @@ nhmmer_model_pos() if ($poscov_flag == 1 );
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
-    spades_run();
-    spades_parse();
-    bbmap_remap("SPAdes");
-    #bbmap_spades_out();
-    #taxonomy_spades_unmapped();
+    my $spades_return = spades_run();
+    if ($spades_return == 0) {
+        my $spades_parse_return = spades_parse();
+        if ($spades_parse_return == 0) {
+            bbmap_remap("SPAdes");
+        }
+    }
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
-    emirge_run();
-    emirge_parse();
-    bbmap_remap("EMIRGE");
+    my $emirge_return = emirge_run();
+    # Parse output from emirge if it exits without errors
+    emirge_parse() if $emirge_return == 0;
+    bbmap_remap("EMIRGE") if $emirge_return == 0;
 }
-# If at least one of either SPAdes or Emirge is activated, parse results
-if ($skip_spades + $skip_emirge < 2) {
+# If at least one of either SPAdes or Emirge has produced full-length seq, parse results
+if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"}) {
     vsearch_best_match();
     vsearch_parse();
     vsearch_cluster();
