@@ -1552,17 +1552,27 @@ sub vsearch_best_match {
     $outfiles{"all_final_fasta"}{"made"}++;
 
     if (-s $outfiles{"all_final_fasta"}{"filename"}) {
-       run_prog("vsearch",
-             "-usearch_global ".$outfiles{"all_final_fasta"}{"filename"}
-             . " -db ${DBHOME}/${vsearch_db}.fasta"
-             . " -id 0.7"
-             . " -userout ".$outfiles{"vsearch_csv"}{"filename"}
-             . " -userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids"
-             . " -threads $cpus --strand plus --notrunclabels"
-             . " -notmatched ".$outfiles{"notmatched_fasta"}{"filename"}
-             . " -dbmatched ".$outfiles{"dbhits_all_fasta"}{"filename"},
-             $outfiles{"vsearch_out"}{"filename"},
-             "&1");
+        # Check whether UDB file can be used
+        my $vsearch_ver_check = check_vsearch_version();
+        my @vsearch_args = ("-usearch_global", $outfiles{"all_final_fasta"}{"filename"},
+                            "-id 0.7",
+                            "-userout", $outfiles{"vsearch_csv"}{"filename"},
+                            "-userfields query+target+id+alnlen+evalue+id3+qs+pairs+gaps+mism+ids",
+                            "-threads $cpus",
+                            "--strand plus --notrunclabels",
+                            "-notmatched", $outfiles{"notmatched_fasta"}{"filename"},
+                            "-dbmatched", $outfiles{"dbhits_all_fasta"}{"filename"},
+                            );
+        if (defined $vsearch_ver_check) {
+            push @vsearch_args, "-db ${DBHOME}/${vsearch_db}.udb";
+        } else {
+            push @vsearch_args, "-db ${DBHOME}/${vsearch_db}.fasta";
+        }
+        # Run Vsearch
+        run_prog("vsearch",
+                 join(" ", @vsearch_args),
+                 $outfiles{"vsearch_out"}{"filename"},
+                 "&1");
         $outfiles{"vsearch_csv"}{"made"}++;
         $outfiles{"dbhits_all_fasta"}{"made"}++;
         $outfiles{"notmatched_fasta"}{"made"}++;
