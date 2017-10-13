@@ -796,8 +796,9 @@ sub bbmap_fast_filter_sam_run {
                       "po=f",
                       "outputunmapped=f",
                       "path=$DBHOME",
-                      "out=".$outfiles{"sam_map"}{"filename"}, # Also skip SAM header?
+                      "out=".$outfiles{"sam_map"}{"filename"}, 
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
+                      'noheader=t', # Do not print header lines of SAM file
                       "build=1",
                       "in=$readsf_full",
                       "bhist=".$outfiles{"basecompositionhist"}{"filename"},
@@ -1236,7 +1237,8 @@ sub bbmap_remap {
                       "ref=$ref",
                       "nodisk",
                       "in=".$outfiles{"reads_mapped_f"}{"filename"},
-                      "out=$outsam", # Also skip SAM header?
+                      "out=$outsam",
+                      'noheader=t',
                       );
     # If running in PE mode, include reverse reads
     if ($SEmode == 0) {
