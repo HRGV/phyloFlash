@@ -42,6 +42,7 @@ our @EXPORT      = qw(
   csv_escape
   require_tools
   check_environment
+  check_vsearch_version
   run_prog
   run_prog_nodie
   file_download
@@ -268,6 +269,30 @@ sub check_environment {
     } else {
         msg("All required tools found.");
     }
+}
+
+=item check_vsearch_version ()
+
+Check that Vsearch version is at least 2.5.0. Return "1" if yes, otherwise undef
+
+UDB file is only implemented from 2.5.0 onwards
+
+=cut
+
+sub check_vsearch_version {
+    my $version_msg = `vsearch -v 2>&1`;
+    my $return_value;
+    if ($version_msg =~ m/vsearch v(\d+)\.(\d+)\.\d+/) {
+        my ($maj,$min) = ($1, $2); # Major and minor version
+        # Check if at least v2.5.0
+        if ($maj >= 2 && $min >= 5) {
+            $return_value = 1;
+            msg ("Vsearch v2.5.0+ found, will index database to UDB file");
+        }
+    } else {
+        msg ("Could not determine Vsearch version. Assuming to be < v2.5.0");
+    }
+    return $return_value;
 }
 
 =item run_prog ($progname, $args, $redir_stdout, $redir_sterr)
