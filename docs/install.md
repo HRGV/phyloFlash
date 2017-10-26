@@ -57,7 +57,7 @@ These tools need to be in your `$PATH` environment variable, so that phyloFlash 
 
 ```bash
 cd phyloFlash-3.0
-/phyloFlash.pl -check_env
+./phyloFlash.pl -check_env
 ```
 
 A quick way to install dependencies is with [Bioconda](https://bioconda.github.io/), which uses the Conda package management system.
