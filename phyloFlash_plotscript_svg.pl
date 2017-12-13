@@ -1038,9 +1038,9 @@ sub draw_tree {
     # Hash in read coverage data for assembled taxa and which kinds of
     # full-length sequences are present, if csv file supplied supplied:
     my $bubble_scalefactor; # Scaling factor for bubbles
-    my ($spades_flag, $emirge_flag); # Flags for whether these types of sequences present
+    my ($spades_flag, $emirge_flag, $trusted_flag); # Flags for whether these types of sequences present
     if (defined $assemcov) {
-        ($bubble_scalefactor, $spades_flag, $emirge_flag)
+        ($bubble_scalefactor, $spades_flag, $emirge_flag, $trusted_flag)
             = match_tree_taxon_to_read_coverage($taxa_href,
                                                 $assemcov,
                                                 $treewidth,
@@ -1063,6 +1063,10 @@ sub draw_tree {
             elsif ($taxname =~ m/^\d+_\w+_(PFemirge_\d+)_/) {
                 $shortid = $1;
             }
+            # If trusted identifier
+            elsif ($taxname =~ m/^\d+_\w+_(PFtrusted_\d+)_/) {
+                $shortid = $1;
+            }
             # If reference sequence
             elsif ($taxname =~ m/^\d+_(\w+)_\d+_\d+_/) {
                 $shortid = $1;
@@ -1082,7 +1086,7 @@ sub draw_tree {
     # Draw bubbles first so that they are below other tree elements
     if (defined $assemcov) {
         # Draw switches for turning bubbles on and off
-        draw_bubble_switches($spades_flag, $emirge_flag, $fh);
+        draw_bubble_switches($spades_flag, $emirge_flag, $trusted_flag, $fh);
         # Draw bubbles for each taxon in tree
         foreach my $key (keys %{$taxa_href}) {
             draw_bubbles($key,$taxa_href,$br_scalefactor,$bubble_scalefactor,$vb_height,$fh,);
@@ -1108,21 +1112,26 @@ sub draw_bubble_switches {
     # Draw buttons on tree to turn the bubbles representing 
     my ($spades,    # Draw for SPAdes?
         $emirge,    # Draw for EMIRGE?
+        $trusted,   # Draw for trusted?
         $fh,
         ) = @_;
     
-    # Start positions for each group of labels, SPAdes always on left:
-    my $sstart = 190;
-    my $estart = 325;
-    # If no SPAdes switches to draw, then move EMIRGE switches to the left
-    if ($spades == 0 && $emirge == 1) {
-        $estart = 190;
+    # Start positions for each group of labels, SPAdes always on left, followed by EMIRGE and trusted:
+    my ($sstart, $estart, $tstart) = (190, 190, 190);
+    # If switches are to be drawn, then offset right-adjacent labels by 135
+    if ($spades == 1) {
+        $estart += 135;
+        $tstart += 135;
     }
+    if ($emirge == 1) {
+        $tstart += 135;
+    }
+
     # Standard offset values for elements in the switch grouping
     my @std_offsets = (0, 10, 25, 40, 55);
     
     # No caption if nothing to draw - in practice this will never happen with phyloFlash
-    if ($spades + $emirge > 0) {
+    if ($spades + $emirge + $trusted > 0) {
         print $fh "<g id=\"switches\">\n";
         print $fh "\t<text x=\"20\" y=\"-20\" style=\"font-size:10px;text-anchor:start\" >Toggle reads mapped:</text>\n";
     }
@@ -1176,7 +1185,29 @@ sub draw_bubble_switches {
         print $fh "O</text>\n";
     }
     
-    if ($spades + $emirge > 0) {
+    if ($trusted == 1) {
+        my ($posLabel,$posOn,$posOnText,$posOff,$posOffText) = map {$_ + $tstart} @std_offsets;
+        print $fh "\t<text x=\"$posLabel\" y=\"-20\" style=\"fill:orange;font-size:9px;text-anchor:end;\" >Trusted</text>\n";
+        #trusted ON
+        print $fh "\t<rect id=\"trustedBubbleOn\" x=\"$posOn\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(204,204,0);opacity:1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"trustedBubbleOn.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"trustedBubbleOff.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOnText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(254,254,254);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"trustedBubbleOn.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"trustedBubbleOff.click\" />";
+        print $fh "I</text>\n";
+        #trusted OFF
+        print $fh "\t<rect id=\"trustedBubbleOff\" x=\"$posOff\" y=\"-40\" height=\"30\" width=\"30\" style=\"fill:rgb(204,204,0);opacity:0.1;\" >";
+        print $fh "<set attributeName=\"opacity\" to=\"1\" begin=\"trustedBubbleOff.click\" />";
+        print $fh "<set attributeName=\"opacity\" to=\"0.1\" begin=\"trustedBubbleOn.click\" />";
+        print $fh "</rect>\n";
+        print $fh "\t<text x=\"$posOffText\" y=\"-20\" style=\"text-anchor:middle;font-size:12px;fill:rgb(214,234,248);opacity:1;\" >";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(254,254,254)\" begin=\"trustedBubbleOff.click\" />";
+        print $fh "<set attributeName=\"fill\" to=\"rgb(214,234,248)\" begin=\"trustedBubbleOn.click\" />";
+        print $fh "O</text>\n";
+    }
+    if ($spades + $emirge + $trusted > 0) {
         print $fh "</g>\n";
     }
 
@@ -1206,6 +1237,10 @@ sub original_names_from_fasta {
             # If SPAdes assembled sequence extract identifier
             elsif ($head =~ m/^\S+\.(PFspades_\d+)/) {
                 $hash{$1} = $head;
+            }
+            # If trusted sequence, extract identifier
+            elsif ($head =~ m/^\S+\.(PFtrusted_\d+)/) {
+                $hash {$1} = $head;
             }
             # If a reference sequence, get accession number without start/stop pos
             elsif ($head =~ m/^(\w+)\.\d+\.\d+ /) {
@@ -1237,6 +1272,7 @@ sub match_tree_taxon_to_read_coverage {
     my @covs;
     my $spades_flag = 0; # Report whether any SPAdes taxa found
     my $emirge_flag = 0; # Report whether any EMIRGE taxa found
+    my $trusted_flag = 0; # Report whether any trusted taxa found
     
     # Open CSV
     my $fh_in;
@@ -1274,6 +1310,21 @@ sub match_tree_taxon_to_read_coverage {
                 }
             }
         }
+        if ($split[0] =~ m/(PFtrusted_\d+)/) {
+            $trusted_flag = 1;
+            my $csvid = $1;
+            # Find the matching taxon name in tree
+            foreach my $key (keys %$taxa_href) {
+                if ($taxa_href->{$key}{"name"} =~ m/(PFtrusted_\d+)/) {
+                    my $treeid = $1;
+                    if ($treeid eq $csvid) {
+                        $taxa_href->{$key}{"readcov"} = $split[1];
+                        $taxa_href->{$key}{"source"} = "trusted";
+                        push @covs, $split[1];
+                    }
+                }
+            }
+        }
     }
     close($fh_in);
 
@@ -1285,7 +1336,7 @@ sub match_tree_taxon_to_read_coverage {
     my $maxcov = max(@covs);
     my $maxradius_raw = sqrt ($maxcov / 3.14159265);
     my $bubblefactor = 0.10 * $vb_width / $maxradius_raw;
-    return ($bubblefactor, $spades_flag, $emirge_flag);
+    return ($bubblefactor, $spades_flag, $emirge_flag, $trusted_flag);
 }
 
 sub draw_bubble_unassembled {
@@ -1361,6 +1412,11 @@ sub draw_bubbles {
             $switchoff = "emirgeBubbleOff";
             $bubblefill = "rgb(213,245,227)";   # Light green
             $bubblestroke = "rgb(24,106,59)";   # Dark green
+        } elsif ($source eq 'trusted') {
+            $switchon = "trustedBubbleOn";
+            $switchoff = "trustedBubbleOff";
+            $bubblefill = "rgb(255,255,204)";   # Light yellow
+            $bubblestroke = "rgb(204,204,0)";   # Dark yellow
         }
         # Old color: rgb(255,235,205)
         
