@@ -1013,14 +1013,18 @@ sub draw_tree {
     }
     # Scale font size by the length of the longest taxon label
     my $textlength = max (@namelens);
-    my $fontsize;
-    if ($textlength < 150) { # If label is shorter than 150 chars, scale to max 10
-                             # 150 chars at font size 4 will have width roughly 300
-        $fontsize = 10 - 6 * $textlength / 150;
+    my $fontsize; # Font size for text labels
+    my $textwidth; # Width of tree plot taken up by text labels
+    if ($textlength < 120) { # If label is shorter than 120 chars, scale to max 10
+                             # 120 chars at font size 4 will have width roughly 240
+        $fontsize = 10 - 6 * $textlength / 120;
+        $textwidth = 1.1 * $fontsize/2 * $textlength;
     } else { # Minimum font size is 6, else illegible
         $fontsize = 6;
+        # Maxmimum width taken up by text labels assumes that overly-long labels
+        # will be truncated to 120 characters in the original_names_from_fasta function
+        $textwidth = 1.1 * $fontsize/2 * 120;
     }
-    my $textwidth = 1.1 * $fontsize/2 * $textlength;
 
     # Adjust proportion of plot taken up by tree branches according to the space occupied by tree
     my $treewidth = $vb_width - $textwidth;
@@ -1205,7 +1209,14 @@ sub original_names_from_fasta {
             }
             # If a reference sequence, get accession number without start/stop pos
             elsif ($head =~ m/^(\w+)\.\d+\.\d+ /) {
-                $hash{$1} = $head;
+                if (length ($head) > 120) { # Truncate long names
+                    my @splitheader = split /;/, $head;
+                    # Shorten name to first 55 and last 55 characters
+                    my $rejoin = join " ", (substr($head,0,55), "...", substr($head,-55));
+                    $hash{$1} = $rejoin;
+                } else {
+                    $hash{$1} = $head;
+                }
             }
             # Otherwise report problem
             else {
