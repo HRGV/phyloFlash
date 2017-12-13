@@ -2493,6 +2493,8 @@ if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta
     screen_remappings();
 }
 
+$runtime = $timer->minutes; # Log run time - This should go behind print_report()
+
 # Capture output parameters for reports
 my @report_inputs = (
     $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,
@@ -2520,7 +2522,6 @@ if ($html_flag) {
 # Clean up temporary files
 clean_up();
 
-$runtime = $timer->minutes; # Log run time
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
