@@ -260,6 +260,7 @@ my $amplimit    = 500000;       # number of SSU pairs at which to switch to emir
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
 my $cpus        = get_cpus      # num cpus to use
 my $clusterid   = 97;           # threshold for vsearch clustering
+my $trusted_contigs;            # Filename for trusted contigs, if available
 
 my $html_flag   = 1;            # generate HTML output? (default = 1, on)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
@@ -416,6 +417,7 @@ sub parse_cmdline {
                'decimalcomma' => \$decimalcomma,
                'emirge!' => \$emirge,
                'skip_spades' => \$skip_spades,
+               'trusted=s' => \$trusted_contigs,
                'poscov!' => \$poscov_flag,
                'sc' => \$sc,
                'zip!' => \$zip,
@@ -1203,6 +1205,105 @@ sub spades_parse {
 
 }
 
+sub trusted_contigs_parse {
+    # Extract SSU rRNA sequences from "trusted contigs" Fasta file
+    msg("Extracting SSU rRNA from trusted contigs $trusted_contigs...");
+    
+    # run barrnap once for each domain
+    # if single cell data - accept partial rRNAs down to 0.1
+    # and use lower e-value setting
+    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+    if ($sc == 1) {
+        $b_args = " --evalue 1e-20 --reject 0.1 ";
+    }
+
+    foreach ('bac', 'arch', 'euk') {
+        run_prog("barrnap",
+                 $b_args.
+                 "--kingdom $_ --gene ssu --threads $cpus " .
+                 "$trusted_contigs",
+                 $outfiles{"trusted_gff_".$_}{"filename"},
+                 $outfiles{"trusted_barrnap_log"}{"filename"});
+        $outfiles{"trusted_gff_".$_}{"made"}++;
+        $outfiles{"trusted_barrnap_log"}{"made"}++;
+    }
+
+    # now merge multi-hits on the same scaffold-and-strand by picking
+    # the lowest start and highest stop position.
+
+    my %ssus;
+    # pre-filter with grep for speed
+    my $fh;
+    open_or_die(\$fh, "-|",
+                "grep -hE '16S_rRNA\|18S_rRNA' ".
+                $outfiles{"trusted_gff_bac"}{"filename"}." ".
+                $outfiles{"trusted_gff_arch"}{"filename"}." ".
+                $outfiles{"trusted_gff_euk"}{"filename"});
+    my $counter = 0;
+    while (my $row = <$fh>) {
+        $counter++;
+        my @cols    = split("\t", $row);
+        # gff format:
+        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+        # 5 score, 6 strand, 7 frame, 8 attribute
+
+        my $seqname = $cols[0];
+        my $start   = $cols[3];
+        my $stop    = $cols[4];
+        my $strand  = $cols[6];
+
+        # put our desired output fasta name into "feature" col 3
+        # the may be "bug" using / mixing bed and gff formats
+        # but it saves us messing with the fasta afterwards
+        $cols[2] = "$libraryNAME.PFtrusted_$counter";
+
+        # do the actual merging, left most start and right most stop wins
+        if (exists $ssus{$seqname.$strand}) {
+            my $old_start = $ssus{$seqname.$strand}[3];
+            my $old_stop  = $ssus{$seqname.$strand}[4];
+            $cols[3] = ($start < $old_start) ? $start : $old_start;
+            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+        }
+        $ssus{$seqname.$strand} = [@cols];
+    }
+    close($fh);
+
+    if (scalar keys %ssus == 0) {
+        msg("no SSU rRNA sequences found in trusted contigs by Barrnap");
+        return 1;
+    } else {
+        open_or_die(\$fh, ">", $outfiles{"trusted_gff_all"}{"filename"});
+        for my $key (sort keys %ssus) {
+            print $fh join("\t",@{$ssus{$key}});
+        }
+        close($fh);
+        $outfiles{"trusted_gff_all"}{"made"}++;
+    
+        # fastaFromBed will build a .fai index from the source .fasta
+        # However, it does not notice if the .fasta changed. So we
+        # delete the .fai if it is older than the .fasta.
+        if ( -e "$trusted_contigs.fai" &&
+             file_is_newer("$trusted_contigs",
+                           "$trusted_contigs.fai")) {
+            unlink("$trusted_contigs.fai");
+        }
+    
+        # extract rrna fragments from trusted contigs accoding to gff
+        my @fastaFromBed_args = ("-fi $trusted_contigs",
+                                 "-bed",$outfiles{"trusted_gff_all"}{"filename"},
+                                 "-fo",$outfiles{"trusted_fasta"}{"filename"},
+                                 "-s","-name",
+                                 );
+        run_prog("fastaFromBed",
+                 join (" ",@fastaFromBed_args),
+                 $outfiles{"trusted_fastaFromBed_out"}{"filename"},
+                 "&1");
+        $outfiles{"trusted_fasta"}{"made"}++;
+        $outfiles{"trusted_fastaFromBed_out"}{"made"}++;
+        msg("done...");
+        return 0;
+    }
+}
 
 sub bbmap_remap {
     # Map extracted reads back to the SPAdes or EMIRGE output to see what
@@ -2270,6 +2371,11 @@ readsam();
 # Find positional coverage along prok and euk SSU rRNA models using nhmmer
 # from a subsample of reads
 nhmmer_model_pos() if ($poscov_flag == 1 );
+
+# Extract rRNA from trusted contigs if assembly file is supplied
+if (defined $trusted_contigs) {
+    trusted_contigs_parse();
+}
 
 # Run SPAdes if not explicitly skipped
 if ($skip_spades == 0) {
