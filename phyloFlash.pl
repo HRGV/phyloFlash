@@ -27,18 +27,18 @@ are supported.
 
 =over 15
 
-=item -lib I<name>
+=item -lib I<NAME>
 
-Library I<name> to use for output file. The name must be one word comprising
+Library I<NAME> to use for output file. The name must be one word comprising
 only letters, numbers and "_" or "-" (no whitespace or other punctuation).
 
-=item -read1 F<file>
+=item -read1 F<FILE>
 
 Forward reads in FASTA or FASTQ formats. May be compressed with Gzip (.gz
 extension). If interleaved reads are provided, please use I<--interleaved> flag
 in addition for paired-end processing.
 
-=item -read2 F<file>
+=item -read2 F<FILE>
 
 File containing reverse reads. If this option is omitted, B<phyloFlash>
 will run in B<experimental> single-end mode.
@@ -79,7 +79,7 @@ Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
 Use decimal comma instead of decimal point to fix locale problems.
 Default: Off
 
-=item -dbhome F<dir>
+=item -dbhome F<DIR>
 
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
@@ -146,6 +146,12 @@ Turn off SPAdes assembly of SSU sequences
 =item -sc
 
 Turn on single cell MDA data mode for SPAdes assembly of SSU sequences
+
+=item -trusted F<FILE>
+
+User-supplied Fasta file of trusted contigs containing SSU rRNA sequences. The
+SSU sequences will be extracted with Barrnap, and the input read files will be
+screened against these extracted "trusted" SSU sequences
 
 =item -poscov
 
@@ -239,7 +245,7 @@ use Cwd;
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.0 beta 1';       # Current phyloFlash version
+my $version       = 'phyloFlash v3.1 beta 1';       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
 my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
@@ -427,7 +433,7 @@ sub parse_cmdline {
                'almosteverything' => \$almosteverything,
                'check_env' => \$check_env,
                'outfiles' => \&output_description,
-               'help' => sub { pod2usage(1) },
+               'help|h' => sub { pod2usage(1) },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
            )
         or pod2usage(2);

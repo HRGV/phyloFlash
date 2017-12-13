@@ -94,6 +94,8 @@ You can access help on the command line with the following options:
 
 `-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. (Default: Look in phyloFLash folder for highest SILVA version number)
 
+`-trusted FILENAME` User-supplied Fasta file of trusted contigs containing SSU rRNA sequences. The SSU sequences will be extracted with Barrnap, and the input read files will be screened against these extracted "trusted" SSU sequences
+
 ### 2.4. Localization and compatibility options
 
 `-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant (Default: Off)
