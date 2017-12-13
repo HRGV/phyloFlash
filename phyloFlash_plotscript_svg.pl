@@ -1492,7 +1492,9 @@ sub draw_taxon {
         $textstyle .= "fill:blue;";
     } elsif (${$href}{$taxonID}{"name"} =~ m/PFemirge/) {
         $textstyle .= "fill:green;";
-    }
+    } elsif (${$href}{$taxonID}{"name"} =~ m/PFtrusted/) {
+        $textstyle .= "fill:orange;";
+    } 
     # Use original name if available, else the name found in tree
     $name = defined ${$href}{$taxonID}{"original_name"} ? ${$href}{$taxonID}{"original_name"} : $name;
 
