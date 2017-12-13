@@ -529,6 +529,15 @@ sub parse_cmdline {
     err("Command line contains extra words:", @ARGV)
         if ($ARGV[0]);
 
+    # If trusted contigs supplied, check that file is at least a valid ASCII/UTF-8 text file
+    if (defined $trusted_contigs) {
+        msg ("Trusted contigs file $trusted_contigs supplied");
+        if (! -T $trusted_contigs) {
+            msg ("WARNING: Trusted contigs file $trusted_contigs does not appear to be plain text file. Ignoring...");
+            $trusted_contigs = undef;
+        }
+    }
+    
     # populate hash to keep track of output files
     my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
     %outfiles = %$outfiles_href;
