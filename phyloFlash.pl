@@ -1428,7 +1428,6 @@ sub screen_remappings {
     if (defined $outfiles{'trusted_fasta'}{'made'}) {
         flag_unmapped_sam('trusted');
     }
-    
 
     my @unassem_taxa;
     my $ssu_fwd_map = 0;
@@ -1594,7 +1593,6 @@ sub emirge_run {
 
     my $cmd = "emirge";
     my @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"});
-    my $args = "-1 ".$outfiles{"reads_mapped_f"}{"filename"}." ";               # REMOVE?
 
     if ($SEmode == 1) {
         msg("only one read file provided - running in single end mode");
@@ -1629,9 +1627,6 @@ sub emirge_run {
                         "-i $ins_used",
                         "-s $ins_std",
                         );
-        $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}                 # REMOVE?
-                . " -2 ".$outfiles{"reads_mapped_r"}{"filename"}
-                . " -i $ins_used -s $ins_std ";
     } else {
         msg("reads > 151 bp - running in single end mode");
         run_prog("cat",
@@ -1649,7 +1644,6 @@ sub emirge_run {
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
         @emirge_args = ("-1",$outfiles{"reads_mapped_cat_rename"}{"filename"});
-        $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";    # REMOVE?
     }
 
     unshift @emirge_args, "$libraryNAME.emirge"; # Add library name to arguments
