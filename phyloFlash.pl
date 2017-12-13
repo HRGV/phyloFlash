@@ -369,7 +369,7 @@ sub process_required_tools {
         grep => "grep",
         awk => "awk",
         cat => "cat",
-        plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl"
+        plotscript_SVG => "$FindBin::RealBin/phyloFlash_plotscript_svg.pl",
     );
     if ($skip_spades == 0) {
         require_tools(spades => "spades.py");
@@ -1306,9 +1306,9 @@ sub trusted_contigs_parse {
 }
 
 sub bbmap_remap {
-    # Map extracted reads back to the SPAdes or EMIRGE output to see what
+    # Map extracted reads back to the SPAdes or EMIRGE output or trusted contigs to see what
     # proportion of reads can be explained by the assembled sequences
-    my ($which,     # SPAdes or EMIRGE output?
+    my ($which,     # SPAdes or EMIRGE output, or trusted contigs SSU ?
         ) = @_;
     my ($ref,$outsam,$outlog);
     if ($which eq "SPAdes") {
@@ -1325,6 +1325,13 @@ sub bbmap_remap {
         # Record that output files were made
         $outfiles{"sam_remap_emirge"}{"made"}++;
         $outfiles{"bbmap_remap_log_emirge"}{"made"}++;
+    } elsif ($which eq 'trusted') {
+        $ref = $outfiles{'trusted_fasta'}{'filename'};
+        $outsam = $outfiles{'sam_remap_trusted'}{'filename'};
+        $outlog = $outfiles{'bbmap_remap_log_trusted'}{'filename'};
+        # Record which output files made
+        $outfiles{'sam_remap_trusted'}{'made'}++;
+        $outfiles{'bbmap_remap_log_trusted'}{'made'}++;
     }
     # Report for log
     msg("mapping extracted SSU reads back on $which SSU sequences");
@@ -1353,12 +1360,23 @@ sub bbmap_remap {
                                );
         }
     }
+    # If mapping vs trusted contigs, separately output reads that don't map to trusted SSU
+    if ($which eq 'trusted') {
+        push @remap_args, "outu=$outfiles{'reads_mapped_notrusted_f'}{'filename'}";
+        $outfiles{'reads_mapped_notrusted_f'}{'made'}++; # Record file as made
+        if ($SEmode == 0) { # If paired reads, also create reverse
+            push @remap_args, "outu2=$outfiles{'reads_mapped_notrusted_r'}{'filename'}";
+            $outfiles{'reads_mapped_notrusted_r'}{'made'}++; # Record file as made
+        }
+    }
+    
     # Run BBmap
     run_prog("bbmap",
              join (" ", @remap_args),
              undef,
              $outlog,
              );
+    
     msg("done...");
 }
 
@@ -2375,6 +2393,7 @@ nhmmer_model_pos() if ($poscov_flag == 1 );
 # Extract rRNA from trusted contigs if assembly file is supplied
 if (defined $trusted_contigs) {
     trusted_contigs_parse();
+    bbmap_remap('trusted');
 }
 
 # Run SPAdes if not explicitly skipped
