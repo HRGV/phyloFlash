@@ -648,7 +648,7 @@ NTU\treads
         }
     }
 
-    if ($skip_spades == 0) {
+    if (defined $outfiles{"spades_fasta"}{"made"}) {
         ## Print the table of SSU assembly-based taxa to report file
         print {$fh} "---\n";
         print {$fh} "SSU assembly based taxa:\n";
@@ -665,7 +665,7 @@ NTU\treads
         }
     }
 
-    if ($skip_emirge == 0) {
+    if (defined $outfiles{"emirge_fasta"}{"made"}) {
         ## Print the table of SSU reconstruction-based taxa to report file
         print {$fh} "---\n";
         print {$fh} "SSU reconstruction based taxa:\n";
@@ -681,8 +681,25 @@ NTU\treads
             print {$fh} join("\t", @out)."\n";
         }
     }
+    
+    if (defined $outfiles{"trusted_fasta"}{"made"}) {
+        ## Print the table of SSU extracted from trusted contigs to report file
+        print {$fh} "---\n";
+        print {$fh} "SSU from trusted contigs:\n";
+        print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
+        foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
+            next unless $ssufull_hash{$seqid}{"source"} eq "trusted";
+            my @out;
+            push @out, $seqid;
+            my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
+            foreach my $field (@fields) {
+                push @out, $ssufull_hash{$seqid}{$field};
+            }
+            print {$fh} join("\t", @out)."\n";
+        }
+    }
 
-    if ($skip_emirge + $skip_spades < 2) {
+    if (defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"trusted_fasta"}{"made"}) {
         ## Print the table of taxonomic affiliations for unassembled SSU reads
         print {$fh} "---\n";
         print {$fh} "Taxonomic affiliation of unassembled reads (min. 3 reads mapped):\n";
@@ -743,7 +760,7 @@ sub write_csv {
     close($fh);
 
     # If full-length seqeunces were assembled or reconstructed
-    if ($skip_spades + $skip_emirge < 2) {
+    if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{"trusted_fasta"}{"made"}) {
 
         # CSV file of assembled/reconstructed sequnces
         open_or_die(\$fh, ">", $outfiles{"full_len_class"}{"filename"});
@@ -1255,7 +1272,7 @@ sub trusted_contigs_parse {
         # put our desired output fasta name into "feature" col 3
         # the may be "bug" using / mixing bed and gff formats
         # but it saves us messing with the fasta afterwards
-        $cols[2] = "$libraryNAME.PFtrusted_$counter";
+        $cols[2] = "$libraryNAME.PFtrusted_$counter"."_0";
 
         # do the actual merging, left most start and right most stop wins
         if (exists $ssus{$seqname.$strand}) {
@@ -1541,7 +1558,7 @@ sub flag_unmapped_sam {
         # Check whether read has mapped to reference
         unless ($bitflag & 0x4) { # negate condition because bitflag 0x4 means "segment unmapped"
             if (defined $ssu_sam{$read}{$pair}) {
-                # Mark that read maps to SPAdes or EMIRGE
+                # Mark reads that map to SPAdes or EMIRGE or trusted
                 $ssu_sam{$read}{$pair}{$mappedname}++;
                 # Add to read count for that reference sequence
                 my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
@@ -1674,14 +1691,13 @@ sub vsearch_best_match {
     # running vsearch to map the SPADES output to the taxonomy
     msg("searching for DB matches with vsearch");
 
-    # join emirge and spades hits into one file
+    # join emirge and spades hits and trusted contig SSU into one file
     # (vsearch takes a while to load, one run saves us time)
     my @input_fasta;
-    if (defined $outfiles{"emirge_fasta"}{"made"}) {
-        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
-    }
-    if (defined $outfiles{"spades_fasta"}{"made"}) {
-        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
+    foreach my $ff ('emirge_fasta','spades_fasta','trusted_fasta') {
+        if (defined $outfiles{$ff}{"made"}) {
+           push @input_fasta, $outfiles{$ff}{"filename"};
+        }
     }
     run_prog("cat",
              join(" ", @input_fasta),
@@ -1742,12 +1758,14 @@ sub vsearch_parse {
         # Split into individual fields
         my @line = split /\t/, $_;
         my $seqid = $line[0];
-        # Check whether hit is from SPAdes
+        # Check whether hit is from SPAdes, EMIRGE, or trusted contig
         my $source;
         if ($line[0] =~ m/PFspades/) {
             $source = "SPAdes";
         } elsif ($line[0] =~ m/PFemirge/) {
             $source = "EMIRGE";
+        } elsif ($line[0] =~ m/PFtrusted/) {
+            $source = 'trusted';
         }
 
         #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
@@ -1789,11 +1807,10 @@ sub mafft_run {
     # Add closest DB hits to assem/recon sequences
     push @input_fasta, $outfiles{"dhbits_nr97_fasta"}{"filename"};
     # Add assem/recon sequences if they were produced
-    if (defined $outfiles{"emirge_fasta"}{"made"}) {
-        push @input_fasta, $outfiles{"emirge_fasta"}{"filename"};
-    }
-    if (defined $outfiles{"spades_fasta"}{"made"}) {
-        push @input_fasta, $outfiles{"spades_fasta"}{"filename"};
+    foreach my $ff ('emirge_fasta','spades_fasta','trusted_fasta') {
+        if (defined $outfiles{$ff}{"made"}) {
+           push @input_fasta, $outfiles{$ff}{"filename"};
+        }
     }
     # Cat all to one file for alignment 
     run_prog("cat",
@@ -2195,7 +2212,11 @@ sub write_report_html {
         $suppress_flags{"SUPPRESS_IF_SKIP_EMIRGE"} = 1;
         $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
     }
-    if ($skip_spades + $skip_emirge == 2)  {
+    if (!defined $outfiles{'trusted_fasta'}{'made'}) {
+        $suppress_flags{"SUPPRESS_IF_TRUSTED_EMIRGE"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_TRUSTED_EMIRGE_END"} = 1;
+    }
+    if (!defined $outfiles{'ssu_coll_tree_svg'}{'made'})  {
         $suppress_flags{"SUPPRESS_IF_NO_TREE"} = 1;
         $suppress_end_flags{"SUPPRESS_IF_NO_TREE_END"} = 1;
     }
@@ -2269,10 +2290,6 @@ sub write_report_html {
 
     # Params defined only for assembled (SPAdes) reads
     if ($skip_spades == 0) {
-        $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
-        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
-        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
-
         # Table of assembled SSU sequences
         my @table_assem_seq;
 
@@ -2327,8 +2344,43 @@ sub write_report_html {
         $flags{"EMIRGE_TABLE"} = join "", @table_recon_seq;
     }
 
+    # Params defined only for trusted reads
+    if (defined $outfiles{'trusted_fasta'}{'made'}) {
+        # Table of SSU sequences extracted from trusted contigs
+        my @table_trusted_seq;
+
+        foreach my $seqid (sort { $ssufull_hash{$b}{"counts"} <=> $ssufull_hash{$a}{"counts"} } keys %ssufull_hash) {
+            # Check that sequence was assembled by spades
+            next unless $ssufull_hash{$seqid}{"source"} eq "trusted";
+            # Parse database entry number of hit to get Genbank accession
+            my ($gbk, @discard) = split /\./, $ssufull_hash{$seqid}{"dbHit"};
+            $ssufull_hash{$seqid}{"gbklink"} = "<a href=\"http://www.ncbi.nlm.nih.gov/nuccore/".
+                                               $gbk.
+                                               "\">".
+                                               $ssufull_hash{$seqid}{"dbHit"}.
+                                               "</a>";
+            # Build an output line
+            #fields: qw(source cov dbHit taxon pcid alnlen evalue); counts added later
+            my @fields = qw(counts gbklink taxon pcid alnlen evalue);
+            push @table_trusted_seq, "  <tr>\n";                  # Start table row
+            push @table_trusted_seq, "    <td>".$seqid."</td>\n"; # Push sequence ID to line
+            foreach my $field (@fields) {                       # Push individual fields to line
+                push @table_trusted_seq, "    <td>".$ssufull_hash{$seqid}{$field}."</td>\n";
+            }
+            push @table_trusted_seq, "  </tr>\n";                 # End table row
+        }
+        $flags{"TRUSTED_SSU_TABLE"} = join "", @table_trusted_seq;
+    }
+    
     # Params defined if either SPAdes or EMIRGE are run
-    if ($skip_spades + $skip_emirge < 2) {
+    if (defined $outfiles{'spades_fasta'}{'made'} || defined $outfiles{'emirge_fasta'}{'made'} || defined $outfiles{'trusted_fasta'}{'made'}) {
+        # Assembly ratios
+        $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
+        $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
+        
+        # Sequence tree
+        $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
+        
         # Table of unassembled SSU reads affiliations
         my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
         my @table_unassem_lines;
@@ -2429,16 +2481,14 @@ if ($skip_emirge == 0) {
     emirge_parse() if $emirge_return == 0;
     bbmap_remap("EMIRGE") if $emirge_return == 0;
 }
-# If at least one of either SPAdes or Emirge has produced full-length seq, parse results
+# If full length sequenced produced, match vs SILVA database with Vsearch and align with best hits
 if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{'trusted_fasta'}{'made'}) {
-    #vsearch_best_match();
-    #vsearch_parse();
-    #vsearch_cluster();
-    #mafft_run();
+    vsearch_best_match();
+    vsearch_parse();
+    vsearch_cluster();
+    mafft_run();
     screen_remappings();
 }
-
-$runtime = $timer->minutes; # Log run time
 
 # Capture output parameters for reports
 my @report_inputs = (
@@ -2466,6 +2516,8 @@ if ($html_flag) {
 
 # Clean up temporary files
 clean_up();
+
+$runtime = $timer->minutes; # Log run time
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
