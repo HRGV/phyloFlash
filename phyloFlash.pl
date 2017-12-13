@@ -1389,6 +1389,7 @@ sub screen_remappings {
     # first SAM in %ssu_sam
     my %sam_spades; # too good to be true
     my %sam_emirge;
+    my %sam_trusted;
     # If SPAdes results were mapped, read into memory
     if (defined $outfiles{"spades_fasta"}{"made"}) {
         flag_unmapped_sam("SPAdes");
@@ -1397,6 +1398,11 @@ sub screen_remappings {
     if (defined $outfiles{"emirge_fasta"}{"made"}) {
         flag_unmapped_sam("EMIRGE");
     }
+    # If trusted contigs were remapped, read into memory
+    if (defined $outfiles{'trusted_fasta'}{'made'}) {
+        flag_unmapped_sam('trusted');
+    }
+    
 
     my @unassem_taxa;
     my $ssu_fwd_map = 0;
@@ -1422,8 +1428,8 @@ sub screen_remappings {
                 } elsif ($pair eq "R") {
                     $ssu_rev_map ++ ;
                 }
-                # Check whether has been flagged as mappign to SPAdes or Emirge
-                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"}) {
+                # Check whether has been flagged as mappign to SPAdes or Emirge or trusted contig
+                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"} | defined $ssu_sam{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
                 } else {
@@ -1469,7 +1475,14 @@ sub screen_remappings {
         }
         $ssu_sam_mapstats{"emirge_tot_map"} = $emirge_tot_map;
     }
-
+    if (defined $ssu_sam_mapstats{'trusted_fwd_map'}) {
+        my $trusted_tot_map = $ssu_sam_mapstats{'trusted_fwd_map'};
+        if (defined $ssu_sam_mapstats{'trusted_rev_map'}) {
+            $trusted_tot_map += $ssu_sam_mapstats{'trusted_rev_map'};
+        }
+        $ssu_sam_mapstats{'trusted_tot_map'} = $trusted_tot_map;
+    }
+    
     # Write CSV of reads assembled for piechart
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$total_unassembled;
@@ -1499,6 +1512,11 @@ sub flag_unmapped_sam {
         $mappedname = "mapped2emirge";
         $mapped_fwd = "emirge_fwd_map";
         $mapped_rev = "emirge_rev_map";
+    } elsif ($which eq 'trusted') {
+        $sam_in = $outfiles{'sam_remap_trusted'}{'filename'};
+        $mappedname = 'mapped2trusted';
+        $mapped_fwd = 'trusted_fwd_map';
+        $mapped_rev = 'trusted_rev_map';
     }
     msg ("Reading results of remapping to $which results");
     my $fh_in;
@@ -1550,7 +1568,7 @@ sub emirge_run {
 
     my $cmd = "emirge";
     my @emirge_args = ("-1",$outfiles{"reads_mapped_f"}{"filename"});
-    my $args = "-1 ".$outfiles{"reads_mapped_f"}{"filename"}." ";
+    my $args = "-1 ".$outfiles{"reads_mapped_f"}{"filename"}." ";               # REMOVE?
 
     if ($SEmode == 1) {
         msg("only one read file provided - running in single end mode");
@@ -1585,7 +1603,7 @@ sub emirge_run {
                         "-i $ins_used",
                         "-s $ins_std",
                         );
-        $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}
+        $args = "  -1 ".$outfiles{"reads_mapped_f"}{"filename"}                 # REMOVE?
                 . " -2 ".$outfiles{"reads_mapped_r"}{"filename"}
                 . " -i $ins_used -s $ins_std ";
     } else {
@@ -1605,7 +1623,7 @@ sub emirge_run {
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
         @emirge_args = ("-1",$outfiles{"reads_mapped_cat_rename"}{"filename"});
-        $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";
+        $args = " -1 ".$outfiles{"reads_mapped_cat_rename"}{"filename"}." ";    # REMOVE?
     }
 
     unshift @emirge_args, "$libraryNAME.emirge"; # Add library name to arguments
@@ -1978,20 +1996,18 @@ sub run_plotscript_SVG {
              "&1");
     $outfiles{"mapratio_svg"}{"made"}++;
 
-    # Piechart of proportion assembled, if SPAdes run
-    unless ($skip_spades == 1) {
-        if (defined $outfiles{"assemratio_csv"}{"made"}) {
-            my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
-            my @pie_args = ("--pie",
-                            $outfiles{"assemratio_csv"}{"filename"},
-                            " --title=\"Reads assembled\"",
-                            );
-            run_prog("plotscript_SVG",
-                     join (" ", @pie_args),
-                     $outfiles{"plotscript_out"}{"filename"},
-                     "&1");
-            $outfiles{"assemratio_svg"}{"made"}++;
-        }
+    # Piechart of proportion assembled, if SPAdes or EMIRGE or trusted contigs output
+    if (defined $outfiles{"assemratio_csv"}{"made"}) {
+        my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
+        my @pie_args = ("--pie",
+                        $outfiles{"assemratio_csv"}{"filename"},
+                        " --title=\"Reads assembled\"",
+                        );
+        run_prog("plotscript_SVG",
+                 join (" ", @pie_args),
+                 $outfiles{"plotscript_out"}{"filename"},
+                 "&1");
+        $outfiles{"assemratio_svg"}{"made"}++;
     }
 
     # Plot insert size histogram unless running in SE mode
@@ -2414,11 +2430,11 @@ if ($skip_emirge == 0) {
     bbmap_remap("EMIRGE") if $emirge_return == 0;
 }
 # If at least one of either SPAdes or Emirge has produced full-length seq, parse results
-if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"}) {
-    vsearch_best_match();
-    vsearch_parse();
-    vsearch_cluster();
-    mafft_run();
+if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{'trusted_fasta'}{'made'}) {
+    #vsearch_best_match();
+    #vsearch_parse();
+    #vsearch_cluster();
+    #mafft_run();
     screen_remappings();
 }
 
