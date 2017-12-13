@@ -1024,7 +1024,12 @@ sub draw_tree {
 
     # Adjust proportion of plot taken up by tree branches according to the space occupied by tree
     my $treewidth = $vb_width - $textwidth;
-    my $br_scalefactor = $treewidth/max(@brlens);
+    my $br_scalefactor;
+    if (max (@brlens) > 0) { 
+        $br_scalefactor = $treewidth/max(@brlens);
+    } else { # Catch case where tree has zero length
+        $br_scalefactor = 1;
+    }
 
     # Hash in read coverage data for assembled taxa and which kinds of
     # full-length sequences are present, if csv file supplied supplied:
