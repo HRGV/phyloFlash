@@ -42,7 +42,9 @@ our @EXPORT      = qw(
   csv_escape
   require_tools
   check_environment
+  check_vsearch_version
   run_prog
+  run_prog_nodie
   file_download
   fasta_copy_except
   fasta_copy_iupac_randomize
@@ -269,6 +271,30 @@ sub check_environment {
     }
 }
 
+=item check_vsearch_version ()
+
+Check that Vsearch version is at least 2.5.0. Return "1" if yes, otherwise undef
+
+UDB file is only implemented from 2.5.0 onwards
+
+=cut
+
+sub check_vsearch_version {
+    my $version_msg = `vsearch -v 2>&1`;
+    my $return_value;
+    if ($version_msg =~ m/vsearch v(\d+)\.(\d+)\.\d+/) {
+        my ($maj,$min) = ($1, $2); # Major and minor version
+        # Check if at least v2.5.0
+        if ($maj >= 2 && $min >= 5) {
+            $return_value = 1;
+            msg ("Vsearch v2.5.0+ found, will index database to UDB file");
+        }
+    } else {
+        msg ("Could not determine Vsearch version. Assuming to be < v2.5.0");
+    }
+    return $return_value;
+}
+
 =item run_prog ($progname, $args, $redir_stdout, $redir_sterr)
 
 Runs a tool by the name given in require_tools.
@@ -311,6 +337,53 @@ sub run_prog {
         or err("Tool execution failed!.",
                "Error was '$!' and return code '$?'");
 
+    # FIXME: print tail of stderr if redirected
+}
+
+=item run_prog_nodie ($progname, $args, $redir_stdout, $redir_sterr)
+
+Runs a tool by the name given in require_tools.
+Does not abort the script if returned with error code
+
+=over 15
+
+=item $progname
+
+the name of the tool
+
+=item $args
+
+command line arguments to be passed
+
+=item $redir_stdout
+
+file or file descriptor to redirect stdout to
+
+=item $redir_stdin
+
+same for stderr
+
+=back
+
+=cut
+sub run_prog_nodie {
+    my ($prog, $args, $redir_stdout, $redir_stderr) = @_;
+
+    if (not exists $progs{$prog}) {
+        msg("trying to launch unknown tool \"$prog\". pls add to %progs");
+        $progs{$prog} = can_run($prog) or err("Failed to find $prog");
+    }
+    my $cmd = $progs{$prog}." ".$args;
+    $cmd .= " >".$redir_stdout if ($redir_stdout);
+    $cmd .= " 2>".$redir_stderr if ($redir_stderr);
+
+    msg("running subcommand:","$cmd");
+    my $return = system($cmd);
+    if ($return != 0) {
+        msg ("Tool execution failed!.",
+             "Error was '$!' and return code '$?'");
+    }
+    return ($return);
     # FIXME: print tail of stderr if redirected
 }
 
@@ -1067,6 +1140,83 @@ sub initialize_outfiles_hash {
         description => "Log file from BBmap of re-mapping to EMIRGE sequences",
         discard     => 0,
         filename    => "$libraryNAME.remap_emirge.bbmap.out",
+        intable     => 0,
+      },
+      "trusted_gff_bac",
+      {
+        description => "GFF file for Barrnap run of Bacteria model on trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.bac.gff",
+        intable     => 0,
+      },
+      "trusted_gff_arch",
+      {
+        description => "GFF file for Barrnap run of Archaea model on trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.arch.gff",
+        intable     => 0,
+      },
+      "trusted_gff_euk",
+      {
+        description => "GFF file for Barrnap run of Eukaryota model on trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.euk.gff",
+        intable     => 0,
+      },
+      "trusted_gff_all",
+      {
+        description => "Concatenated GFF file of SSU rRNA sequences for all three models in trusted contigs",
+        discard     => 0,
+        filename    => "$libraryNAME.trusted.all.gff",
+        intable     => 1,
+      },
+      "trusted_barrnap_log",
+      {
+        description => "Log file for Barrnap run of on trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.barrnap.log",
+        intable     => 0,
+      },
+      "trusted_fasta",
+      {
+        description => "Fasta file of extracted SSU rRNA from trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.all.fasta",
+        intable     => 0,
+      },
+      "trusted_fastaFromBed_out",
+      {
+        description => "Output stream from fastaFromBed for trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.fastaFromBed.out",
+        intable     => 0,
+      },
+      "sam_remap_trusted",
+      {
+        description => "SAM file of read mapping vs trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.bbmap.sam",
+        intable     => 0,
+      },
+      "bbmap_remap_log_trusted",
+      {
+        description => "Log file from running bbmap on trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.bbmap.out",
+        intable     => 0,
+      },
+      "reads_mapped_notrusted_f",
+      {
+        description => "Forward read file of reads not mapping to trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.bbmap.outu.fwd.fastq",
+        intable     => 0,
+      },
+      "reads_mapped_notrusted_r",
+      {
+        description => "Reverse read file of reads not mapping to trusted contigs",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted.bbmap.outu.rev.fastq",
         intable     => 0,
       },
       #"",

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--This is a template file for phyloFlash v3.0 report output.
+<!--This is a template file for phyloFlash v3.1 report output.
     Comment tags in all-uppercase are flags to the write_report_html
     function in phyloFlash.pl to substitute field values for a
     given phyloFlash run. -->
@@ -200,9 +200,9 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
   </div>
   <div class="col20pc">
     <div class="tooltip"><!--MAPRATIOPIE--><span class="tooltiptext">Proportion of reads mapped to SSU rRNA database. Typically < 1% for metagenomes, ca. 20% for metatranscriptomes without rRNA depletion or poly-A selection.</span></div>
-<!--SUPPRESS_IF_SKIP_SPADES-->
+<!--SUPPRESS_IF_NO_TREE-->
     <div class="tooltip"><!--ASSEMBLYRATIOPIE--><span class="tooltiptext">Proportion of reads assembled to full-length sequences. High proportion unassembled suggest either assembly failure or high diversity of organisms with low coverage.</span></div>
-<!--SUPPRESS_IF_SKIP_SPADES_END-->
+<!--SUPPRESS_IF_NO_TREE_END-->
   </div>
   <div class="col50pc">
     <!--TAXONSUMMARYBAR-->
@@ -222,8 +222,8 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_NO_TREE-->
 <h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to expand)</a></h3>
 <div id="tree" class="more">
-<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes and EMIRGE full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner.</p>
-<p><b>Color key: </b><span style="color:blue;">Full-length sequences assembled by SPAdes</span>, <span style="color:green;">Full-length sequences reconstructed by EMIRGE</span>, <span>Closest-matching reference sequence from SILVA database</span></p>
+<p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes, EMIRGE, and trusted-contig full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner. Long taxonomy strings of reference sequences are truncated, but the full strings are given in the tables below.</p>
+<p><b>Color key: </b><span style="color:blue;">Assembled by SPAdes</span>, <span style="color:green;">Reconstructed by EMIRGE</span>, <span style="color:orange">Extracted from trusted contigs</span>, </span> <span>Closest-matching reference sequence from SILVA database</span></p>
 <!--SEQUENCES_TREE-->
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
@@ -390,6 +390,25 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </table>
 </div>
 <!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+
+<!--SUPPRESS_IF_SKIP_TRUSTED-->
+<h3><a href="#" id="trusted-show" class="showLink" onclick="showHide('trusted');return false;">SSU rRNA from trusted contigs</a></h3>
+<div id="trusted" class="more">
+<p>Full-length SSU rRNA seqeunces extracted from trusted contigs file, matched to SILVA database by Vsearch.</p>
+<table>
+  <tr>
+    <th><span class="withHoverText" title="Name assigned to assembled SSU sequence">OTU</span></th>
+    <th><span class="withHoverText" title="Number of reads re-mapping to assembled SSU sequence">Mapped</span></th>
+    <th><span class="withHoverText" title="Closest hit in SSU reference database">DB hit</span></th>
+    <th>Taxonomy</th>
+    <th>% ID</th>
+    <th><span class="withHoverText" title="Length of pairwise alignment between extracted SSU sequence and reference">Alnlen</span></th>
+    <th>Evalue</th>
+  </tr>
+<!--TRUSTED_SSU_TABLE-->
+</table>
+</div>
+<!--SUPPRESS_IF_SKIP_TRUSTED_END-->
 
 <!--SUPPRESS_IF_NO_TREE-->
 <h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>

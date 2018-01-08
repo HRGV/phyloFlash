@@ -76,7 +76,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use strict;
 use FindBin;
-use lib $FindBin::Bin;
+use lib $FindBin::RealBin;
 use PhyloFlash;
 use Pod::Usage;
 use Getopt::Long;
@@ -123,6 +123,7 @@ require_tools((
     bbduk => "bbduk.sh",
     bbmap => "bbmap.sh",
     bowtiebuild => "bowtie-build",
+    vsearch => 'vsearch',
     ));
 
 check_environment();
@@ -189,6 +190,16 @@ univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
 unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
 
+# Index database into UDB file, if Vsearch v2.5.0+
+# Speeds up run time in search phase of phyloFlash as db can be directly read to mem
+my $vsearch_ver_check = check_vsearch_version();
+if (defined $vsearch_ver_check) {
+    my $fasta_in = "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta";
+    my $udb_out = "$dbdir/SILVA_SSU.noLSU.masked.trimmed.udb";
+    make_vsearch_udb($fasta_in, $udb_out);
+}
+
+
 #the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
 # 2) at 96id for emirge
@@ -253,6 +264,20 @@ sub find_LSU {
         }
     }
     return @lsus;
+}
+
+sub make_vsearch_udb {
+    my ($infile, $outfile) = @_;
+    msg ("Indexing $infile to make UDB file $outfile with Vsearch");
+    my @vsearch_params = ("--threads $cpus", 
+                          '--notrunclabels', # Keep full header including taxstring
+                          "--makeudb_usearch $infile",
+                          "--output $outfile",
+                          );
+    run_prog("vsearch",
+             join (" ", @vsearch_params)
+             );
+    
 }
 
 #bbmask masks low entropy regions and repeats in the fasta file
