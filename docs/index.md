@@ -6,7 +6,7 @@ layout: home
 
 **phyloFlash** is a pipeline to rapidly reconstruct the SSU rRNAs and explore phylogenetic composition of an Illumina (meta)genomic or transcriptomic dataset.
 
-***NOTE*** Version 3.0 changes some input options and also how mapping-based taxa (NTUs) are handled. Please download the last release of v2.0 ([tar.gz archive](https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz)) for the old implementation. No changes have been made to the database setup, so databases prepared for v2.0 can still be used for v3.0.
+***NOTE*** Version 3 changes some input options and also how mapping-based taxa (NTUs) are handled. Please download the last release of v2.0 ([tar.gz archive](https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz)) for the old implementation. No changes have been made to the database setup, so databases prepared for v2.0 can still be used for v3.0.
 
 This manual explains how to install and use phyloFlash. Navigate from the menu bar above or the table of contents below.
 
@@ -16,19 +16,11 @@ This manual explains how to install and use phyloFlash. Navigate from the menu b
  - Assemble/reconstruct full-length SSU rRNA sequences suitable for phylogenetic analysis
  - Quick comparison of multiple samples by their taxonomic composition using a heatmap
 
-## Contents
-
- - [Installation](install.md)
- - [Usage](usage.md)
- - [Comparing multiple samples](multiple-samples.md)
- - [Output report](output.md)
- - [FAQ](FAQ.md)
-
 ## Quick-start
 
 ```bash
 # Download phyloFlash
-wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
+wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz
 tar -xzf vXXX.tar.gz
 
 # Check for dependencies
@@ -52,6 +44,9 @@ phyloFlash.pl -lib LIB -zip -log -read1 reads_F.fq.gz -read2 reads_R.fq.gz
 
 # Run both SPAdes and EMIRGE and produce all optional outputs
 phyloFlash.pl -lib LIB -everything -read1 reads_F.fq.gz -read2 reads_R.fq.gz
+
+# Supply trusted contigs containing SSU rRNA sequences to screen vs reads
+phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -trusted contigs.fasta
 ```
 
 Use the `-help` option to display a brief help and the `-man` option to display the full help message.
@@ -61,6 +56,16 @@ Use the `-sc` switch for MDA datasets (single cell) or other hard to assemble re
 Use the `-zip` switch to compress output files into tar.gz archive, and `-log` to save run messages to a log file
 
 Example phyloFlash report from the provided test data can be viewed [here](test.phyloFlash.html).
+
+
+## Contents
+
+ - [Installation](install.md)
+ - [Usage](usage.md)
+ - [Comparing multiple samples](multiple-samples.md)
+ - [Output report](output.md)
+ - [FAQ](FAQ.md)
+
 
 ## About
 
@@ -77,4 +82,4 @@ If you use phyloFlash for a publication, please cite as
 
 Gruber-Vodicka HR, Pruesse E, Seah B. 2017. phyloFlash. Online:https://github.com/HRGV/phyloFlash
 
-and also remember to cite the dependencies used.
+and also remember to cite the dependencies used, which are listed in each phyloFlash report file.
