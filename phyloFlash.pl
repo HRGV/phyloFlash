@@ -245,7 +245,7 @@ use Cwd;
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.1 beta 1';       # Current phyloFlash version
+my $version       = 'phyloFlash v3.1 beta 2';       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
 my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
