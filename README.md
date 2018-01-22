@@ -1,4 +1,4 @@
-phyloFlash v3.1 beta 1
+phyloFlash v3.1 beta 2
 ==============
 
 <img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
@@ -79,6 +79,8 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
 Versions and changes
 --------------------
 
+* v3.1 beta 2
+  * Fix bug in Fasta headers with changed output from Bedtools v2.26+
 * v3.1 beta 1
   * Allow user to supply "trusted contigs" of sequence assemblies containing SSU rRNA which will also be screened against the read libraries
   * Fix bugs in tree plotting

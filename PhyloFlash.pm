@@ -27,7 +27,7 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = 3.00;
+our $VERSION     = "3.1b2";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   get_cpus
