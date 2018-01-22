@@ -8,8 +8,8 @@ order: 1
 ## Quick-start
 
 ```bash
-# Download package
-wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
+# Download package (replace XXX with latest version)
+wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz
 tar -xzf vXXX.tar.gz
 # cd into folder
 cd phyloFlash
