@@ -839,6 +839,7 @@ sub bbmap_fast_filter_sam_run {
                       "ihist=".$outfiles{"inserthistogram"}{"filename"},
                       "idhist=".$outfiles{"idhistogram"}{"filename"},
                       "scafstats=".$outfiles{"hitstats"}{"filename"},
+                      "overwrite=t", # Overwrite existing files
                       );
     # Additional input arguments for paired-end input
     if ($SEmode == 0) {
@@ -1427,6 +1428,7 @@ sub bbmap_remap {
                       "in=".$outfiles{"reads_mapped_f"}{"filename"},
                       "out=$outsam",
                       'noheader=t',
+                      'overwrite=t', # Overwrite existing files
                       );
     # If running in PE mode, include reverse reads
     if ($SEmode == 0) {
@@ -1907,7 +1909,11 @@ sub nhmmer_model_pos {
     my $samplelimit = 10000; # Take sample of max this number of reads
 
     # Subsample reads with reformat.sh
-    my @reformat_args = ("in=$sam","out=$subsample","srt=$samplelimit");
+    my @reformat_args = ("in=$sam",
+                         "out=$subsample",
+                         "srt=$samplelimit",
+                         "ow=t", # Overwrite existing files
+                         );
     run_prog ("reformat",
               join (" ", @reformat_args),
               undef,
