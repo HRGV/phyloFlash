@@ -245,7 +245,7 @@ use Cwd;
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.1 beta 1';       # Current phyloFlash version
+my $version       = 'phyloFlash v3.1 beta 2';       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
 my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
@@ -1221,20 +1221,63 @@ sub spades_parse {
         # extract rrna fragments from spades scaffolds accoding to gff
         my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
                                  "-bed",$outfiles{"gff_all"}{"filename"},
-                                 "-fo",$outfiles{"spades_fasta"}{"filename"},
+                                 "-fo",$outfiles{"spades_fastaFromBed"}{"filename"},
                                  "-s","-name",
                                  );
         run_prog("fastaFromBed",
                  join (" ",@fastaFromBed_args),
                  $outfiles{"fastaFromBed_out"}{"filename"},
                  "&1");
+        # Fix bedtools headers from bedtools v2.26 and v2.27+
+        fix_bedtools_header ($outfiles{"spades_fastaFromBed"}{"filename"},
+                             $outfiles{"spades_fasta"}{"filename"}
+                             );
+        $outfiles{"spades_fastaFromBed"}{"made"}++;
         $outfiles{"spades_fasta"}{"made"}++;
         $outfiles{"fastaFromBed_out"}{"made"}++;
         msg("done...");
         return 0;
     }
+}
 
-
+sub fix_bedtools_header {
+    # Bedtools getfasta v2.26+ produces Fasta headers with chromosome, position,
+    # and strand when options -s -name are used, in addition to the sequence
+    # name field from GFF/BED file. However, this breaks the sequence name
+    # used for downstream processing.
+    # Bedtools v.2.27.0+ changes this behavior once again, giving chromosome,
+    # position and strand with new -name+ option, but using -s -name still
+    # gives the strand information.
+    # This sub uses a regex to fix the header names
+    my ($infile, $outfile) = @_;
+    my ($fh_in, $fh_out);
+    open_or_die (\$fh_in,
+                 '<',
+                 $infile);
+    open_or_die(\$fh_out,
+                '>',
+                $outfile);
+    while (my $line = <$fh_in>) {
+        chomp $line;
+        if ($line =~ m/^>/) {
+            # If Fasta header line
+            if ($line =~ m/^(>.*)::.*/) {
+                # bedtools v2.26 behavior
+                print $fh_out $1;
+                print $fh_out "\n";
+            } elsif ($line =~ m/^(>.*)\([+-]\)/) {
+                # bedtools v2.27 behavior
+                print $fh_out $1;
+                print $fh_out "\n";
+            }
+        } else {
+            # If sequence line, print unchanged
+            print $fh_out $line;
+            print $fh_out "\n";
+        }
+    }
+    close($fh_in);
+    close($fh_out);
 }
 
 sub trusted_contigs_parse {
@@ -1323,13 +1366,18 @@ sub trusted_contigs_parse {
         # extract rrna fragments from trusted contigs accoding to gff
         my @fastaFromBed_args = ("-fi $trusted_contigs",
                                  "-bed",$outfiles{"trusted_gff_all"}{"filename"},
-                                 "-fo",$outfiles{"trusted_fasta"}{"filename"},
+                                 "-fo",$outfiles{"trusted_fastaFromBed"}{"filename"},
                                  "-s","-name",
                                  );
         run_prog("fastaFromBed",
                  join (" ",@fastaFromBed_args),
                  $outfiles{"trusted_fastaFromBed_out"}{"filename"},
                  "&1");
+        # Fix fasta headers from bedtools v2.26 and v2.27+
+        fix_bedtools_header ($outfiles{"trusted_fastaFromBed"}{"filename"},
+                             $outfiles{"trusted_fasta"}{"filename"}
+                             );
+        $outfiles{"trusted_fastaFromBed"}{"made"}++;
         $outfiles{"trusted_fasta"}{"made"}++;
         $outfiles{"trusted_fastaFromBed_out"}{"made"}++;
         msg("done...");
