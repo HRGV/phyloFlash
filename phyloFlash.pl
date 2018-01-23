@@ -1270,6 +1270,10 @@ sub fix_bedtools_header {
                 # bedtools v2.27 behavior
                 print $fh_out $1;
                 print $fh_out "\n";
+            } else {
+                # bedtools v2.25 and earlier
+                print $fh_out $line;
+                print $fh_out "\n";
             }
         } else {
             # If sequence line, print unchanged

@@ -1188,7 +1188,7 @@ sub initialize_outfiles_hash {
       {
         description => "Fasta file of extracted SSU rRNA from trusted contigs from fastaFromBed",
         discard     => 1,
-        filename    => "$libraryNAME.trusted.all.fasta",
+        filename    => "$libraryNAME.trusted_fastaFromBed.all.fasta",
         intable     => 0,
       },
       "trusted_fasta",
