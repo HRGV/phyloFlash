@@ -2276,8 +2276,8 @@ sub write_report_html {
         $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
     }
     if (!defined $outfiles{'trusted_fasta'}{'made'}) {
-        $suppress_flags{"SUPPRESS_IF_TRUSTED_EMIRGE"} = 1;
-        $suppress_end_flags{"SUPPRESS_IF_TRUSTED_EMIRGE_END"} = 1;
+        $suppress_flags{"SUPPRESS_IF_SKIP_TRUSTED"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_SKIP_TRUSTED"} = 1;
     }
     if (!defined $outfiles{'ssu_coll_tree_svg'}{'made'})  {
         $suppress_flags{"SUPPRESS_IF_NO_TREE"} = 1;
