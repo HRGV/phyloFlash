@@ -82,6 +82,7 @@ Versions and changes
 * v3.1 beta 2
   * Fix bug in Fasta headers with changed output from Bedtools v2.26+
   * Make bbmap and reformat.sh overwrite existing output files of same name
+  * Rearrange elements in HTML report file
 * v3.1 beta 1
   * Allow user to supply "trusted contigs" of sequence assemblies containing SSU rRNA which will also be screened against the read libraries
   * Fix bugs in tree plotting
