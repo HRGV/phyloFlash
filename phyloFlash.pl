@@ -839,6 +839,7 @@ sub bbmap_fast_filter_sam_run {
                       "ihist=".$outfiles{"inserthistogram"}{"filename"},
                       "idhist=".$outfiles{"idhistogram"}{"filename"},
                       "scafstats=".$outfiles{"hitstats"}{"filename"},
+                      "overwrite=t", # Overwrite existing files
                       );
     # Additional input arguments for paired-end input
     if ($SEmode == 0) {
@@ -1269,6 +1270,10 @@ sub fix_bedtools_header {
                 # bedtools v2.27 behavior
                 print $fh_out $1;
                 print $fh_out "\n";
+            } else {
+                # bedtools v2.25 and earlier
+                print $fh_out $line;
+                print $fh_out "\n";
             }
         } else {
             # If sequence line, print unchanged
@@ -1427,6 +1432,7 @@ sub bbmap_remap {
                       "in=".$outfiles{"reads_mapped_f"}{"filename"},
                       "out=$outsam",
                       'noheader=t',
+                      'overwrite=t', # Overwrite existing files
                       );
     # If running in PE mode, include reverse reads
     if ($SEmode == 0) {
@@ -1907,7 +1913,11 @@ sub nhmmer_model_pos {
     my $samplelimit = 10000; # Take sample of max this number of reads
 
     # Subsample reads with reformat.sh
-    my @reformat_args = ("in=$sam","out=$subsample","srt=$samplelimit");
+    my @reformat_args = ("in=$sam",
+                         "out=$subsample",
+                         "srt=$samplelimit",
+                         "ow=t", # Overwrite existing files
+                         );
     run_prog ("reformat",
               join (" ", @reformat_args),
               undef,
@@ -2270,8 +2280,8 @@ sub write_report_html {
         $suppress_end_flags{"SUPPRESS_IF_SKIP_EMIRGE_END"} = 1;
     }
     if (!defined $outfiles{'trusted_fasta'}{'made'}) {
-        $suppress_flags{"SUPPRESS_IF_TRUSTED_EMIRGE"} = 1;
-        $suppress_end_flags{"SUPPRESS_IF_TRUSTED_EMIRGE_END"} = 1;
+        $suppress_flags{"SUPPRESS_IF_SKIP_TRUSTED"} = 1;
+        $suppress_end_flags{"SUPPRESS_IF_SKIP_TRUSTED"} = 1;
     }
     if (!defined $outfiles{'ssu_coll_tree_svg'}{'made'})  {
         $suppress_flags{"SUPPRESS_IF_NO_TREE"} = 1;

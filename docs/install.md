@@ -8,8 +8,8 @@ order: 1
 ## Quick-start
 
 ```bash
-# Download package
-wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz  
+# Download package (replace XXX with latest version)
+wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz
 tar -xzf vXXX.tar.gz
 # cd into folder
 cd phyloFlash
@@ -80,6 +80,8 @@ phyloFlash uses modified versions of the SILVA SSU database of small-subunit rib
 *NB:* The [SILVA license](http://www.arb-silva.de/fileadmin/silva_databases/current/LICENSE.txt) prohibits usage of the SILVA databases or parts of them within a non-academic/commercial environment beyond a 48h test period. If you want to use the SILVA databases with phyloFlash in a non-academic/commercial environment please contact them at contact(at)arb-silva.de.
 
 The database has to be reformatted for use by phyloFlash. This is done with the script `phyloFlash_makedb.pl`. Known contamination sequences from cloning vectors are removed, repeat regions which can have an adverse effect on sequence reconstruction are masked, the database is clustered at 99% and 96% identity to speed up mapping/searching, and finally indexed for the read mapper.
+
+*NOTE: A .udb indexed database will be created with Vsearch if version v2.5.0+ is detected. However, only the file will only be readable by the user running the database setup script. If you wish to make it available for other users, please change the file permissions for the .udb file accordingly.*
 
 The final disk space required for the default SILVA SSU database is about 5 Gb.
 
