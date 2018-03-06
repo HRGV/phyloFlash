@@ -1698,8 +1698,8 @@ sub emirge_run {
         # using awk for speed, these files can be huge
 
         run_prog("awk",
-                 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'"
-                 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\'" ".
+                 $outfiles{"reads_mapped_cat"}{"filename"},
                  $outfiles{"reads_mapped_cat_rename"}{"filename"});
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
