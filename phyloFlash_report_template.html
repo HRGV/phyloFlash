@@ -19,6 +19,17 @@ function showHide(shID) {
     }
   }
 }
+
+function hideShow(hsID) {
+  if (document.getElementById(hsID)) {
+    if (document.getElementById(hsID).style.display == 'block') {
+      document.getElementById(hsID).style.display = 'none';
+    }
+    else {
+      document.getElementById(hsID).style.display = 'block';
+    }
+  }
+}
 </script>
 
 <!--SUPPRESS_IF_NO_TREEMAP-->
@@ -91,6 +102,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 
   /*Show/hide on click*/
   .more { display: none; }
+  .less { display: block; }
   a.showLink { text-decoration: none; }
   a.showLink:link { color: grey; }
   a.showLink:visited { color: grey; }
@@ -220,107 +232,120 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 <!--SUPPRESS_IF_NO_POSCOV_END-->
 <!--SUPPRESS_IF_NO_TREE-->
-<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to expand)</a></h3>
-<div id="tree" class="more">
+<h3><a href="#" id="tree-show" class="showLink" onclick="showHide('tree');return false;">Tree of full-length assembled sequences (Click to hide)</a></h3>
+<div id="tree" class="less">
 <p>Full-length assembled SSU rRNA sequences along with closest hits from SILVA database, in an alignment guide tree produced by MAFFT. This tree helps to visualize the relatedness of sequences in library to known relatives. Colored circles have areas proportional to the number of SSU rRNA reads that map to each respective sequence (re-mapping is done separately for SPAdes, EMIRGE, and trusted-contig full-length sequence sets). Click on the toggle switches to turn them on and off. Additional circle representing proportion of SSU rRNA reads that were not assembled is in lower right corner. Long taxonomy strings of reference sequences are truncated, but the full strings are given in the tables below.</p>
 <p><b>Color key: </b><span style="color:blue;">Assembled by SPAdes</span>, <span style="color:green;">Reconstructed by EMIRGE</span>, <span style="color:orange">Extracted from trusted contigs</span>, </span> <span>Closest-matching reference sequence from SILVA database</span></p>
 <!--SEQUENCES_TREE-->
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
 
-<h2>Input parameters</h2>
+<!--SUPPRESS_IF_NO_TREEMAP-->
+<h3><a href="#" id="treemap-show" class="showLink" onclick="showHide('chart_div');showHide('treemap');return false;">Interactive treemap of mapping-based taxonomic read classification (Click to hide)</a></h3>
+<div id="treemap" class="less">
+  <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
+  <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
+  <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
+  </div>
+  <div id="chart_div" style="width: 900px; height: 500px; display:block"></div>
+<!--SUPPRESS_IF_NO_TREEMAP_END-->
 
-<table class="slimTable">
-  <tr>
-    <th>Input command</th>
-    <td><!--PROGCMD--></td>
-  </tr>
-  <tr>
-    <th>Forward read file</th>
-    <td><!--READSF_FULL--></td>
-  </tr>
-<!--SUPPRESS_IF_SE_READS-->
-  <tr>
-    <th>Reverse read file</th>
-    <td><!--READSR_FULL--></td>
-  </tr>
-<!--SUPPRESS_IF_SE_READS_END-->
-  <tr>
-    <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
-    <td><!--ID-->%</td>
-  </tr>
-  <tr>
-    <th>Working folder</th>
-    <td><!--CWD--></td>
-  </tr>
-  <tr>
-    <th>Database used</th>
-    <td><!--DBHOME--></td>
-  </tr>
-</table>
+<h2><a href="#" id="inputparams-show" class="showLink" onclick="hideShow('inputparams');return false;">Input parameters</a></h2>
+<div id="inputparams" class="more">
+  <table class="slimTable">
+    <tr>
+      <th>Input command</th>
+      <td><!--PROGCMD--></td>
+    </tr>
+    <tr>
+      <th>Forward read file</th>
+      <td><!--READSF_FULL--></td>
+    </tr>
+  <!--SUPPRESS_IF_SE_READS-->
+    <tr>
+      <th>Reverse read file</th>
+      <td><!--READSR_FULL--></td>
+    </tr>
+  <!--SUPPRESS_IF_SE_READS_END-->
+    <tr>
+      <th><span class="withHoverText" title="Minimum sequence identity for mapping to SSU database to be accepted">Minimum mapping identity</span></th>
+      <td><!--ID-->%</td>
+    </tr>
+    <tr>
+      <th>Working folder</th>
+      <td><!--CWD--></td>
+    </tr>
+    <tr>
+      <th>Database used</th>
+      <td><!--DBHOME--></td>
+    </tr>
+  </table>
+</div>
 
 <h2>Results</h2>
 
-<h3>Mapping statistics</h3>
-<table class="slimTable">
-<!--SUPPRESS_IF_SE_READS-->
-  <tr>
-    <th>Input PE-reads</th>
-    <td><!--READNR_PAIRS--></td>
-  </tr>
-  <tr>
-    <th>Mapped SSU read pairs</th>
-    <td><!--SSU_TOTAL_PAIRS--></td>
-  </tr>
-<!--SUPPRESS_IF_SE_READS_END-->
-<!--SUPPRESS_IF_PE_READS-->
-  <tr>
-    <th>Input SE-reads</th>
-    <td><!--READNR--></td>
-  </tr>
-  <tr>
-    <th>Mapped SSU SE-reads</th>
-    <td><!--SSU_TOTAL_PAIRS--></td>
-  </tr>
-<!--SUPPRESS_IF_PE_READS_END-->
-  <tr>
-    <th><span class="withHoverText" title="Fraction of library mapping to SSU references">Mapping ratio</span></th>
-    <td><!--SSU_RATIO_PC-->%</td>
-  </tr>
-<!--SUPPRESS_IF_SKIP_SPADES-->
-  <tr>
-    <th><span class="withHoverText" title="Fraction of extracted SSU reads assembled">Fraction assembled</span></th>
-    <td><!--ASSEM_RATIO-->%</td>
-  </tr>
-<!--SUPPRESS_IF_SKIP_SPADES_END-->
-<!--SUPPRESS_IF_SE_READS-->
-  <tr>
-    <th>Detected median insert size</th>
-    <td><!--INS_ME--></td>
-  </tr>
-<!--SUPPRESS_IF_SE_READS_END-->
-<!--SUPPRESS_IF_SKIP_EMIRGE-->
-  <tr>
-    <th>Used insert size</th>
-    <td><!--INS_USED--></td>
-  </tr>
-<!--SUPPRESS_IF_SKIP_EMIRGE_END-->
-<!--SUPPRESS_IF_SE_READS-->
-  <tr>
-    <th>Insert size standard deviation</th>
-    <td><!--INS_STD--></td>
-  </tr>
-<!--SUPPRESS_IF_SE_READS_END-->
-</table>
+<h3><a href="#" id="mapstats-show" class="showLink" onclick="hideShow('mapstats');return false;">Mapping statistics</a></h3>
+<div id="mapstats" class="more">
+  <table class="slimTable">
+  <!--SUPPRESS_IF_SE_READS-->
+    <tr>
+      <th>Input PE-reads</th>
+      <td><!--READNR_PAIRS--></td>
+    </tr>
+    <tr>
+      <th>Mapped SSU read pairs</th>
+      <td><!--SSU_TOTAL_PAIRS--></td>
+    </tr>
+  <!--SUPPRESS_IF_SE_READS_END-->
+  <!--SUPPRESS_IF_PE_READS-->
+    <tr>
+      <th>Input SE-reads</th>
+      <td><!--READNR--></td>
+    </tr>
+    <tr>
+      <th>Mapped SSU SE-reads</th>
+      <td><!--SSU_TOTAL_PAIRS--></td>
+    </tr>
+  <!--SUPPRESS_IF_PE_READS_END-->
+    <tr>
+      <th><span class="withHoverText" title="Fraction of library mapping to SSU references">Mapping ratio</span></th>
+      <td><!--SSU_RATIO_PC-->%</td>
+    </tr>
+  <!--SUPPRESS_IF_SKIP_SPADES-->
+    <tr>
+      <th><span class="withHoverText" title="Fraction of extracted SSU reads assembled">Fraction assembled</span></th>
+      <td><!--ASSEM_RATIO-->%</td>
+    </tr>
+  <!--SUPPRESS_IF_SKIP_SPADES_END-->
+  <!--SUPPRESS_IF_SE_READS-->
+    <tr>
+      <th>Detected median insert size</th>
+      <td><!--INS_ME--></td>
+    </tr>
+  <!--SUPPRESS_IF_SE_READS_END-->
+  <!--SUPPRESS_IF_SKIP_EMIRGE-->
+    <tr>
+      <th>Used insert size</th>
+      <td><!--INS_USED--></td>
+    </tr>
+  <!--SUPPRESS_IF_SKIP_EMIRGE_END-->
+  <!--SUPPRESS_IF_SE_READS-->
+    <tr>
+      <th>Insert size standard deviation</th>
+      <td><!--INS_STD--></td>
+    </tr>
+  <!--SUPPRESS_IF_SE_READS_END-->
+  </table>
+</div>
 
-<h3><a href="#" id="outfiles-show" class="showLink" onclick="showHide('outfiles');return false;">Output files</a></h3>
+<h3><a href="#" id="outfiles-show" class="showLink" onclick="hideShow('outfiles');return false;">Output files</a></h3>
 <div id="outfiles" class="more">
   <table class="slimTable">
 <!--OUTPUT_FILES_TABLE-->
   </table>
 </div>
 
-<h3><a href="#" id="taxa-show" class="showLink" onclick="showHide('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
+<h3><a href="#" id="taxa-show" class="showLink" onclick="hideShow('taxa');return false;">Taxonomic affiliation of SSU rRNA reads in library</a></h3>
 <div id="taxa" class="more">
   <p>Approximate overview of taxonomic composition of ALL reads, based on mapping hits to SILVA SSU rRNA database using BBmap.</p>
   <table class="slimTable">
@@ -352,7 +377,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 
 <!--SUPPRESS_IF_SKIP_SPADES-->
-<h3><a href="#" id="spades-show" class="showLink" onClick="showHide('spades');return false;">SSU rRNA assembly-based taxa</a></h3>
+<h3><a href="#" id="spades-show" class="showLink" onClick="hideShow('spades');return false;">SSU rRNA assembly-based taxa</a></h3>
 <div id="spades" class="more">
 <p>Full-length SSU rRNA sequences assembled by SPAdes, matched to SILVA database with Vsearch.</p>
 <table>
@@ -372,7 +397,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_SKIP_SPADES_END-->
 
 <!--SUPPRESS_IF_SKIP_EMIRGE-->
-<h3><a href="#" id="emirge-show" class="showLink" onclick="showHide('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
+<h3><a href="#" id="emirge-show" class="showLink" onclick="hideShow('emirge');return false;">SSU rRNA reconstruction-based taxa</a></h3>
 <div id="emirge" class="more">
 <p>Full-length SSU rRNA seqeunces reconstructed by EMIRGE, matched to SILVA database by Vsearch.</p>
 <table>
@@ -392,7 +417,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_SKIP_EMIRGE_END-->
 
 <!--SUPPRESS_IF_SKIP_TRUSTED-->
-<h3><a href="#" id="trusted-show" class="showLink" onclick="showHide('trusted');return false;">SSU rRNA from trusted contigs</a></h3>
+<h3><a href="#" id="trusted-show" class="showLink" onclick="hideShow('trusted');return false;">SSU rRNA from trusted contigs</a></h3>
 <div id="trusted" class="more">
 <p>Full-length SSU rRNA seqeunces extracted from trusted contigs file, matched to SILVA database by Vsearch.</p>
 <table>
@@ -411,7 +436,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 <!--SUPPRESS_IF_SKIP_TRUSTED_END-->
 
 <!--SUPPRESS_IF_NO_TREE-->
-<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="showHide('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
+<h3><a href="#" id="unassemtaxa-show" class="showLink" onclick="hideShow('unassemtaxa');return false;">Taxonomic affiliation of unassembled SSU rRNA reads</a></h3>
 <div id="unassemtaxa" class="more">
 <p>Approximate overview of taxonomic composition for reads that did NOT assemble into full-length sequences, based on mapping hits to SILVA SSU rRNA database with BBmap.</p>
 <p>Taxonomy summarized at level <!--TAXON_REPORT_LVL-->. Only displaying taxa with > 3 reads mapped.</p>
@@ -425,15 +450,7 @@ tree = new google.visualization.TreeMap(document.getElementById('chart_div'));
 </div>
 <!--SUPPRESS_IF_NO_TREE_END-->
 
-<!--SUPPRESS_IF_NO_TREEMAP-->
-<h3>Interactive treemap of mapping-based taxonomic read classification</h3>
-  <p><b>Navigation</b>: Left-click to go down, right-click to go up in taxonomic hierarchy, hover to see counts.</p>
-  <p>Based on read-mapping hits to reference database, provides an approximate overview of taxonomic composition.</p>
-  <div id="chart_div" style="width: 900px; height: 500px;"></div>
-  <p>Drawn with Google Visualization API (<a href="https://developers.google.com/chart/terms">terms of service</a>)</p>
-<!--SUPPRESS_IF_NO_TREEMAP_END-->
-
-<h3><a href="#" id="cite-show" class="showLink" onclick="showHide('cite');return false;">Please cite...</a></h3>
+<h3><a href="#" id="cite-show" class="showLink" onclick="hideShow('cite');return false;">Please cite...</a></h3>
 <div id="cite" class="more">
 <p>Gruber-Vodicka H., Pruesse E., Seah B.K.B. 2017. <!--VERSION-->. Online: https://github.com/HRGV/phyloFlash.</p>
 <h4>Cite dependencies when used</h4>

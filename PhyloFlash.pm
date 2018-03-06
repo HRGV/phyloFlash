@@ -27,7 +27,7 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = 3.00;
+our $VERSION     = "3.1b2";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   get_cpus
@@ -736,6 +736,13 @@ sub initialize_outfiles_hash {
         filename    => "$libraryNAME.scaffolds.arch.gff",
         intable     => 0,
       },
+      "spades_fastaFromBed",
+      {
+        description => "FASTA file of sequences assembled by SPAdes retrieved by fastaFromBed",
+        discard     => 1,
+        filename    => "$libraryNAME.spades_rRNAs.fastaFromBed.fasta",
+        intable     => 0,
+      },
       "spades_fasta",
       {
         description => "FASTA file of sequences assembled by SPAdes",
@@ -1175,6 +1182,13 @@ sub initialize_outfiles_hash {
         description => "Log file for Barrnap run of on trusted contigs",
         discard     => 1,
         filename    => "$libraryNAME.trusted.barrnap.log",
+        intable     => 0,
+      },
+      "trusted_fastaFromBed",
+      {
+        description => "Fasta file of extracted SSU rRNA from trusted contigs from fastaFromBed",
+        discard     => 1,
+        filename    => "$libraryNAME.trusted_fastaFromBed.all.fasta",
         intable     => 0,
       },
       "trusted_fasta",
