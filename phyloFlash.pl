@@ -432,6 +432,7 @@ sub parse_cmdline {
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
                'emirge!' => \$emirge,
+               'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
                'trusted=s' => \$trusted_contigs,
                'poscov!' => \$poscov_flag,
