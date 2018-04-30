@@ -27,9 +27,10 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = "3.1b2";
+our $VERSION     = "3.2b1";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
+  $VERSION
   get_cpus
   msg
   @msg_log
@@ -49,6 +50,9 @@ our @EXPORT      = qw(
   fasta_copy_except
   fasta_copy_iupac_randomize
   cluster
+  hash2taxstring_counts
+  hashtreeconsensus
+  taxstring2hash
   initialize_outfiles_hash
 );
 
@@ -711,6 +715,69 @@ returns the runtime of the timer in minuts
     }
 }
 
+
+=item hash2taxstring_counts
+
+Collapse taxonomy tree into taxstrings and report counts. Taxa are encoded as
+hash refs; counts as hash values.
+
+=cut
+
+sub hash2taxstring_counts {
+    my ($href, $taxstring, $href2) = @_;
+    foreach my $key (keys %$href) {
+        if (ref ($href->{$key}) eq 'HASH') { # Recursion
+            hash2taxstring_counts (\%{$href->{$key}}, "$taxstring;$key", $href2);
+        } else { # End condition - have reached a count
+            $href2->{"$taxstring;$key"} = $href->{$key};
+        }
+    }
+}
+
+=item hashtreeconsensus
+
+Walk hash of taxonomy tree and report where it diverges from single branch. 
+As a side effect, report taxstring of the congruent portion of the tree
+
+=cut
+
+sub hashtreeconsensus {
+    my ($href, # Reference to hash of tax tree
+        $aref  # Reference to array to store the congruent portion of tree
+        ) = @_;
+    my @keys = keys %$href;
+    if (scalar @keys == 1) {
+        push @$aref, $keys[0];
+        if (ref($href->{$keys[0]}) eq 'HASH') { # Recursion
+            hashtreeconsensus(\%{$href->{$keys[0]}}, $aref);
+        } else {
+            return '1'; # The tree is identical to the tips
+        }
+    } else {
+        my @diverge = keys %$href;
+        return \@diverge; # Return the level at which the tree diverges
+    }
+}
+
+=item taxstring2hash
+
+Convert taxonomy string to a nested hash structure recursively
+
+=cut
+
+sub taxstring2hash {
+    my ($href, # Reference to hash
+        $aref # Reference to taxonomy string as array
+        ) = @_;
+    my $taxon = shift @$aref;
+    if (@$aref) { # Recursion
+        taxstring2hash (\%{$href->{$taxon}}, $aref);
+    } else { # End condition - count number of occurrences of this taxon
+        $href->{$taxon} ++;
+    }
+}
+
+
 =item initialize_outfiles_hash ($libraryNAME, $readsf)
 
 Initialize a hash of the output filenames, descriptions, and flags when given
@@ -899,9 +966,16 @@ sub initialize_outfiles_hash {
       },
       "ntu_csv",
       {
-        description => "NTU abundances from initial mapping, in CSV format",
+        description => "NTU abundances (truncated to requested taxonomic level) from initial mapping, in CSV format",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.NTUabundance.csv",
+        intable     => 1,
+      },
+      "ntu_full_csv",
+      {
+        description => "NTU abundances (untruncated) from initial mapping, in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.NTUfull_abundance.csv",
         intable     => 1,
       },
       "ntu_csv_svg",

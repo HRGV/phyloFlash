@@ -129,6 +129,13 @@ Level in the taxonomy string to summarize read counts per taxon.
 Numeric and 1-based (i.e. "1" corresponds to "Domain").
 Default: 4 ("Order")
 
+=item -tophit
+
+Report taxonomic summary based on the best hit per read only. Otherwise, the
+consensus of all ambiguous mappings of a given read will be used to assign its
+taxonomy. (This was the default behavior before v3.2)
+Default: No (use consensus)
+
 =item -maxinsert I<N>
 
 Maximum insert size allowed for paired end read mapping. Must be within
@@ -240,12 +247,13 @@ use Getopt::Long;
 use File::Basename;
 use IPC::Cmd qw(can_run);
 use Cwd;
+#use Data::Dumper;
 
 # change these to match your installation
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.1 beta 2';       # Current phyloFlash version
+my $version       = "phyloFlash v$VERSION";       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
 my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
@@ -280,6 +288,7 @@ my $zip         = 0;            # Flag - Compress output into archive? (default 
 my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
 my $keeptmp     = 0;            # Do not delete temporary files (Default = 0, do delete temporary files)
+my $tophit_flag;                # Use "old" way of taxonomic summary, by taking top bbmap hit (no ambiguities) (Default: undef, no)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
@@ -295,6 +304,7 @@ my %ssu_sam;            # Readin sam file from first mapping vs SSU database
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
 # Hashes to keep count of NTUs
+my %taxa_ambig_byread_hash;     # Hash of all taxonomy assignments per read
 my $taxa_full_href;             # Summary of read counts for full-length taxonomy strings (for treemap) - hash ref
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
@@ -431,6 +441,7 @@ sub parse_cmdline {
                'keeptmp!' => \$keeptmp,
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
+               'tophit!' => \$tophit_flag,
                'check_env' => \$check_env,
                'outfiles' => \&output_description,
                'help|h' => sub { pod2usage(1) },
@@ -764,6 +775,7 @@ sub write_csv {
     close($fh);
 
     # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
+    # truncated to requested taxonomic level
     open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
     # Sort results descending
@@ -774,6 +786,20 @@ sub write_csv {
     }
     close($fh);
 
+    if (!defined $tophit_flag) {
+        #CSV file of taxonomic units (NTUs) from mapping vs SILVA database,
+        # not truncated to requested taxonomic level
+        open_or_die(\$fh, ">", $outfiles{"ntu_full_csv"}{"filename"});
+        $outfiles{"ntu_full_csv"}{"made"} = 1;
+        # Sort results descending
+        my @keys_full = sort {${$taxa_full_href}{$b} <=> ${$taxa_full_href}{$a}} keys %$taxa_full_href;
+        foreach my $key (@keys_full) {
+            my @out = ($key, ${$taxa_full_href}{$key});
+            print {$fh} join(",",csv_escape(@out)).$crlf;
+        }
+        close($fh);
+    }
+    
     # If full-length seqeunces were assembled or reconstructed
     if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{"trusted_fasta"}{"made"}) {
 
@@ -833,6 +859,7 @@ sub bbmap_fast_filter_sam_run {
                       "out=".$outfiles{"sam_map"}{"filename"}, 
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
                       'noheader=t', # Do not print header lines of SAM file
+                      'ambiguous=all', # Report all ambiguous reads
                       "build=1",
                       "in=$readsf_full",
                       "bhist=".$outfiles{"basecompositionhist"}{"filename"},
@@ -990,54 +1017,84 @@ sub readsam {
     my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
 
     # Internal vars
-    my @taxa_full;                                  # Arr of taxon names from first mapping
+    my @taxa_full;                                  # Arr of taxon names from first mapping - only used if $tophit_flag defined
 
     msg ("reading mapping into memory");
     my $fh;
     open_or_die(\$fh, "<", "$infile");
+    my $readcounter=0; # Ersatz names for reads, because BBMap is messing up names (as of v37.99)
     while (my $line = <$fh>) {
         next if ($line =~ m/^@/); # Skip header lines
         my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
-        # If not mapped, skip entry, do NOT record into hash
-        if ($bitflag & 0x4) {
-            next;
-        } else {
-            # Check if reads are PE or SE
-            my $pair;
-            if ($bitflag & 0x1) { # If PE read
-                if ($SEmode != 0) { # Sanity check
-                    msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
-                }
-                if ($bitflag & 0x40) {
-                    $pair="F";
-                    ${$stats_href}{"ssu_fwd_map"}++;
-                } elsif ($bitflag & 0x80) {
-                    $pair="R";
-                    ${$stats_href}{"ssu_rev_map"}++;
-                }
-            } else {
-                $pair = "U";
+        next if (!defined $bitflag); # Skip ill-formed alignment entries
+        
+        if ($bitflag & 0x40 ) {
+            # Update counter for each read when encountering first segment
+            # primary alignment of each read pair
+            $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
+        }
+        
+        next if ($bitflag & 0x4); # If not mapped, skip entry, do NOT record into hash
+        
+        # Check if reads are PE or SE
+        my $pair;
+        if ($bitflag & 0x1) { # If PE read
+            if ($SEmode != 0) { # Sanity check
+                msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
+            }
+            if ($bitflag & 0x40) {
+                $pair="F";
                 ${$stats_href}{"ssu_fwd_map"}++;
+            } elsif ($bitflag & 0x80) {
+                $pair="R";
+                ${$stats_href}{"ssu_rev_map"}++;
             }
-            # Record into hash
-            ${$href}{$read}{$pair}{"ref"} = $ref;
-            ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
+        } else {
+            $pair = "U";
+            ${$stats_href}{"ssu_fwd_map"}++;
+        }
+        # Record primary alignment into hash (ignore secondary alignments)
+        # This will be used later during remapping stage to check unassembled
+        # reads
+        ${$href}{$read}{$pair}{"ref"} = $ref unless $bitflag & 0x100;
+        ${$href}{$read}{$pair}{"bitflag"} = $bitflag unless $bitflag & 0x100;
+        ${$href}{$read}{$pair}{'readcounter'} = $readcounter unless $bitflag & 0x100;
 
-            # Shorten taxonomy string and save into NTU table
-            if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                my $taxonlongstring = $1;
-                $taxa_full_href->{$taxonlongstring}++; # Count full-length taxon for treemap
+        # Hash taxa hits by read
+        if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
+            my $taxonlongstring = $1;
+            
+            if (defined $tophit_flag) {
+                # "old" way - just take the top hit of each read as the taxon
+                # Therefore ignore secondary alignments
+                # Count full-length taxon for treemap
+                $taxa_full_href->{$taxonlongstring}++ unless $bitflag & 0x100; 
                 # Save full taxonomy string
-                push @taxa_full, $taxonlongstring;
+                push @taxa_full, $taxonlongstring unless $bitflag & 0x100;
             } else {
-                msg ("Warning: malformed database entry $ref");
+                # Use consensus of ambiguous mapping hits to get the consensus taxon per read
+                my @taxonlongarr = split /;/, $taxonlongstring;
+                taxstring2hash(\%{$taxa_ambig_byread_hash{$readcounter}}, \@taxonlongarr);
             }
+        } else {
+            msg ("Warning: malformed database entry $ref");
         }
     }
     close($fh);
 
-    # Summarize taxonomy
-    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
+    if (defined $tophit_flag) {
+        # Using only top alignment per read to get taxonomy
+        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); # 
+    } else {
+        # Use consensus of all ambiguous alignments per read to get taxonomy
+        
+        # List of all the readcounter IDs
+        my @allreadcounters = (keys %taxa_ambig_byread_hash);
+        ## Count taxonomy in tree from consensus taxstrings, truncated to taxonomic level requested
+        $taxa_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, $taxon_report_lvl);
+        ## Count taxonomy in tree from consensus taxstrings, to full taxonomic level (7)
+        $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
+    }
 
     # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
     foreach my $taxon (keys %$taxa_summary_href) {
@@ -1059,6 +1116,50 @@ sub readsam {
 
     msg("done...");
 }
+
+sub consensus_taxon_counter {
+    my ($href_in,   # Hash ref for taxonomy trees keyed by read
+        $aref,      # Array ref of list of reads to summarize
+        $taxlevel,  # Taxonomic level for summarizing
+        ) = @_;
+    
+    my %hashout;
+    my %taxhash;
+    
+    foreach my $read (@$aref) {
+        next if (!defined $href_in->{$read}); # Skip if this read has no taxonomic assignment
+        # Get consensus taxstring for a given read
+        my @outarr;
+        my $return = hashtreeconsensus(\%{$href_in->{$read}}, \@outarr);
+        if (defined $return && @outarr) {
+            if (scalar @outarr > $taxlevel) {
+                # Trim to max taxonomic rank requested
+                @outarr = @outarr[0..$taxlevel-1];
+            } elsif (scalar @outarr < $taxlevel) {
+                # If taxonomic rank of consensus doesn't reach to requested rank,
+                # repeat the lowest taxonomic rank in brackets until requested 
+                # rank, e.g. Bacteria;Proteobacteria;(Proteobacteria);(Proteobacteria); etc...
+                my $diff = $taxlevel - scalar (@outarr);
+                push @outarr, ("($outarr[$#outarr])") x $diff; # Parens before x operator make array
+            }
+
+            # Hash the consensus taxonomy into a taxonomic tree, with counts
+            # as end values for all reads
+            taxstring2hash(\%{$taxhash{'ROOT'}}, \@outarr);
+        }
+    }
+    
+    my %taxcounts;
+    hash2taxstring_counts (\%taxhash, '', \%taxcounts);
+    foreach my $key (keys %taxcounts) { # Replace ugly ;ROOT; from taxstring to be displayed
+        my $display_taxstring = $key;
+        $display_taxstring =~ s/^;ROOT;//; 
+        $hashout{$display_taxstring} = $taxcounts{$key};
+    }
+    
+    return \%hashout;
+}
+
 
 sub truncate_taxonstring {
     my ($in, $level) = @_;
@@ -1490,6 +1591,7 @@ sub screen_remappings {
     }
 
     my @unassem_taxa;
+    my @unassem_readcounters; # Readcounter IDs for unassembled reads
     my $ssu_fwd_map = 0;
     my $ssu_rev_map = 0;
     my $total_assembled = 0;    # Count total that map to a full-length SSU
@@ -1519,13 +1621,14 @@ sub screen_remappings {
                     $total_assembled ++;
                 } else {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
-                    if (defined $ssu_sam{$read}{$pair}{"ref"} ) {
-                        if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                            # Record the taxon to which it has mapped
-                            my $taxonlongstring = $1;
-                            push @unassem_taxa, $taxonlongstring;
-                        } else {
-                            msg ("Warning: Malformed database entry: ".$ssu_sam{$read}{$pair}{"ref"});
+                    if (defined $ssu_sam{$read}{$pair}{'bitflag'}) {
+                        push @unassem_readcounters, $ssu_sam{$read}{$pair}{'readcounter'} unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
+                        if (defined $tophit_flag) {
+                            # If using top hit 
+                            if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                                my $taxonlongstring = $1;
+                                push @unassem_taxa, $taxonlongstring unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
+                            }
                         }
                     }
                 }
@@ -1534,7 +1637,11 @@ sub screen_remappings {
     }
 
     # Summarize counts per NTU of unassembled reads
-    $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
+    if (defined $tophit_flag) {
+        $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);  
+    } else {
+        $taxa_unassem_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@unassem_readcounters, $taxon_report_lvl);
+    }
 
     # Calculate ratio of reads assembled and store in hash
     my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
