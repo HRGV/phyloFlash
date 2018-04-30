@@ -1029,9 +1029,13 @@ sub readsam {
         my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
         next if (!defined $bitflag); # Skip ill-formed alignment entries
         
-        if ($bitflag & 0x40 ) {
-            # Update counter for each read when encountering first segment
-            # primary alignment of each read pair
+        if ($SEmode == 0) { # If paired end mode, use bitflag 0x40 to detect first read in pair
+            if ($bitflag & 0x40) {
+                # Update counter for each read when encountering first segment
+                # primary alignment of each read pair
+                $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
+            }
+        } else { # Single-end mode, bitflag 0x40 and 0x80 are not set 
             $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
         }
         
@@ -1057,9 +1061,11 @@ sub readsam {
         # Record primary alignment into hash (ignore secondary alignments)
         # This will be used later during remapping stage to check unassembled
         # reads
-        ${$href}{$read}{$pair}{"ref"} = $ref unless $bitflag & 0x100;
-        ${$href}{$read}{$pair}{"bitflag"} = $bitflag unless $bitflag & 0x100;
-        ${$href}{$read}{$pair}{'readcounter'} = $readcounter unless $bitflag & 0x100;
+        unless ($bitflag & 0x100) {
+            ${$href}{$read}{$pair}{"ref"} = $ref;
+            ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
+            ${$href}{$read}{$pair}{'readcounter'} = $readcounter;
+        }
 
         # Hash taxa hits by read
         if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
