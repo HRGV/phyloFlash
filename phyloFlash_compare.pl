@@ -36,6 +36,9 @@ my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
 
 my %ntuhash; # Hash of counts per taxon (primary key) and sample (secondary key)
+my %ntubysamplehash; # Hash of counts per sample (primary key) and taxon (secondary key)
+my %totalreads_per_sample; # Hash of total reads counted per sample
+
 
 =head1 INPUT FILES
 
@@ -99,6 +102,28 @@ Default: 5
 
 =back
 
+=head1 OUTPUT
+
+=over 8
+
+=item "heatmap"
+
+=item "barplot"
+
+Produces a PDF plot of top N taxa (default N = 5) in the libraries being
+compared, as bar plots showing proportional abundances in each library.
+
+=item "matrix"
+
+Outputs a tab-separated table containing pairwise distances of all possible pairs
+of samples. The distances are abundance-weighted Unifrac-like, using the
+taxonomy tree in place of a phylogenetic tree, and treating all branches in the
+taxonomy tree as having length 1.
+
+Output columns are "library 1", "library 2", "distance"
+
+=back
+
 =cut
 
 pod2usage (-verbose=>1, -exit=>1) if (!@ARGV);
@@ -121,6 +146,15 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 # msg ("Using heatmap script: $heatmap_script");
 
 ## MAIN ########################################################################
+
+## Catch exceptions ############################################################
+if ($taxlevel > 7) {
+    msg ("Taxonomic level is > 7, this is unlikely to provide a meaningful result");
+    exit;
+}
+if ($barplot_display > 20) {
+    msg ("Number of taxa to display in barplot is > 20, this is unlikely to be legible, but continuing anyway...");
+}
 
 ## Read in data ################################################################
 if (defined $csvfiles_str) {
@@ -173,11 +207,24 @@ if (defined $csvfiles_str) {
 
 #print Dumper \%ntuhash;
 
+## Re-hash NTU hash by sample rather than taxon first
+foreach my $taxon (keys %ntuhash) {
+    foreach my $sample (keys %{$ntuhash{$taxon}}) {
+        $ntubysamplehash{$sample}{$taxon} = $ntuhash{$taxon}{$sample};
+        $totalreads_per_sample{$sample} += $ntuhash{$taxon}{$sample}; # Add to running total per sample
+    }
+}
+
+#print Dumper \%ntubysamplehash;
+#print Dumper \%totalreads_per_sample;
+
+## Perform plotting ############################################################
+
 if (index ('barplot', $task_opt) != -1 ) {
     ## Barplot #################################################################
     my $out_aref = abundance_hash_to_array(\%ntuhash);
-    my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>"."); # Temporarily put the temp file here for troubleshooting
-    #my ($ntuall_fh, $ntuall_filename) = tempfile();
+    #my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>"."); # Temporarily put the temp file here for troubleshooting
+    my ($ntuall_fh, $ntuall_filename) = tempfile();
     open ($ntuall_fh, ">", $ntuall_filename) or die ("Cannot open file $ntuall_filename for writing");
     foreach my $line (@$out_aref) {
         print $ntuall_fh $line."\n";
@@ -191,6 +238,42 @@ if (index ('barplot', $task_opt) != -1 ) {
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);
     msg ("Barplot written to file: $out_prefix.barplot.pdf");
+} elsif (index ('matrix', $task_opt) != -1) {
+    ## Matrix of taxonomic weighted Unifrac-like distances #####################
+    # For each sample, re-parse the taxon strings and counts and put them in a
+    # tree structure with counts per sample stored on each taxon node
+
+    my %taxon_tree_with_counts;
+    my @outarr;
+
+    foreach my $sample (keys %ntubysamplehash) {
+        my $countername = "_COUNT_$sample";
+        encode_persample_counts_on_tree(\%taxon_tree_with_counts,
+                                        \%{$ntubysamplehash{$sample}},
+                                        $countername);
+    }
+
+    print Dumper \%taxon_tree_with_counts;
+    #print Dumper \%totalreads_per_sample;
+
+    # For each pair of samples, output weighted taxonomic unifrac distance by
+    # walking through taxonomic tree and comparing the counts for that given pair
+    foreach my $sample1 (keys %totalreads_per_sample) {
+        foreach my $sample2 (keys %totalreads_per_sample) {
+            my $dist = calc_weight_tax_unifrac_pair (\%taxon_tree_with_counts,
+                                                     "_COUNT_$sample1",
+                                                     "_COUNT_$sample2",
+                                                     $totalreads_per_sample{$sample1},
+                                                     $totalreads_per_sample{$sample2},
+                                                     );
+             push @outarr, join "\t", ($sample1, $sample2, $dist);
+        }
+    }
+    # Write matrix file
+    open (my $fhmatrix, ">", "$out_prefix.matrix.tsv") or die ("Cannot open file $out_prefix.matrix.tsv for writing");
+    print $fhmatrix join "\n", @outarr;
+    close ($fhmatrix);
+
 } else {
     msg ("No task specified, or task $task_opt not recognized");
 }
@@ -285,4 +368,84 @@ sub abundance_hash_to_array {
         }
     }
     return \@arr;
+}
+
+
+sub encode_persample_counts_on_tree {
+    my ($href,          # Output hash tree
+        $href_in,       # Input hash for a given sample
+        $countername,   # Name for the counter ref for this sample
+        ) = @_;
+    foreach my $taxstring (keys %$href_in) {
+        my $display_taxstring = $taxstring;
+        $display_taxstring =~ s/^;ROOT;//;
+        my $count = $href_in->{$taxstring};
+        my @taxarr = split /;/, $display_taxstring;
+        taxstring2hash_count($href,\@taxarr,$count,$countername);
+    }
+}
+
+sub calc_weight_tax_unifrac_pair_raw {
+    # Calculate taxonomic weighted raw Unifrac for a given pair of counts on
+    # the tree
+    my ($href, # Ref to hash containing the tree
+        $counts1, # Name of the key storing counts of sample 1
+        $counts2, # Name of the key storing counts of sample 2
+        $total1,  # Total count for sample 1
+        $total2,  # Total count for sample 2
+        $raw_unifrac_sref,
+        ) = @_;
+
+    # Calculate the contribution to the raw unifrac value for this branch
+    my ($node1count, $node2count);
+    # Account for missing taxa in one sample (assign count = 0)
+    if (defined $href->{$counts1}) { $node1count = $href->{$counts1}; } else { $node1count = 0; }
+    if (defined $href->{$counts2}) { $node2count = $href->{$counts2}; } else { $node2count = 0; }
+    $$raw_unifrac_sref += abs($node1count/$total1 - $node2count/$total2);
+
+    # Recursion
+    foreach my $key (keys %$href) {
+        if (ref ($href->{$key}) eq 'HASH') {
+            calc_weight_tax_unifrac_pair_raw(\%{$href->{$key}},$counts1,$counts2,$total1,$total2,$raw_unifrac_sref);
+        }
+    }
+}
+
+sub calc_weight_tax_unifrac_pair {
+    my ($href,
+        $countname1,
+        $countname2,
+        $in1_total,
+        $in2_total,
+        ) = @_;
+    my $raw_unifrac;
+    calc_weight_tax_unifrac_pair_raw($href,
+                                     $countname1,
+                                     $countname2,
+                                     $in1_total,
+                                     $in2_total,
+                                     \$raw_unifrac,
+                                     );
+
+    # The equivalent of the scaling factor D would be the total taxonomic rank depth
+    # of the tax tree, e.g. 7 for species, 4 for order. The branch length between
+    # each rank is implicitly = 1 in the calc_weight_tax_unifrac_pair() procedure
+    return $raw_unifrac / $taxlevel;
+}
+
+
+sub taxstring2hash_count {
+    # Convert taxonomy string to a nested hash structure recursively
+    my ($href, # Reference to hash
+        $aref, # Reference to taxonomy string as array
+        $count, # Taxon abundance
+        $countername, # Name for the taxon total count key
+        ) = @_;
+    my $taxon = shift @$aref;
+    if (@$aref) { # Recursion
+        taxstring2hash_count  (\%{$href->{$taxon}}, $aref, $count,$countername);
+        $href->{$taxon}{$countername} += $count;
+    } else { # End condition - count number of occurrences of this taxon
+        $href->{$taxon}{$countername} += $count;
+    }
 }
