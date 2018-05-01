@@ -532,7 +532,7 @@ cluster <- function(pf, samples="ward.D", taxa="ward.D") {
         if (method == "alpha") {
             hc = alpha_clust(mat)
         } else if (method == "custom") {
-            hc = hclust(pf$custom$customdist)
+            hc = hclust(pf$custom$sampledist)
         } else {
             dm = dist(mat)
             dm = 1-as.dist(cor(t(mat)))
@@ -759,8 +759,8 @@ pF_main <- function() {
             default=FALSE,
             help="Use thee filename to derive library name instead of parsing ...report.csv"
             ),
-        make_option (
-            c("--custom-distance-matrix"),
+        make_option(
+            c("--custom-distance-matrix-sample"),
             action="store",
             help="Import custom distance matrix for samples instead of calculating
                 from abundance matrix"
@@ -822,13 +822,13 @@ Files:
         pf$data <- scale_to_percent(pf$data);
     }
 
-    if (length(conf$options$"custom-distance-matrix")>0) {
+    if (length(conf$options$"custom-distance-matrix-sample")>0) {
       msg("Custom distance matrix has been specified, using for clustering ")
-      customdist <- read.table(conf$options$"custom-distance-matrix"[1],sep="\t",header=F)
+      customdist <- read.table(conf$options$"custom-distance-matrix-sample"[1],sep="\t",header=F)
       names(customdist) <- c('sample1','sample2','distance')
       customdist.matrix <- acast(customdist, sample1~sample2)
       customdist.dist <- as.dist (customdist.matrix)
-      pf$custom$customdist <- customdist.dist
+      pf$custom$sampledist <- customdist.dist
     }
 
     msg("Clustering...");
