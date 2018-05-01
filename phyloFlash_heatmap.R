@@ -5,7 +5,7 @@
 #  Copyright (C) 2014-2015 Elmar Pruesse <elmar@pruesse.net>
 #
 #  This script generates heatmaps from phyloFlash output files.
-#  Run as ./phyloFlash_heatmap.R to see options. 
+#  Run as ./phyloFlash_heatmap.R to see options.
 #
 #  LICENCE
 #
@@ -43,7 +43,7 @@ check_libraries <- function() {
         err("Unable to install these required packages: ", missing.packages, "\n",
             "Please install these manually. They are required by phyloFlash_heatmap.R");
     }
-        
+
 }
 
 load_libraries <- function() {
@@ -94,9 +94,9 @@ pf_setLogLevel <- function(x) { assign("pf_logLevel", x, .GlobalEnv); }
 msg <- function(...,lvl=2) {
     # levels:
     # 0 error   (always)
-    # 1 warning 
-    # 2 notice  
-    # 3 info    
+    # 1 warning
+    # 2 notice
+    # 3 info
     # 4 debug
 
     if (lvl=="0") {
@@ -198,7 +198,7 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
         return(NULL)
     }
     ddata <- dendro_data(dendro, type="rectangle");
-    
+
     # Unexpanded, the dendrogram will span maximum width. That is,
     # the outer leaf nodes will end at the upper and lower corner
     # of the heapmap. To get them to end up at the center of the
@@ -228,11 +228,11 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
 
     # flip if vertical and add 1 mm space on the outer
     # edge to make sure the outmost connection is visible
-    
+
     if (axis %% 2 == 0) {
         p <- p + coord_flip()
     }
-    
+
 
     # add the appropriate scale configuration
     # if labels are to be shown, pull them from the
@@ -251,7 +251,7 @@ g_make_dendro_plot <- function(dendro, axis, labels=TRUE) {
     } else {
         p <- p + scale_x_continuous(expand=c(expandFactor,0));
     }
-    
+
     return (invisible(p));
 }
 
@@ -267,7 +267,7 @@ g_make_heatmap <- function(mat, highcol, angle=90, hjust=0,vjust=0.6) {
     mat <- melt(df, id.vars="y.variable");
 
     breaks <- function(x) axisTicks(log10(range(x, na.rm = TRUE)), log = TRUE);
-    
+
     heatMapPlot <- ggplot(mat, aes(variable,y.variable)) +
        geom_tile(aes(fill=value)) +
        scale_fill_gradient(low="white", high=highcol, trans="log",
@@ -305,7 +305,7 @@ read.phyloFlash <- function(files=".",sampleNameFromMeta=TRUE) {
         files <- list.files(pattern=files);
     }
     ### Extract library names from command line
-    # remove .phyloFlash...csv 
+    # remove .phyloFlash...csv
     libs <- lapply(files[grepl("phyloFlash.*csv$",files)],
                    function(x) sub("\\.phyloFlash.*\\.csv","", x));
     libs <- unique(libs);
@@ -431,7 +431,7 @@ merge_low_counts <- function(data, thres=50, other="Other") {
         msg("No taxa to merge");
         return(data);
     }
-    
+
     odata <- colSums(data[rowSums(data) < thres,]);
     odata <- matrix(odata, ncol=length(odata),
                     dimnames=list(c(other), names(odata)));
@@ -531,6 +531,8 @@ cluster <- function(pf, samples="ward.D", taxa="ward.D") {
         if (nrow(mat) < 2) return (NULL)
         if (method == "alpha") {
             hc = alpha_clust(mat)
+        } else if (method == "custom") {
+            hc = hclust(pf$custom$customdist)
         } else {
             dm = dist(mat)
             dm = 1-as.dist(cor(t(mat)))
@@ -575,7 +577,7 @@ plot.phyloFlash <- function(pf,
     row.order = strsplit(paste(collapse=",",row.order),",")[[1]];
     col.order = strsplit(paste(collapse=",",col.order),",")[[1]];
     map.colors = strsplit(paste(collapse=",",map.colors),",")[[1]];
-    
+
     ## get number of maps and number of rows per map
     nmaps <- length(pf$data);
     nrows <- sapply(pf$data,nrow);
@@ -599,7 +601,7 @@ plot.phyloFlash <- function(pf,
     gr_legends <- lapply(gg_heatmaps, function(x) {
         g_get(g_get(x, "guide-box")$grobs[[1]], "guides") })
     gr_legends <-  do.call(cbind_max, gr_legends)
-    
+
     gr_legend <- gtable_add_grob(zero, gr_legends , t=1, l=1)
     gr_legend$heights = max(gr_legends$heights)
     gr_legend$widths = sum(gr_legends$widths)
@@ -643,7 +645,7 @@ plot.phyloFlash <- function(pf,
     g <- gtable_add_row_space(g, unit(.1,"lines"));
     g <- gtable_add_col_space(g, unit(.1,"lines"));
     g <- gtable_add_padding(g, unit(.3,"lines"));
-    
+
     return (invisible(g));
 }
 
@@ -704,7 +706,7 @@ pF_main <- function() {
             c("-m", "--cluster-samples"),
             default="ward.D",
             help="Use this method for clustering/sorting samples. Can be:
-                alpha, ward, single, complete, average, mcquitty, median or centroid.
+                alpha, ward, single, complete, average, mcquitty, median, centroid, or custom.
                 Default is %default."
             ),
         make_option(
@@ -756,9 +758,15 @@ pF_main <- function() {
             action="store_true",
             default=FALSE,
             help="Use thee filename to derive library name instead of parsing ...report.csv"
-            )
+            ),
+        make_option (
+            c("--custom-distance-matrix"),
+            action="store",
+            help="Import custom distance matrix for samples instead of calculating
+                from abundance matrix"
+          )
         );
-    
+
     parser <- OptionParser(
         option_list=options,
         usage="usage: %prog [options] [files]",
@@ -812,6 +820,15 @@ Files:
     if (!conf$options$absolute) {
         msg("Rescaling counts to percentages");
         pf$data <- scale_to_percent(pf$data);
+    }
+
+    if (length(conf$options$"custom-distance-matrix")>0) {
+      msg("Custom distance matrix has been specified, using for clustering ")
+      customdist <- read.table(conf$options$"custom-distance-matrix"[1],sep="\t",header=F)
+      names(customdist) <- c('sample1','sample2','distance')
+      customdist.matrix <- acast(customdist, sample1~sample2)
+      customdist.dist <- as.dist (customdist.matrix)
+      pf$custom$customdist <- customdist.dist
     }
 
     msg("Clustering...");
