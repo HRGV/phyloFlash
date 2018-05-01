@@ -126,6 +126,8 @@ Output columns are "library 1", "library 2", "distance"
 
 =cut
 
+welcome();
+
 pod2usage (-verbose=>1, -exit=>1) if (!@ARGV);
 
 GetOptions ("csv=s" => \$csvfiles_str,
@@ -257,7 +259,7 @@ if (index ('matrix', $task_opt) != -1) {
                                         $countername);
     }
 
-    print Dumper \%taxon_tree_with_counts;
+    #print Dumper \%taxon_tree_with_counts;
     #print Dumper \%totalreads_per_sample;
 
     # For each pair of samples, output weighted taxonomic unifrac distance by
@@ -449,4 +451,10 @@ sub taxstring2hash_count {
     } else { # End condition - count number of occurrences of this taxon
         $href->{$taxon}{$countername} += $count;
     }
+}
+
+sub welcome {
+    my $message = "This is phyloFlash_compare.pl from phyloFlash v$VERSION";
+    print STDERR $message;
+    print STDERR "\n";
 }
