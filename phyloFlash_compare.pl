@@ -30,7 +30,7 @@ my @samfiles_arr;
 my @csvfiles_arr;
 my @tarfiles_arr;
 
-my $task_opt = 'barplot';
+my $task_opt;
 my $taxlevel = 4;
 my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
@@ -139,6 +139,8 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "man" => sub { pod2usage(-verbose=>2); },
             ) or pod2usage(-verbose=>1, -exit=>1);
 
+pod2usage(-verbose=>1,-exit=>1) if !defined $task_opt;
+
 # Paths to R scripts
 my $barplot_script = "$Bin/phyloFlash_barplot.R";
 my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
@@ -238,7 +240,9 @@ if (index ('barplot', $task_opt) != -1 ) {
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);
     msg ("Barplot written to file: $out_prefix.barplot.pdf");
-} elsif (index ('matrix', $task_opt) != -1) {
+}
+
+if (index ('matrix', $task_opt) != -1) {
     ## Matrix of taxonomic weighted Unifrac-like distances #####################
     # For each sample, re-parse the taxon strings and counts and put them in a
     # tree structure with counts per sample stored on each taxon node
@@ -273,9 +277,6 @@ if (index ('barplot', $task_opt) != -1 ) {
     open (my $fhmatrix, ">", "$out_prefix.matrix.tsv") or die ("Cannot open file $out_prefix.matrix.tsv for writing");
     print $fhmatrix join "\n", @outarr;
     close ($fhmatrix);
-
-} else {
-    msg ("No task specified, or task $task_opt not recognized");
 }
 
 ## SUBS ########################################################################
