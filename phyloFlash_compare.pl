@@ -21,7 +21,7 @@ use lib $FindBin::RealBin;
 use PhyloFlash;
 use Cwd;
 use File::Basename;
-use File::Temp qw(tempfile);
+use File::Temp qw(tempfile tempdir);
 use Data::Dumper;
 use Archive::Tar;
 
@@ -31,6 +31,7 @@ my @csvfiles_arr;
 my @tarfiles_arr;
 
 my $task_opt;
+my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
@@ -55,13 +56,29 @@ Comma-separated list of NTU abundance tables from phyloFlash runs. The files
 should be named [LIBNAME].phyloFlash.NTUabundance.csv or
 [LIBNAME].phyloFlash.NTUfull_abundance.csv
 
+If running the I<heatmap> option, this assumes that the [LIBNAME].phyloFlash.report.csv
+files for the corresponding NTU abundance tables are also available in the same
+folder(s).
+
 =item --zip I<FILES>
 
 Comma-separated list of tar.gz archives from phyloFlash runs. These will be
-parsed to search for the [LIBNAME].phyloFlash.NTUfull_abundance.csv files
+parsed to search for the [LIBNAME].phyloFlash.NTUabundance.csv files
 within the archive, to extract the NTU classifications. This assumes that the
 archive filenames are named [LIBNAME].phyloFlash.tar.gz, and that the LIBNAME
 matches the contents of the archive.
+
+=item --recalculate_NTU_from_SAM
+
+Ignore NTU abundance tables in CSV format, and recalculate the NTU abundances
+from SAM files in the compressed tar.gz phyloFlash archives. Useful if e.g.
+phyloFlash was originally called to summarize the taxonomy at a higher level than
+you want to use for the comparison.
+
+Only works if the tar.gz archives from phyloFlash runs are specified with the
+I<--zip> option above.
+
+Default: No.
 
 =back
 
@@ -92,6 +109,10 @@ Default: 4 ('Order')
 
 =head1 ARGUMENTS FOR BARPLOT
 
+The R script I<phyloFlash_barplot.R> can be run directly; run the script without
+arguments to see the built-in help message. However, the input file to the
+barplot script is produced by I<phyloFlash_compare.pl> (i.e. this script).
+
 =over 8
 
 =item --displaytaxa I<INTEGER>
@@ -99,6 +120,16 @@ Default: 4 ('Order')
 Number of top taxa to display in barplot. Integer between 1 and 12 is preferable.
 
 Default: 5
+
+=back
+
+=head1 ARGUMENTS FOR HEATMAP
+
+More options are available by using the R script I<phyloFlash_heatmap.R> directly,
+or by sourcing it in the R environment. Run the R script without arguments to
+see the built-in help message.
+
+=over 8
 
 =back
 
@@ -135,6 +166,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "zip=s" => \$tarfiles_str,
             "task=s" => \$task_opt,
             "level=i" => \$taxlevel,
+            "recalculate_NTU_from_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
             "out=s" => \$out_prefix,
             "help|h" => sub { pod2usage(-verbose=>1); },
@@ -181,6 +213,8 @@ if (defined $csvfiles_str) {
         msg ("Tar archives specified, ignoring SAM files");
     }
     my $tarfiles_aref = filestr2arr($tarfiles_str);
+    # my $tempdir = tempdir (CLEANUP=>1);
+    my $tempdir = tempdir (DIR => "."); # Testing version
     foreach my $tar (@$tarfiles_aref) {
         if ($tar =~ m/^(.+)\.phyloFlash\.tar\.gz/) {
             my $samplename = $1;
@@ -188,20 +222,27 @@ if (defined $csvfiles_str) {
             my $tarhandle = Archive::Tar->new;
             $tarhandle -> read($tar);
             my $ntufilename = "$samplename.phyloFlash.NTUabundance.csv";
+            my $pFreportcsvname = "$samplename.phyloFlash.report.csv";
             my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";  # TO DO: Implement check for full NTU table
             # Check that NTU abundance table is in archive
             if ($tarhandle->contains_file($ntufilename)) {
                 # Extract NTU abundance table to a temporary file
-                my ($tempfh, $tempfile) = tempfile();
-                $tarhandle->extract_file($ntufilename, $tempfile);
-                ntu_csv_file_to_hash($tempfile, $samplename, $taxlevel, \%ntuhash);
+                $tarhandle->extract_file($ntufilename, "$tempdir/$ntufilename");
+                ntu_csv_file_to_hash("$tempdir/$ntufilename", $samplename, $taxlevel, \%ntuhash);
+                msg ("Extracting NTU abundance table $ntufilename to temporary folder $tempdir");
             } elsif ($tarhandle->contains_file($ntufull_filename)) {
                 # Extract NTU full abundance table to a temporary file
-                my ($tempfh, $tempfile) = tempfile();
-                $tarhandle->extract_file($ntufull_filename, $tempfile);
-                ntu_csv_file_to_hash($tempfile, $samplename, $taxlevel, \%ntuhash);
+                $tarhandle->extract_file($ntufull_filename, "$tempdir/$ntufull_filename");
+                ntu_csv_file_to_hash("$tempdir/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
+                msg ("Extracting NTU abundance table $ntufull_filename to temporary folder $tempdir");
             } else {
                 msg ("Expected NTU abundance file $ntufilename not found in tar archive $tar");
+            }
+            if ($tarhandle->contains_file($pFreportcsvname)) {
+                # Extract pF CSV report file required by heatmap tool
+                $tarhandle->extract_file($pFreportcsvname, "$tempdir/$pFreportcsvname") if (index('heatmap',$task_opt) != -1);
+            } else {
+                msg ("Expected phyloFlash report CSV file $pFreportcsvname not found in tar archive $tar");
             }
         } else {
             msg ("Filename of archive $tar does not match standard name of a phyloFlash output archive");
