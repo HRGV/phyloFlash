@@ -30,9 +30,9 @@ my @samfiles_arr;
 my @csvfiles_arr;
 my @tarfiles_arr;
 
-my $task_opt = 'heatmap';
+my $task_opt = 'barplot';
 my $taxlevel = 4;
-my $barplot_display = 10;
+my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
 
 my %ntuhash; # Hash of counts per taxon (primary key) and sample (secondary key)
@@ -93,9 +93,9 @@ Default: 4 ('Order')
 
 =item --displaytaxa I<INTEGER>
 
-Number of top taxa to display in barplot. Integer between 1 and 12.
+Number of top taxa to display in barplot. Integer between 1 and 12 is preferable.
 
-Default: 10
+Default: 5
 
 =back
 
@@ -124,28 +124,49 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 
 ## Read in data ################################################################
 if (defined $csvfiles_str) {
-    # Read from CSV files 
+    # Read from CSV files
     if (defined $samfiles_str || defined $tarfiles_str) {
         msg ("CSV files specified, ignoring SAM files and Tar archives");
     }
     my $csvfiles_aref = filestr2arr ($csvfiles_str);
-    @csvfiles_arr = @$csvfiles_aref;
     foreach my $csv (@$csvfiles_aref) {
         if ($csv =~ m/^(.+)\.phyloFlash.NTU.*\.csv/) {
             my $samplename = $1;
-            my $counts_aref = ntu_csv_file_to_arr($csv);
-            my $counts_refactor_aref;
-            if (defined $taxlevel) {
-                # Refactor taxonstring to lower taxonomic level if requested
-                $counts_refactor_aref = refactor_ntu_abundance_to_taxlevel($counts_aref,$taxlevel);
-            } else {
-                $counts_refactor_aref = $counts_aref;
-            }
-            ntu_csv_arr_to_hash($counts_refactor_aref,
-                                $samplename,
-                                \%ntuhash);
+            ntu_csv_file_to_hash($csv, $samplename, $taxlevel, \%ntuhash);
         } else {
-            msg ("Filename of $csv does match standard name of a phyloFlash NTU abundance file");
+            msg ("Filename of $csv does not match standard name of a phyloFlash NTU abundance file");
+        }
+    }
+} elsif (defined $tarfiles_str) {
+    # Read from Tar archives
+    if (defined $samfiles_str) {
+        msg ("Tar archives specified, ignoring SAM files");
+    }
+    my $tarfiles_aref = filestr2arr($tarfiles_str);
+    foreach my $tar (@$tarfiles_aref) {
+        if ($tar =~ m/^(.+)\.phyloFlash\.tar\.gz/) {
+            my $samplename = $1;
+            # Create Archive::Tar object
+            my $tarhandle = Archive::Tar->new;
+            $tarhandle -> read($tar);
+            my $ntufilename = "$samplename.phyloFlash.NTUabundance.csv";
+            my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";  # TO DO: Implement check for full NTU table
+            # Check that NTU abundance table is in archive
+            if ($tarhandle->contains_file($ntufilename)) {
+                # Extract NTU abundance table to a temporary file
+                my ($tempfh, $tempfile) = tempfile();
+                $tarhandle->extract_file($ntufilename, $tempfile);
+                ntu_csv_file_to_hash($tempfile, $samplename, $taxlevel, \%ntuhash);
+            } elsif ($tarhandle->contains_file($ntufull_filename)) {
+                # Extract NTU full abundance table to a temporary file
+                my ($tempfh, $tempfile) = tempfile();
+                $tarhandle->extract_file($ntufull_filename, $tempfile);
+                ntu_csv_file_to_hash($tempfile, $samplename, $taxlevel, \%ntuhash);
+            } else {
+                msg ("Expected NTU abundance file $ntufilename not found in tar archive $tar");
+            }
+        } else {
+            msg ("Filename of archive $tar does not match standard name of a phyloFlash output archive");
         }
     }
 }
@@ -175,6 +196,25 @@ if (index ('barplot', $task_opt) != -1 ) {
 }
 
 ## SUBS ########################################################################
+
+sub ntu_csv_file_to_hash {
+    # Wrapper to directly read CSV file into hash of abundances vs taxon * samples
+    my ($file,
+        $samplename,
+        $taxlevel,
+        $href) = @_;
+    my $counts_aref = ntu_csv_file_to_arr($file);
+    my $counts_refactor_aref;
+    if (defined $taxlevel) {
+        # Refactor taxonstring to lower taxonomic level if requested
+        $counts_refactor_aref = refactor_ntu_abundance_to_taxlevel($counts_aref,$taxlevel);
+    } else {
+        $counts_refactor_aref = $counts_aref;
+    }
+    ntu_csv_arr_to_hash($counts_refactor_aref,
+                        $samplename,
+                        $href);
+}
 
 sub filestr2arr {
     # Convert comma-separated string of filenames to array
