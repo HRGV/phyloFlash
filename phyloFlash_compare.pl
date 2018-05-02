@@ -268,6 +268,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "min-ntu-count=i" => \$heatmap_minntucount,
             "out=s" => \$out_prefix,
             "outfmt=s" => \$outfmt,
+            "keeptmp" => \$keeptmp,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
             "version|v" => sub { welcome(); exit; }, 
@@ -305,6 +306,13 @@ welcome();
 
 parse_task_options($task_opt,\%task_hash);
 
+if ($keeptmp) {
+    $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", DIR => "."); 
+} else {
+    # Delete temp folders 
+    $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", CLEANUP=>1);
+}
+
 if (defined $csvfiles_str) {
     # Read from CSV files
     if (defined $samfiles_str || defined $tarfiles_str) {
@@ -325,8 +333,7 @@ if (defined $csvfiles_str) {
         msg ("Tar archives specified, ignoring SAM files");
     }
     $tarfiles_aref = filestr2arr($tarfiles_str);
-    # my $tempdir = tempdir (CLEANUP=>1);
-    $tempdir = tempdir (DIR => "."); # Testing version
+
     foreach my $tar (@$tarfiles_aref) {
         if ($tar =~ m/^(.+)\.phyloFlash\.tar\.gz/) {
             my $samplename = $1;
@@ -380,8 +387,7 @@ foreach my $taxon (keys %ntuhash) {
 if (defined $task_hash{'barplot'} ) {
     ## Barplot #################################################################
     my $out_aref = abundance_hash_to_array(\%ntuhash);
-    #my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>"."); # Temporarily put the temp file here for troubleshooting
-    my ($ntuall_fh, $ntuall_filename) = tempfile();
+    my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>$tempdir);
     open ($ntuall_fh, ">", $ntuall_filename) or die ("Cannot open file $ntuall_filename for writing");
     foreach my $line (@$out_aref) {
         print $ntuall_fh $line."\n";
@@ -444,7 +450,8 @@ if (defined $task_hash{'heatmap'}) {
     ## Heatmap of samples vs. taxa #############################################
     
     # Write CSV files containing refactored taxonomy and abundances
-    my $tempdir_refactor = tempdir (DIR=>"."); # Temporary folder for new CSV files
+    my $tempdir_refactor = "$tempdir/refactor";
+    mkdir ($tempdir_refactor);
     msg ("Writing tables for refactored taxonomic abundances to folder $tempdir_refactor");
     csv_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
     metadata_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
