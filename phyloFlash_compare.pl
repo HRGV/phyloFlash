@@ -60,6 +60,7 @@ my @tarfiles_arr;
 my $tempdir; # Temp folder to put extracted files, if using -zip option
 
 my $task_opt;
+my %task_hash;
 my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
@@ -128,7 +129,8 @@ Default: No.
 =item --task I<STRING>
 
 Type of analysis to be run. Options: "heatmap", "barplot", "matrix", or a
-recognizable substring thereof.
+recognizable substring thereof. Supply more than one option as comma-separated
+list.
 
 For option "heatmap", the [LIBNAME].phyloFlash.report.csv files must be either
 in the same location as the NTU abundance CSV files or in the tar.gz archives,
@@ -283,7 +285,7 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 ## Catch exceptions ############################################################
 
 if (!defined $task_opt) {
-    pod2usage ("ERROR: Please specify a task [barplot, heatmap, matrix] to option --task");
+    pod2usage ("ERROR: Please specify tasks [barplot, heatmap, matrix] to option --task");
     pod2usage(-verbose=>1,-exit=>1);
 }
 if ($taxlevel > 7) {
@@ -298,11 +300,11 @@ if ($outfmt ne 'pdf' && $outfmt ne 'png') {
     $outfmt = 'pdf';
 }
 
-
-
 ## Read in data ################################################################
 
 welcome();
+
+parse_task_options($task_opt,\%task_hash);
 
 if (defined $csvfiles_str) {
     # Read from CSV files
@@ -351,7 +353,7 @@ if (defined $csvfiles_str) {
             }
             if ($tarhandle->contains_file($pFreportcsvname)) {
                 # Extract pF CSV report file required by heatmap tool
-                $tarhandle->extract_file($pFreportcsvname, "$tempdir/$pFreportcsvname") if (index('heatmap',$task_opt) != -1);
+                $tarhandle->extract_file($pFreportcsvname, "$tempdir/$pFreportcsvname") if (defined $task_hash{'heatmap'});
             } else {
                 msg ("Expected phyloFlash report CSV file $pFreportcsvname not found in tar archive $tar");
             }
@@ -376,7 +378,7 @@ foreach my $taxon (keys %ntuhash) {
 
 ## Perform plotting ############################################################
 
-if (index ('barplot', $task_opt) != -1 ) {
+if (defined $task_hash{'barplot'} ) {
     ## Barplot #################################################################
     my $out_aref = abundance_hash_to_array(\%ntuhash);
     #my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>"."); # Temporarily put the temp file here for troubleshooting
@@ -397,7 +399,7 @@ if (index ('barplot', $task_opt) != -1 ) {
     msg ("Barplot written to file: $outfile_name");
 }
 
-if (index ('matrix', $task_opt) != -1 || $heatmap_clustersamples eq 'custom') {
+if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
     ## Matrix of taxonomic weighted Unifrac-like distances #####################
     
     # This distance matrix is also produced if used by heatmap option 'custom'
@@ -439,7 +441,7 @@ if (index ('matrix', $task_opt) != -1 || $heatmap_clustersamples eq 'custom') {
     msg ("Matrix of Unifrac-like abundance-weighted taxonomic distances written to file $out_prefix.matrix.tsv");
 }
 
-if (index('heatmap',$task_opt) != -1) {
+if (defined $task_hash{'heatmap'}) {
     ## Heatmap of samples vs. taxa #############################################
     
     # Define input CSV files for heatmap R script
@@ -475,12 +477,25 @@ if (index('heatmap',$task_opt) != -1) {
     
     msg ("Plotting heatmap: $heatmap_cmd");
     system ($heatmap_cmd);
-    msg ("Barplot written to file: $outfile_name");
+    msg ("Heatmap written to file: $outfile_name");
 }
 
 
 
 ## SUBS ########################################################################
+
+sub parse_task_options {
+    # Parse comma-separated string of task names (or substrings thereof) and
+    # hash to options hash
+    my ($task_string,
+        $href) = @_;
+    my @task_arr = split /,/, $task_string;
+    foreach my $task (@task_arr) {
+        $href->{'heatmap'} ++ if (index ('heatmap',$task) != -1);
+        $href->{'barplot'} ++ if (index ('barplot',$task) != -1);
+        $href->{'matrix'} ++ if (index ('matrix',$task) != -1);
+    }
+}
 
 sub ntu_csv_file_to_hash {
     # Wrapper to directly read CSV file into hash of abundances vs taxon * samples
