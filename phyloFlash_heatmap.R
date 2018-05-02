@@ -706,14 +706,14 @@ pF_main <- function() {
             c("-m", "--cluster-samples"),
             default="ward.D",
             help="Use this method for clustering/sorting samples. Can be:
-                alpha, ward, single, complete, average, mcquitty, median, centroid, or custom.
+                alpha, ward.D, single, complete, average, mcquitty, median, centroid, or custom.
                 Default is %default."
             ),
         make_option(
             c("-M", "--cluster-taxa"),
             default="ward.D",
-            help="Use this method for clustering/sorting samples. Can be:
-               alpha, ward, single, cimplete, average, mcquitty, median or centroid.
+            help="Use this method for clustering/sorting taxa. Can be:
+               alpha, ward.D, single, complete, average, mcquitty, median or centroid.
                Default is %default"
             ),
         make_option(
@@ -892,7 +892,7 @@ if (!interactive()) {
  pf$data <- split_by_name(pf$data, \"Euk\")
  pf$data <- shorten_taxnames(pf$data)
  pf$data <- scale_to_percent(pf$data)
- pf      <- cluster(pf, method=\"ward\")
+ pf      <- cluster(pf, method=\"ward.D\")
  g       <- plot.phyloFlash(pf)
 ");
 }
