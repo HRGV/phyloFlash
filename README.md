@@ -1,4 +1,4 @@
-phyloFlash v3.1 beta 2
+phyloFlash v3.2 beta 1
 ==============
 
 <img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
@@ -11,6 +11,8 @@ by Harald Gruber-Vodicka, Elmar A. Pruesse, and Brandon Seah.
 
 Quick-start
 -----------
+
+Download releases from the [releases](https://github.com/HRGV/phyloFlash/releases) page. If you clone the repository directly off GitHub you might end up with a version that is still under development.
 
 ```bash
 # Download phyloFlash
@@ -71,6 +73,8 @@ phyloFlash reports a taxonomic summary of the reads from the initial mapping, th
 
 Plain text and HTML-formatted reports are produced, reporting summary statistics from each run. The HTML report includes an interactive graphical summary.
 
+Compare the taxonomic composition of multiple samples with `phyloFlash_compare.pl`. This produces a barplot, heatmap, or distance matrix based on the NTU abundances in two or more samples.
+
 Manual
 ------
 
@@ -79,6 +83,9 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
 Versions and changes
 --------------------
 
+* v3.2 beta 1
+  * Report ambiguous hits during mapping step, use consensus of top hits to assign taxonomy instead of single best hit
+  * Add utility `phyloFlash_compare.pl` to compare taxonomic composition of multiple libraries from phyloFlash output
 * v3.1 beta 2
   * Fix bug in Fasta headers with changed output from Bedtools v2.26+
   * Make bbmap and reformat.sh overwrite existing output files of same name
