@@ -1124,48 +1124,6 @@ sub readsam {
     msg("done...");
 }
 
-sub consensus_taxon_counter {
-    my ($href_in,   # Hash ref for taxonomy trees keyed by read
-        $aref,      # Array ref of list of reads to summarize
-        $taxlevel,  # Taxonomic level for summarizing
-        ) = @_;
-    
-    my %hashout;
-    my %taxhash;
-    
-    foreach my $read (@$aref) {
-        next if (!defined $href_in->{$read}); # Skip if this read has no taxonomic assignment
-        # Get consensus taxstring for a given read
-        my @outarr;
-        my $return = hashtreeconsensus(\%{$href_in->{$read}}, \@outarr);
-        if (defined $return && @outarr) {
-            if (scalar @outarr > $taxlevel) {
-                # Trim to max taxonomic rank requested
-                @outarr = @outarr[0..$taxlevel-1];
-            } elsif (scalar @outarr < $taxlevel) {
-                # If taxonomic rank of consensus doesn't reach to requested rank,
-                # repeat the lowest taxonomic rank in brackets until requested 
-                # rank, e.g. Bacteria;Proteobacteria;(Proteobacteria);(Proteobacteria); etc...
-                my $diff = $taxlevel - scalar (@outarr);
-                push @outarr, ("($outarr[$#outarr])") x $diff; # Parens before x operator make array
-            }
-
-            # Hash the consensus taxonomy into a taxonomic tree, with counts
-            # as end values for all reads
-            taxstring2hash(\%{$taxhash{'ROOT'}}, \@outarr);
-        }
-    }
-    
-    my %taxcounts;
-    hash2taxstring_counts (\%taxhash, '', \%taxcounts);
-    foreach my $key (keys %taxcounts) { # Replace ugly ;ROOT; from taxstring to be displayed
-        my $display_taxstring = $key;
-        $display_taxstring =~ s/^;ROOT;//; 
-        $hashout{$display_taxstring} = $taxcounts{$key};
-    }
-    
-    return \%hashout;
-}
 
 
 sub truncate_taxonstring {
