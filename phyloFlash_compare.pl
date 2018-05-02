@@ -66,6 +66,7 @@ my $taxlevel = 4;
 my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
+my $keeptmp;
 
 my $heatmap_clustersamples = 'ward.D';
 my $heatmap_clustertaxa = 'ward.D';
@@ -95,10 +96,6 @@ specify the NTU classification tables in CSV format.
 Comma-separated list of NTU abundance tables from phyloFlash runs. The files
 should be named [LIBNAME].phyloFlash.NTUabundance.csv or
 [LIBNAME].phyloFlash.NTUfull_abundance.csv
-
-If running the I<heatmap> option, this assumes that the [LIBNAME].phyloFlash.report.csv
-files for the corresponding NTU abundance tables are also available in the same
-folder(s).
 
 =item --zip I<FILES>
 
@@ -132,10 +129,6 @@ Type of analysis to be run. Options: "heatmap", "barplot", "matrix", or a
 recognizable substring thereof. Supply more than one option as comma-separated
 list.
 
-For option "heatmap", the [LIBNAME].phyloFlash.report.csv files must be either
-in the same location as the NTU abundance CSV files or in the tar.gz archives,
-as they contain metadata which is parsed by the script.
-
 Default: None
 
 =item --out I<STRING>
@@ -155,6 +148,12 @@ Default: "pdf"
 Taxonomic level to perform the comparison. Must be an integer between 1 and 7.
 
 Default: 4 ('Order')
+
+=item --keeptmp
+
+Keep temporary files?
+
+Default: No
 
 =back
 
@@ -444,16 +443,15 @@ if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
 if (defined $task_hash{'heatmap'}) {
     ## Heatmap of samples vs. taxa #############################################
     
+    # Write CSV files containing refactored taxonomy and abundances
+    my $tempdir_refactor = tempdir (DIR=>"."); # Temporary folder for new CSV files
+    msg ("Writing tables for refactored taxonomic abundances to folder $tempdir_refactor");
+    csv_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
+    metadata_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
+    
     # Define input CSV files for heatmap R script
-    my $heatmap_csv_input;
-    if (defined $csvfiles_aref) {
-        # If user gave CSV files as input
-        $heatmap_csv_input = join " ", @$csvfiles_aref;
-    } elsif (defined $tarfiles_aref && defined $tempdir) {
-        # If user supplied tar.gz archives as input, the relevant CSV files have
-        # been extracted to the temp dir
-        $heatmap_csv_input = "$tempdir/*.csv";
-    }
+    my $heatmap_csv_input = "$tempdir_refactor/*.csv";
+
     
     # Define name of output plot file
     my $outfile_name = "$out_prefix.heatmap.$outfmt";
@@ -476,13 +474,77 @@ if (defined $task_hash{'heatmap'}) {
     my $heatmap_cmd = join " ", ($heatmap_script, @heatmap_args);
     
     msg ("Plotting heatmap: $heatmap_cmd");
-    system ($heatmap_cmd);
-    msg ("Heatmap written to file: $outfile_name");
+    my $heatmap_return = system ($heatmap_cmd);
+    msg ("Heatmap written to file: $outfile_name") if $heatmap_return;
 }
 
 
 
 ## SUBS ########################################################################
+
+sub csv_from_refactored_NTU_hash {
+    # Generate new phyloFlash NTU abundance CSV files when taxon abundances have
+    # been refactored to a higher taxonomic level
+    my ($href,              # Ref to hash of abundances keyed by sample (primary key) and taxon (secondary key)
+        $output_folder,     # Folder to write output CSV files
+        ) = @_;
+    
+    foreach my $sample (keys %$href) {
+        my $out_filename ="$sample.phyloFlash.NTUabundance.csv";
+        open(my $fh , ">", "$output_folder/$out_filename") or die ("$!");
+        foreach my $taxon (keys %{$href->{$sample}}) {
+            print $fh join ",", ($taxon, $href->{$sample}{$taxon});
+            print $fh "\n";
+        }
+        close ($fh);
+    }
+}
+
+
+sub metadata_from_refactored_NTU_hash {
+    my ($href,              # Ref to hash of abundances keyed by sample (primary key) and taxon (secondary key)
+        $output_folder,     # Folder to write output CSV files
+        ) = @_;
+    
+    foreach my $sample (keys %$href) {
+        my $out_filename ="$sample.phyloFlash.report.csv";
+        my $chao1 = chao1_from_hash(\%{$href->{$sample}});
+        open(my $fh , ">", "$output_folder/$out_filename") or die ("$!");
+        print $fh "version,phyloFlash v$VERSION\n";
+        print $fh "library name,$sample\n";
+        print $fh "NTU Chao1 richness estimate,$chao1\n";
+        close ($fh);
+    }
+}
+
+sub chao1_from_hash {
+    # Calculate chao1 diversity values from hash of abundances (val) by taxa (key)
+    my ($href) = @_;
+    msg ("HELLO");
+    my @xtons = (0,0,0);
+    my $chao1;
+    # Enumerate 1-tons, 2-tons, and 3+
+    foreach my $key (keys %$href) {
+        if ($href->{$key} == 1) {
+            $xtons[0] ++;
+        } elsif ( $href->{$key} == 2) {
+            $xtons[1] ++;
+        } elsif ($href->{$key} >= 3) {
+            $xtons[2] ++;
+        }
+    }
+    
+    # Formula copied from phyloFlash.pl - may need to be revised
+    if ($xtons[1] > 0) {
+        $chao1 =
+          $xtons[2] +                               # Is there an error here? Should be sum of all spp. observed
+          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    } else {
+        $chao1 = 'n.d.';
+    }
+    
+    return $chao1;
+}
 
 sub parse_task_options {
     # Parse comma-separated string of task names (or substrings thereof) and
