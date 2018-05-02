@@ -66,6 +66,11 @@ use File::Temp qw(tempfile tempdir);
 use Data::Dumper;
 use Archive::Tar;
 
+# About me
+my $progname = $FindBin::Script;                  # Current script name
+my $cwd = getcwd;                                 # Current working folder
+my $progcmd = join " ", ($progname, @ARGV) ;      # How the script was called
+
 # Input files
 my ($csvfiles_str, $tarfiles_str);                # Raw comma-separated input string
 my ($csvfiles_aref, $tarfiles_aref);              # Refs to arrays of input file paths
@@ -352,6 +357,9 @@ if ($useSAM && !defined $tarfiles_str) {
 ## Read in data ################################################################
 
 welcome();
+
+msg ("Current working folder $cwd");
+msg ("Script was called with following command: $progcmd");
 
 parse_task_options($task_opt,\%task_hash);
 
