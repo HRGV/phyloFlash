@@ -28,7 +28,23 @@ phyloFlash_compare.pl --man
 =head1 DESCRIPTION
 
 Compare the taxonomic composition multiple metagenomic/transcriptomic libraries
-using the phyloFlash NTU abundance results.
+using the phyloFlash NTU abundance results. Three types of comparison are
+available: I<heatmap> (taxa vs samples), I<barplot> (relative taxon abundance by
+sample), or distance I<matrix> (Unifrac-like abundance-weighted taxonomic
+distances).
+
+The I<phyloFlash.pl> pipeline rapidly screens metagenomic/transcriptomic
+libraries for SSU rRNA reads by mapping against the SILVA SSU Ref NR database.
+The top reference hits per read are used to report an approximate taxonomic
+affiliation. Read counts per NTU (named taxonomic units) are reported by the
+pipeline to give an overview of the taxonomic diversity in the sample. These
+NTU abundances are the basis for the comparison tools in I<phyloFlash_compare.pl>.
+Users should be aware that taxonomic affiliations are only approximate and are
+probably inaccurate at lower taxonomic levels, and that taxonomic groups are
+not necessarily monophyletic. For more accurate (but slower) taxonomic or
+phylogenetic classifications, one should reanalyze the extracted reads with a
+dedicated method, e.g. using a phylogenetic placement algorithm on a curated
+reference tree.
 
 This script is a convenient wrapper for the R scripts I<phyloFlash_heatmap.R> and
 I<phyloFlash_barplot.R>. More options are available when running those scripts
@@ -188,7 +204,9 @@ Clustering method to use for clustering/sorting samples in heatmap. Options:
 or "custom".
 
 "custom" will use the Unifrac-like abundance weighted taxonomic distances (the
-distance matrix can be separately output with I<--task matrix>)
+distance matrix can be separately output with I<--task matrix>). This is an
+experimental (unpublished) metric similar to Unifrac, but using a taxonomy tree
+instead of a real phylogeny.
 
 Default: "ward.D"
 
@@ -217,10 +235,19 @@ Default: 50
 
 =item "heatmap"
 
+PDF or PNG heatmap of taxa vs. samples, with abundance per taxon coded by a
+color scale, and the samples/taxa clustered by the distance metric and
+hierarchical clustering method specified by options I<--cluster-samples> and
+I<--cluster_taxa>.
+
+Output filename: I<[PREFIX].heatmap.[png|pdf]>
+
 =item "barplot"
 
-Produces a PDF plot of top N taxa (default N = 5) in the libraries being
-compared, as bar plots showing proportional abundances in each library.
+PDF or PNG plot of top N taxa (default N = 5) in the libraries being compared,
+as bar plots showing proportional abundances in each library.
+
+Output filename: I<[PREFIX].barplot.[png|pdf]>
 
 =item "matrix"
 
@@ -230,6 +257,8 @@ taxonomy tree in place of a phylogenetic tree, and treating all branches in the
 taxonomy tree as having length 1.
 
 Output columns are "library 1", "library 2", "distance"
+
+Output filename: I<[PREFIX].matrix.tsv>
 
 =back
 
@@ -342,18 +371,18 @@ if (defined $csvfiles_str) {
             $tarhandle -> read($tar);
             my $ntufilename = "$samplename.phyloFlash.NTUabundance.csv";
             my $pFreportcsvname = "$samplename.phyloFlash.report.csv";
-            my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";  # TO DO: Implement check for full NTU table
+            my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";
             # Check that NTU abundance table is in archive
-            if ($tarhandle->contains_file($ntufilename)) {
-                # Extract NTU abundance table to a temporary file
-                $tarhandle->extract_file($ntufilename, "$tempdir/$ntufilename");
-                ntu_csv_file_to_hash("$tempdir/$ntufilename", $samplename, $taxlevel, \%ntuhash);
-                msg ("Extracting NTU abundance table $ntufilename to temporary folder $tempdir");
-            } elsif ($tarhandle->contains_file($ntufull_filename)) {
-                # Extract NTU full abundance table to a temporary file
+            if ($tarhandle->contains_file($ntufull_filename)) {
+                # Extract NTU full abundance table to a temporary file, if available
                 $tarhandle->extract_file($ntufull_filename, "$tempdir/$ntufull_filename");
                 ntu_csv_file_to_hash("$tempdir/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
                 msg ("Extracting NTU abundance table $ntufull_filename to temporary folder $tempdir");
+            } elsif ($tarhandle->contains_file($ntufilename)) {
+                # Extract NTU abundance table to a temporary file if full abundance table not available
+                $tarhandle->extract_file($ntufilename, "$tempdir/$ntufilename");
+                ntu_csv_file_to_hash("$tempdir/$ntufilename", $samplename, $taxlevel, \%ntuhash);
+                msg ("Extracting NTU abundance table $ntufilename to temporary folder $tempdir");
             } else {
                 msg ("Expected NTU abundance file $ntufilename not found in tar archive $tar");
             }
