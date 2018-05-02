@@ -67,9 +67,8 @@ use Data::Dumper;
 use Archive::Tar;
 
 # Input files
-my ($samfiles_str, $csvfiles_str, $tarfiles_str); # Raw comma-separated input string
+my ($csvfiles_str, $tarfiles_str);                # Raw comma-separated input string
 my ($csvfiles_aref, $tarfiles_aref);              # Refs to arrays of input file paths
-my @samfiles_arr;
 my @csvfiles_arr;
 my @tarfiles_arr;
 
@@ -84,6 +83,7 @@ my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
 my $keeptmp;
+my $keeplog;
 
 my $heatmap_clustersamples = 'ward.D';
 my $heatmap_clustertaxa = 'ward.D';
@@ -168,7 +168,13 @@ Default: 4 ('Order')
 
 =item --keeptmp
 
-Keep temporary files?
+Keep temporary files
+
+Default: No
+
+=item --log
+
+Save log file to file I<[OUTPREFIX].log>
 
 Default: No
 
@@ -286,11 +292,10 @@ Report phyloFlash version
 pod2usage (-verbose=>0, -exit=>1) if (!@ARGV);
 
 GetOptions ("csv=s" => \$csvfiles_str,
-            "sam=s" => \$samfiles_str,
             "zip=s" => \$tarfiles_str,
             "task=s" => \$task_opt,
             "level=i" => \$taxlevel,
-            "recalculate_NTU_from_SAM" => \$useSAM,                             ## TODO
+            "recalculate_NTU_from_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
             "cluster-samples=s" => \$heatmap_clustersamples,
             "cluster-taxa=s" => \$heatmap_clustertaxa,
@@ -299,6 +304,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "out=s" => \$out_prefix,
             "outfmt=s" => \$outfmt,
             "keeptmp" => \$keeptmp,
+            "log" => \$keeplog,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
             "version|v" => sub { welcome(); exit; }, 
@@ -307,8 +313,6 @@ GetOptions ("csv=s" => \$csvfiles_str,
 # Paths to R scripts
 my $barplot_script = "$Bin/phyloFlash_barplot.R";
 my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
-# msg ("Using barplot script: $barplot_script");
-# msg ("Using heatmap script: $heatmap_script");
 
 ## MAIN ########################################################################
 
@@ -355,10 +359,17 @@ if ($keeptmp) {
 
 if (defined $csvfiles_str) {
     # Read from CSV files
-    if (defined $samfiles_str || defined $tarfiles_str) {
-        msg ("CSV files specified, ignoring SAM files and Tar archives");
+    if (defined $tarfiles_str) {
+        msg ("CSV files specified, ignoring tar.gz archives");
     }
     $csvfiles_aref = filestr2arr ($csvfiles_str);
+    my $num_csv = scalar @$csvfiles_aref;
+    if ($num_csv < 2) {
+        msg ("ERROR: Cannot perform a comparison with fewer than two input samples. Exiting...");
+        exit;
+    }
+    
+    msg ("Reading taxonomy from $num_csv NTU abundance tables in CSV format");
     foreach my $csv (@$csvfiles_aref) {
         if ($csv =~ m/^(.+)\.phyloFlash.NTU.*\.csv/) {
             my $samplename = $1;
@@ -369,11 +380,13 @@ if (defined $csvfiles_str) {
     }
 } elsif (defined $tarfiles_str) {
     # Read from Tar archives
-    if (defined $samfiles_str) {
-        msg ("Tar archives specified, ignoring SAM files");
-    }
     $tarfiles_aref = filestr2arr($tarfiles_str);
-
+    my $num_tar = scalar @$tarfiles_aref;
+    if ($num_tar < 2) {
+        msg ("ERROR: Cannot perform a comparison with fewer than two input samples. Exiting...");
+        exit;
+    }
+    msg ("Reading phyloFlash results from $num_tar archive files in tar.gz format");
     foreach my $tar (@$tarfiles_aref) {
         if ($tar =~ m/^(.+)\.phyloFlash\.tar\.gz/) {
             my $samplename = $1;
@@ -404,7 +417,7 @@ if (defined $csvfiles_str) {
                         taxstring2hash(\%{$taxa_ambig_byread_hash{$readcounter}}, \@taxonlongarr);
                     }
                 }
-                # Summarize the NTU counts
+                # Summarize the NTU counts to full taxonomy level 7
                 my @allreadcounters = (keys %taxa_ambig_byread_hash);
                 $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
                 
@@ -465,6 +478,7 @@ foreach my $taxon (keys %ntuhash) {
 
 if (defined $task_hash{'barplot'} ) {
     ## Barplot #################################################################
+    msg ("Plotting barplot using script: $barplot_script");
     my $out_aref = abundance_hash_to_array(\%ntuhash);
     my ($ntuall_fh, $ntuall_filename) = tempfile(DIR=>$tempdir);
     open ($ntuall_fh, ">", $ntuall_filename) or die ("Cannot open file $ntuall_filename for writing");
@@ -487,20 +501,18 @@ if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
     ## Matrix of taxonomic weighted Unifrac-like distances #####################
     
     # This distance matrix is also produced if used by heatmap option 'custom'
-    
     # For each sample, re-parse the taxon strings and counts and put them in a
     # tree structure with counts per sample stored on each taxon node
-
+    
     my %taxon_tree_with_counts;
     my @outarr;
-
+    
     foreach my $sample (keys %ntubysamplehash) {
         my $countername = "_COUNT_$sample";
         encode_persample_counts_on_tree(\%taxon_tree_with_counts,
                                         \%{$ntubysamplehash{$sample}},
                                         $countername);
     }
-
     #print Dumper \%taxon_tree_with_counts;
     #print Dumper \%totalreads_per_sample;
 
@@ -527,6 +539,7 @@ if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
 
 if (defined $task_hash{'heatmap'}) {
     ## Heatmap of samples vs. taxa #############################################
+    msg ("Plotting heatmap using script: $heatmap_script");
     
     # Write CSV files containing refactored taxonomy and abundances
     my $tempdir_refactor = "$tempdir/refactor";
@@ -537,7 +550,6 @@ if (defined $task_hash{'heatmap'}) {
     
     # Define input CSV files for heatmap R script
     my $heatmap_csv_input = "$tempdir_refactor/*.csv";
-
     
     # Define name of output plot file
     my $outfile_name = "$out_prefix.heatmap.$outfmt";
@@ -548,7 +560,6 @@ if (defined $task_hash{'heatmap'}) {
                         "--cluster-taxa=$heatmap_clustertaxa",
                         "--min-ntu-count=$heatmap_minntucount");
     
-    
     # If using custom distance matrix...
     if ($heatmap_clustersamples eq 'custom') {
         push @heatmap_args, "--custom-distance-matrix-sample=$out_prefix.matrix.tsv";
@@ -558,14 +569,23 @@ if (defined $task_hash{'heatmap'}) {
     push @heatmap_args, $heatmap_csv_input;
     
     my $heatmap_cmd = join " ", ($heatmap_script, @heatmap_args);
-    
     msg ("Plotting heatmap: $heatmap_cmd");
     my $heatmap_return = system ($heatmap_cmd);
     msg ("Heatmap written to file: $outfile_name") if $heatmap_return;
 }
 
+# Thank and finish
 msg ("Thank you for using phyloFlash_compare.pl");
 msg ("Temporary files retained in folder $tempdir") if $keeptmp;
+
+if (defined $keeplog) {
+    my $logfile = "$out_prefix.log";
+    msg ("Writing log file to $logfile");
+    open(my $fh, ">", $logfile) or die ("$!");
+    print $fh join "\n", @msg_log;
+    close($fh);
+}
+
 
 ## SUBS ########################################################################
 
