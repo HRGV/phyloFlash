@@ -123,7 +123,7 @@ within the archive, to extract the NTU classifications. This assumes that the
 archive filenames are named [LIBNAME].phyloFlash.tar.gz, and that the LIBNAME
 matches the contents of the archive.
 
-=item --recalculate_NTU_from_SAM
+=item --use_SAM
 
 Ignore NTU abundance tables in CSV format, and recalculate the NTU abundances
 from SAM files in the compressed tar.gz phyloFlash archives. Useful if e.g.
@@ -303,7 +303,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "zip=s" => \$tarfiles_str,
             "task=s" => \$task_opt,
             "level=i" => \$taxlevel,
-            "recalculate_NTU_from_SAM" => \$useSAM,
+            "use_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
             "barplot_palette=s" => \$barplot_palette,
             "cluster-samples=s" => \$heatmap_clustersamples,
@@ -343,7 +343,7 @@ if ($outfmt ne 'pdf' && $outfmt ne 'png') {
     $outfmt = 'pdf';
 }
 if ($useSAM && !defined $tarfiles_str) {
-    msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --recalculate_NTU_from_SAM option was supplied");
+    msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --use_SAM option was supplied");
     pod2usage(-verbose=>1);
     exit;
 }
