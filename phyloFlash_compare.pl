@@ -74,6 +74,7 @@ my @csvfiles_arr;
 my @tarfiles_arr;
 
 my $tempdir; # Temp folder to put extracted files, if using -zip option
+my $tempdir_recalc; # Temp folder to put recalculated extracted files
 
 my $task_opt;
 my %task_hash;
@@ -328,6 +329,12 @@ if ($outfmt ne 'pdf' && $outfmt ne 'png') {
     msg ("WARNING: Invalid output format $outfmt specified. Should be either \"pdf\" or \"png\". Using \"pdf\"...");
     $outfmt = 'pdf';
 }
+if ($useSAM && !defined $tarfiles_str) {
+    msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --recalculate_NTU_from_SAM option was supplied");
+    pod2usage(-verbose=>1);
+    exit;
+}
+
 
 ## Read in data ################################################################
 
@@ -336,10 +343,14 @@ welcome();
 parse_task_options($task_opt,\%task_hash);
 
 if ($keeptmp) {
-    $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", DIR => "."); 
+    $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", DIR => ".");
+    $tempdir_recalc = "$tempdir/recalc" if defined $useSAM;
+    mkdir $tempdir_recalc;
 } else {
     # Delete temp folders 
     $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", CLEANUP=>1);
+    $tempdir_recalc = "$tempdir/recalc" if defined $useSAM;
+    mkdir $tempdir_recalc;
 }
 
 if (defined $csvfiles_str) {
@@ -372,25 +383,64 @@ if (defined $csvfiles_str) {
             my $ntufilename = "$samplename.phyloFlash.NTUabundance.csv";
             my $pFreportcsvname = "$samplename.phyloFlash.report.csv";
             my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";
-            # Check that NTU abundance table is in archive
-            if ($tarhandle->contains_file($ntufull_filename)) {
-                # Extract NTU full abundance table to a temporary file, if available
-                $tarhandle->extract_file($ntufull_filename, "$tempdir/$ntufull_filename");
-                ntu_csv_file_to_hash("$tempdir/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
-                msg ("Extracting NTU abundance table $ntufull_filename to temporary folder $tempdir");
-            } elsif ($tarhandle->contains_file($ntufilename)) {
-                # Extract NTU abundance table to a temporary file if full abundance table not available
-                $tarhandle->extract_file($ntufilename, "$tempdir/$ntufilename");
-                ntu_csv_file_to_hash("$tempdir/$ntufilename", $samplename, $taxlevel, \%ntuhash);
-                msg ("Extracting NTU abundance table $ntufilename to temporary folder $tempdir");
+            
+            if (defined $useSAM) {
+                my $sam_aref = get_phyloFlash_sam_from_archive($tarhandle);
+                msg ("Found SAM file in archive $tar; recalculating NTU abundances");
+                
+                # Parse taxonomy from SAM file hits
+                my %taxa_ambig_byread_hash;
+                my $taxa_full_href;
+                my $readcounter;
+                foreach my $samline (@$sam_aref) { # Code adapted from readsam function in phyloFlash.pl
+                    next if $samline =~ m/^@/; # Skip SAM header lines
+                    my ($read, $bitflag, $ref, @discard) = split /\t/, $samline;
+                    if ($bitflag & 0x40) {
+                        $readcounter ++ unless $bitflag & 0x100;
+                    }
+                    if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                        my $taxonlongstring = $1;
+                        my @taxonlongarr = split /;/, $taxonlongstring;
+                        taxstring2hash(\%{$taxa_ambig_byread_hash{$readcounter}}, \@taxonlongarr);
+                    }
+                }
+                # Summarize the NTU counts
+                my @allreadcounters = (keys %taxa_ambig_byread_hash);
+                $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
+                
+                # Write to temporary file in case keeptmp option is used
+                msg ("Writing recalculated NTU abundance for $samplename to $tempdir_recalc/$ntufull_filename");
+                open(my $fh, ">", "$tempdir_recalc/$ntufull_filename") or die ("$!");
+                foreach my $taxon (keys %$taxa_full_href) {
+                    print $fh join ",", ($taxon, $taxa_full_href->{$taxon});
+                    print $fh "\n";
+                }
+                close($fh);
+                
+                # Read into ntuhash
+                ntu_csv_file_to_hash("$tempdir_recalc/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
+                
             } else {
-                msg ("Expected NTU abundance file $ntufilename not found in tar archive $tar");
-            }
-            if ($tarhandle->contains_file($pFreportcsvname)) {
-                # Extract pF CSV report file required by heatmap tool
-                $tarhandle->extract_file($pFreportcsvname, "$tempdir/$pFreportcsvname") if (defined $task_hash{'heatmap'});
-            } else {
-                msg ("Expected phyloFlash report CSV file $pFreportcsvname not found in tar archive $tar");
+                # Check that NTU abundance table is in archive
+                if ($tarhandle->contains_file($ntufull_filename)) {
+                    # Extract NTU full abundance table to a temporary file, if available
+                    $tarhandle->extract_file($ntufull_filename, "$tempdir/$ntufull_filename");
+                    ntu_csv_file_to_hash("$tempdir/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
+                    msg ("Extracting NTU abundance table $ntufull_filename to temporary folder $tempdir");
+                } elsif ($tarhandle->contains_file($ntufilename)) {
+                    # Extract NTU abundance table to a temporary file if full abundance table not available
+                    $tarhandle->extract_file($ntufilename, "$tempdir/$ntufilename");
+                    ntu_csv_file_to_hash("$tempdir/$ntufilename", $samplename, $taxlevel, \%ntuhash);
+                    msg ("Extracting NTU abundance table $ntufilename to temporary folder $tempdir");
+                } else {
+                    msg ("Expected NTU abundance file $ntufilename not found in tar archive $tar");
+                }
+                if ($tarhandle->contains_file($pFreportcsvname)) {
+                    # Extract pF CSV report file required by heatmap tool
+                    $tarhandle->extract_file($pFreportcsvname, "$tempdir/$pFreportcsvname") if (defined $task_hash{'heatmap'});
+                } else {
+                    msg ("Expected phyloFlash report CSV file $pFreportcsvname not found in tar archive $tar");
+                }
             }
         } else {
             msg ("Filename of archive $tar does not match standard name of a phyloFlash output archive");
@@ -493,7 +543,7 @@ if (defined $task_hash{'heatmap'}) {
     my $outfile_name = "$out_prefix.heatmap.$outfmt";
 
     my @heatmap_args = ("-o $outfile_name",
-                        "--library-name-from-file",
+                        #"--library-name-from-file",
                         "--cluster-samples=$heatmap_clustersamples",
                         "--cluster-taxa=$heatmap_clustertaxa",
                         "--min-ntu-count=$heatmap_minntucount");
@@ -514,9 +564,24 @@ if (defined $task_hash{'heatmap'}) {
     msg ("Heatmap written to file: $outfile_name") if $heatmap_return;
 }
 
-
+msg ("Thank you for using phyloFlash_compare.pl");
+msg ("Temporary files retained in folder $tempdir") if $keeptmp;
 
 ## SUBS ########################################################################
+
+sub get_phyloFlash_sam_from_archive {
+    # Get filename of phyloFlash SAM file from archive
+    my ($archive_handle) = @_;
+    my (@list) = $archive_handle->list_files();
+    my $content;
+    foreach my $file (@list) {
+        if ($file =~ m/SSU.sam$/) {
+            $content = $archive_handle->get_content($file);
+        }
+    }
+    my @array = split /\n/, $content;
+    return \@array;
+}
 
 sub csv_from_refactored_NTU_hash {
     # Generate new phyloFlash NTU abundance CSV files when taxon abundances have
@@ -535,7 +600,6 @@ sub csv_from_refactored_NTU_hash {
         close ($fh);
     }
 }
-
 
 sub metadata_from_refactored_NTU_hash {
     my ($href,              # Ref to hash of abundances keyed by sample (primary key) and taxon (secondary key)
@@ -556,7 +620,6 @@ sub metadata_from_refactored_NTU_hash {
 sub chao1_from_hash {
     # Calculate chao1 diversity values from hash of abundances (val) by taxa (key)
     my ($href) = @_;
-    msg ("HELLO");
     my @xtons = (0,0,0);
     my $chao1;
     # Enumerate 1-tons, 2-tons, and 3+
@@ -592,6 +655,7 @@ sub parse_task_options {
         $href->{'heatmap'} ++ if (index ('heatmap',$task) != -1);
         $href->{'barplot'} ++ if (index ('barplot',$task) != -1);
         $href->{'matrix'} ++ if (index ('matrix',$task) != -1);
+        $href->{'test'} ++ if (index ('test', $task) != -1);
     }
 }
 
