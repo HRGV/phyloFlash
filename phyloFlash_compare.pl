@@ -357,14 +357,16 @@ parse_task_options($task_opt,\%task_hash);
 
 if ($keeptmp) {
     $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", DIR => ".");
-    $tempdir_recalc = "$tempdir/recalc" if defined $useSAM;
-    mkdir $tempdir_recalc;
 } else {
     # Delete temp folders 
     $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", CLEANUP=>1);
-    $tempdir_recalc = "$tempdir/recalc" if defined $useSAM;
-    mkdir $tempdir_recalc;
 }
+
+if (defined $useSAM) {
+    $tempdir_recalc = "$tempdir/recalc";
+    mkdir($tempdir_recalc);
+}
+
 
 if (defined $csvfiles_str) {
     # Read from CSV files
