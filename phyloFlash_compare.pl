@@ -7,7 +7,32 @@ phyloFlash_compare.pl - Compare phyloFlash NTU results for multiple libraries
 
 =head1 SYNOPSIS
 
+# NTU abundance table CSV files as input
+
+phyloFlash_compare.pl --csv LIB1.phyloFlash.NTUabundance.csv,LIB2.phyloFlash.NTUabundance.csv -task barplot
+
+phyloFlash_compare.pl --csv LIB1.phyloFlash.NTUabundance.csv,LIB2.phyloFlash.NTUabundance.csv -task heatmap
+
+# phyloFlash tar.gz archives as input
+
+phyloFlash_compare.pl --zip LIB1.phyloFlash.tar.gz,LIB2.phyloFlash.tar.gz -task barplot
+
+phyloFlash_compare.pl --zip LIB1.phyloFlash.tar.gz,LIB2.phyloFlash.tar.gz -task heatmap
+
+# Help/manual pages
+
+phyloFlash_compare.pl --help
+
+phyloFlash_compare.pl --man
+
 =head1 DESCRIPTION
+
+Compare the taxonomic composition multiple metagenomic/transcriptomic libraries
+using the phyloFlash NTU abundance results.
+
+This script is a convenient wrapper for the R scripts I<phyloFlash_heatmap.R> and
+I<phyloFlash_barplot.R>. More options are available when running those scripts
+separately (see help messages by running the commands without arguments).
 
 =cut
 
@@ -40,10 +65,14 @@ my %ntuhash; # Hash of counts per taxon (primary key) and sample (secondary key)
 my %ntubysamplehash; # Hash of counts per sample (primary key) and taxon (secondary key)
 my %totalreads_per_sample; # Hash of total reads counted per sample
 
+=head1 ARGUMENTS
 
-=head1 INPUT FILES
+=head2 INPUT FILES
 
-The following options are mutually exclusive. If phyloFlash is run with the
+Specify the output files from phyloFlash runs for the libraries that you wish
+to compare.
+
+The options I<-csv> and I<-zip> are mutually exclusive. If phyloFlash is run with the
 I<-zip> option, the archives containing the results of each separate run can be
 specified with the -zip option below. If the results are not compressed, you can
 specify the NTU classification tables in CSV format.
@@ -82,7 +111,7 @@ Default: No.
 
 =back
 
-=head1 ARGUMENTS
+=head2 ANALYSIS OPTIONS
 
 =over 8
 
@@ -107,7 +136,7 @@ Default: 4 ('Order')
 
 =back
 
-=head1 ARGUMENTS FOR BARPLOT
+=head2 ARGUMENTS FOR BARPLOT
 
 The R script I<phyloFlash_barplot.R> can be run directly; run the script without
 arguments to see the built-in help message. However, the input file to the
@@ -123,7 +152,7 @@ Default: 5
 
 =back
 
-=head1 ARGUMENTS FOR HEATMAP
+=head2 ARGUMENTS FOR HEATMAP
 
 More options are available by using the R script I<phyloFlash_heatmap.R> directly,
 or by sourcing it in the R environment. Run the R script without arguments to
@@ -155,11 +184,27 @@ Output columns are "library 1", "library 2", "distance"
 
 =back
 
+=head2 HELP MESSAGES
+
+=over 8
+
+=item --help|-h
+
+Help message
+
+=item --man
+
+Manual page in pager
+
+=item --version|-v
+
+Report phyloFlash version
+
+=back
+
 =cut
 
-welcome();
-
-pod2usage (-verbose=>1, -exit=>1) if (!@ARGV);
+pod2usage (-verbose=>0, -exit=>1) if (!@ARGV);
 
 GetOptions ("csv=s" => \$csvfiles_str,
             "sam=s" => \$samfiles_str,
@@ -171,9 +216,9 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "out=s" => \$out_prefix,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
-            ) or pod2usage(-verbose=>1, -exit=>1);
+            "version|v" => sub { welcome(); exit; }, 
+            ) or pod2usage(-verbose=>0, -exit=>1);
 
-pod2usage(-verbose=>1,-exit=>1) if !defined $task_opt;
 
 # Paths to R scripts
 my $barplot_script = "$Bin/phyloFlash_barplot.R";
@@ -184,6 +229,11 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 ## MAIN ########################################################################
 
 ## Catch exceptions ############################################################
+
+if (!defined $task_opt) {
+    pod2usage ("ERROR: Please specify a task [barplot, heatmap, matrix] to option --task");
+    pod2usage(-verbose=>1,-exit=>1);
+}
 if ($taxlevel > 7) {
     msg ("Taxonomic level is > 7, this is unlikely to provide a meaningful result");
     exit;
@@ -192,7 +242,11 @@ if ($barplot_display > 20) {
     msg ("Number of taxa to display in barplot is > 20, this is unlikely to be legible, but continuing anyway...");
 }
 
+
 ## Read in data ################################################################
+
+welcome();
+
 if (defined $csvfiles_str) {
     # Read from CSV files
     if (defined $samfiles_str || defined $tarfiles_str) {
