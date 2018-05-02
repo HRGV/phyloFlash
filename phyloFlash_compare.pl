@@ -66,6 +66,11 @@ my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
 
+my $heatmap_clustersamples = 'ward.D';
+my $heatmap_clustertaxa = 'ward.D';
+my $heatmap_longtaxnames;
+my $heatmap_minntucount = 50;
+
 my %ntuhash; # Hash of counts per taxon (primary key) and sample (secondary key)
 my %ntubysamplehash; # Hash of counts per sample (primary key) and taxon (secondary key)
 my %totalreads_per_sample; # Hash of total reads counted per sample
@@ -125,6 +130,10 @@ Default: No.
 Type of analysis to be run. Options: "heatmap", "barplot", "matrix", or a
 recognizable substring thereof.
 
+For option "heatmap", the [LIBNAME].phyloFlash.report.csv files must be either
+in the same location as the NTU abundance CSV files or in the tar.gz archives,
+as they contain metadata which is parsed by the script.
+
 Default: None
 
 =item --out I<STRING>
@@ -170,6 +179,34 @@ or by sourcing it in the R environment. Run the R script without arguments to
 see the built-in help message.
 
 =over 8
+
+=item --cluster-samples I<STRING>
+
+Clustering method to use for clustering/sorting samples in heatmap. Options:
+"alpha", "ward.D", "single", "complete", "average", "mcquitty", "median", "centroid",
+or "custom".
+
+"custom" will use the Unifrac-like abundance weighted taxonomic distances (the
+distance matrix can be separately output with I<--task matrix>)
+
+Default: "ward.D"
+
+=item --cluster-taxa I<STRING>
+
+Clustering method to use for clustering/sorting taxa. Options: "alpha", "ward",
+"single", "complete", "average", "mcquitty", "median", "centroid".
+
+Default: "ward.D"
+
+=item --long-taxnames
+
+Do not shorten taxa names to two last groups
+
+=item --min-ntu-count I<INTEGER>
+
+Sum up NTUs with fewer counts into a pseudo-NTU "Other".
+
+Default: 50
 
 =back
 
@@ -222,15 +259,18 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "zip=s" => \$tarfiles_str,
             "task=s" => \$task_opt,
             "level=i" => \$taxlevel,
-            "recalculate_NTU_from_SAM" => \$useSAM,
+            "recalculate_NTU_from_SAM" => \$useSAM,                             ## TODO
             "displaytaxa=i" => \$barplot_display,
+            "cluster-samples=s" => \$heatmap_clustersamples,
+            "cluster-taxa=s" => \$heatmap_clustertaxa,
+            "long-taxnames" => \$heatmap_longtaxnames,
+            "min-ntu-count=i" => \$heatmap_minntucount,
             "out=s" => \$out_prefix,
-            "outfmt=s" => \$outfmt,
+            "outfmt=s" => \$outfmt,                                             # TODO for barplot script
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
             "version|v" => sub { welcome(); exit; }, 
             ) or pod2usage(-verbose=>0, -exit=>1);
-
 
 # Paths to R scripts
 my $barplot_script = "$Bin/phyloFlash_barplot.R";
@@ -357,8 +397,11 @@ if (index ('barplot', $task_opt) != -1 ) {
     msg ("Barplot written to file: $outfile_name");
 }
 
-if (index ('matrix', $task_opt) != -1) {
+if (index ('matrix', $task_opt) != -1 || $heatmap_clustersamples eq 'custom') {
     ## Matrix of taxonomic weighted Unifrac-like distances #####################
+    
+    # This distance matrix is also produced if used by heatmap option 'custom'
+    
     # For each sample, re-parse the taxon strings and counts and put them in a
     # tree structure with counts per sample stored on each taxon node
 
@@ -392,12 +435,47 @@ if (index ('matrix', $task_opt) != -1) {
     open (my $fhmatrix, ">", "$out_prefix.matrix.tsv") or die ("Cannot open file $out_prefix.matrix.tsv for writing");
     print $fhmatrix join "\n", @outarr;
     close ($fhmatrix);
+    
+    msg ("Matrix of Unifrac-like abundance-weighted taxonomic distances written to file $out_prefix.matrix.tsv");
 }
 
 if (index('heatmap',$task_opt) != -1) {
     ## Heatmap of samples vs. taxa #############################################
     
+    # Define input CSV files for heatmap R script
+    my $heatmap_csv_input;
+    if (defined $csvfiles_aref) {
+        # If user gave CSV files as input
+        $heatmap_csv_input = join " ", @$csvfiles_aref;
+    } elsif (defined $tarfiles_aref && defined $tempdir) {
+        # If user supplied tar.gz archives as input, the relevant CSV files have
+        # been extracted to the temp dir
+        $heatmap_csv_input = "$tempdir/*.csv";
+    }
     
+    # Define name of output plot file
+    my $outfile_name = "$out_prefix.heatmap.$outfmt";
+
+    my @heatmap_args = ("-o $outfile_name",
+                        "--library-name-from-file",
+                        "--cluster-samples=$heatmap_clustersamples",
+                        "--cluster-taxa=$heatmap_clustertaxa",
+                        "--min-ntu-count=$heatmap_minntucount");
+    
+    
+    # If using custom distance matrix...
+    if ($heatmap_clustersamples eq 'custom') {
+        push @heatmap_args, "--custom-distance-matrix-sample=$out_prefix.matrix.tsv";
+    }
+    
+    # Push input file names/path last
+    push @heatmap_args, $heatmap_csv_input;
+    
+    my $heatmap_cmd = join " ", ($heatmap_script, @heatmap_args);
+    
+    msg ("Plotting heatmap: $heatmap_cmd");
+    system ($heatmap_cmd);
+    msg ("Barplot written to file: $outfile_name");
 }
 
 
