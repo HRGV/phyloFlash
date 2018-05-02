@@ -268,7 +268,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "long-taxnames" => \$heatmap_longtaxnames,
             "min-ntu-count=i" => \$heatmap_minntucount,
             "out=s" => \$out_prefix,
-            "outfmt=s" => \$outfmt,                                             # TODO for barplot script
+            "outfmt=s" => \$outfmt,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
             "version|v" => sub { welcome(); exit; }, 

@@ -68,7 +68,7 @@ options <- list(
     type="character",
     action="store",
     default="TEST",
-    help="Name of output PDF file"
+    help="Name of output PDF or PNG file"
     )
 );
 
@@ -126,7 +126,15 @@ dd.rename.barplot <- ggplot(dd.rename, aes(sample,prop)) + geom_bar(aes(fill=ren
 outname <- conf$options$out[1]
 # Adjust width of plot
 num.samples <- length(levels(dd.rename$sample))
-newwidth <- 5 + 0.75 * num.samples
-pdf(outname,height=7,width=newwidth)
+width <- 360 + 80 * num.samples
+height <- 480
+
+# Choose which output format by output prefix (adapted from heatmap script)
+switch(tail(n=1,strsplit(conf$options$out, "[.]")[[1]]),
+  png = png(file = conf$options$out,
+    width=width, height=height),
+  pdf = pdf(file = conf$options$out,
+    width=width/72, height=height/72)
+  );
 dd.rename.barplot
 dev.off()
