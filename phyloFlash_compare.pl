@@ -50,16 +50,21 @@ use File::Temp qw(tempfile tempdir);
 use Data::Dumper;
 use Archive::Tar;
 
-my ($samfiles_str, $csvfiles_str, $tarfiles_str);
+# Input files
+my ($samfiles_str, $csvfiles_str, $tarfiles_str); # Raw comma-separated input string
+my ($csvfiles_aref, $tarfiles_aref);              # Refs to arrays of input file paths
 my @samfiles_arr;
 my @csvfiles_arr;
 my @tarfiles_arr;
+
+my $tempdir; # Temp folder to put extracted files, if using -zip option
 
 my $task_opt;
 my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
 my $out_prefix = 'test.phyloFlash_compare';
+my $outfmt = "pdf";
 
 my %ntuhash; # Hash of counts per taxon (primary key) and sample (secondary key)
 my %ntubysamplehash; # Hash of counts per sample (primary key) and taxon (secondary key)
@@ -127,6 +132,12 @@ Default: None
 Prefix for output files.
 
 Default: "test.phyloFlash_compare"
+
+=item --outfmt I<STRING>
+
+Format for plots (tasks 'barplot' and 'heatmap' only). Options: "pdf", "png"
+
+Default: "pdf"
 
 =item --level I<INTEGER>
 
@@ -214,6 +225,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "recalculate_NTU_from_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
             "out=s" => \$out_prefix,
+            "outfmt=s" => \$outfmt,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
             "version|v" => sub { welcome(); exit; }, 
@@ -241,6 +253,11 @@ if ($taxlevel > 7) {
 if ($barplot_display > 20) {
     msg ("Number of taxa to display in barplot is > 20, this is unlikely to be legible, but continuing anyway...");
 }
+if ($outfmt ne 'pdf' && $outfmt ne 'png') {
+    msg ("WARNING: Invalid output format $outfmt specified. Should be either \"pdf\" or \"png\". Using \"pdf\"...");
+    $outfmt = 'pdf';
+}
+
 
 
 ## Read in data ################################################################
@@ -252,7 +269,7 @@ if (defined $csvfiles_str) {
     if (defined $samfiles_str || defined $tarfiles_str) {
         msg ("CSV files specified, ignoring SAM files and Tar archives");
     }
-    my $csvfiles_aref = filestr2arr ($csvfiles_str);
+    $csvfiles_aref = filestr2arr ($csvfiles_str);
     foreach my $csv (@$csvfiles_aref) {
         if ($csv =~ m/^(.+)\.phyloFlash.NTU.*\.csv/) {
             my $samplename = $1;
@@ -266,9 +283,9 @@ if (defined $csvfiles_str) {
     if (defined $samfiles_str) {
         msg ("Tar archives specified, ignoring SAM files");
     }
-    my $tarfiles_aref = filestr2arr($tarfiles_str);
+    $tarfiles_aref = filestr2arr($tarfiles_str);
     # my $tempdir = tempdir (CLEANUP=>1);
-    my $tempdir = tempdir (DIR => "."); # Testing version
+    $tempdir = tempdir (DIR => "."); # Testing version
     foreach my $tar (@$tarfiles_aref) {
         if ($tar =~ m/^(.+)\.phyloFlash\.tar\.gz/) {
             my $samplename = $1;
@@ -330,13 +347,14 @@ if (index ('barplot', $task_opt) != -1 ) {
     }
     msg ("NTU abundance by sample table written to temporary file: $ntuall_filename");
     close ($ntuall_fh);
+    my $outfile_name = "$out_prefix.barplot.$outfmt";
     my @barplot_args = ("-f $ntuall_filename",
                         "-t $barplot_display",
-                        "-o $out_prefix.barplot.pdf");
+                        "-o $outfile_name");
     my $barplot_cmd = join " ", ('Rscript', $barplot_script, @barplot_args);
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);
-    msg ("Barplot written to file: $out_prefix.barplot.pdf");
+    msg ("Barplot written to file: $outfile_name");
 }
 
 if (index ('matrix', $task_opt) != -1) {
@@ -375,6 +393,14 @@ if (index ('matrix', $task_opt) != -1) {
     print $fhmatrix join "\n", @outarr;
     close ($fhmatrix);
 }
+
+if (index('heatmap',$task_opt) != -1) {
+    ## Heatmap of samples vs. taxa #############################################
+    
+    
+}
+
+
 
 ## SUBS ########################################################################
 
