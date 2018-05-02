@@ -2023,11 +2023,15 @@ sub nhmmer_model_pos {
     # File containing HMM models for archaea, bacteria, and eukaryotes SSU
     my $hmm = "$FindBin::RealBin/barrnap-HGV/db/ssu/ssu_ABE.hmm";
     my $sam = $outfiles{"sam_map"}{"filename"}; # SAM file of mapping
+    my $readsf = $outfiles{'reads_mapped_f'}{'filename'};
+    my $readsr = $outfiles{'reads_mapped_r'}{'filename'};
     my $subsample = $outfiles{"readsf_subsample"}{"filename"};
     my $samplelimit = 10000; # Take sample of max this number of reads
 
     # Subsample reads with reformat.sh
-    my @reformat_args = ("in=$sam",
+    my @reformat_args = ("in=$readsf",
+                         "in2=$readsr",
+                         #"path=$DBHOME",
                          "out=$subsample",
                          "srt=$samplelimit",
                          "ow=t", # Overwrite existing files
