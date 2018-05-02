@@ -30,15 +30,28 @@ load_libraries <- function() {
   library(RColorBrewer);
 }
 
-makepalette <- function (n, othercolor='grey') {
+makepalette <- function (n, brewer.name='Set3', othercolor='grey') {
   # Define palette for taxa, using RColorBrewer Set3 as default for n colors <= 12
   # otherwise attempt to "stretcH" the palette with colorRampPalette
   # othercolor is the default color for "Other" taxa
-  if (n <= 12 ) {
-    out.palette <- brewer.pal(n, name='Set3')
+  
+  # Account for different maximum n for different preset palettes
+  max.n <- switch(brewer.name, 
+                  "Set3" = 12,
+                  "Accent" = 8,
+                  "Dark2" = 8,
+                  "Paired" = 12,
+                  "Pastel1" = 9,
+                  "Pastel2" = 8,
+                  "Set1" = 9,
+                  "Set2" = 8
+                  )
+  
+  if (n <= max.n ) {
+    out.palette <- brewer.pal(n, name=brewer.name)
     out.palette <- c(out.palette,othercolor)
   } else {
-    out.palette <- colorRampPalette(brewer.pal(12, name='Set3'))(n)
+    out.palette <- colorRampPalette(brewer.pal(max.n, name=brewer.name))(n)
     out.palette <- c(out.palette,othercolor)
   }
   return(out.palette)
@@ -69,7 +82,15 @@ options <- list(
     action="store",
     default="TEST",
     help="Name of output PDF or PNG file"
-    )
+    ),
+  make_option(
+    c("-p","--palette"),
+    type="character",
+    action="store",
+    default="Set3",
+    help="Palette name for taxon colors. One of the qualitative palettes from the
+                  ColorBrewer2 set: Accent, Dark2, Paired, Pastel1, Pastel2, Set1, Set2, or Set3."
+  )
 );
 
 parser <- OptionParser(
@@ -117,10 +138,10 @@ dd.rename <- merge(dd,rename.df,by='taxon')
 dd.rename$rename <- factor(dd.rename$rename,levels=taxonnames.renamed[0:topshow+1])
 
 # Custom palette
-dd.palette <- makepalette (n=topshow,othercolor='grey')
+dd.palette <- makepalette (n=topshow,brewer.name=conf$options$palette[1],othercolor='grey')
 
 # Draw plot
-dd.rename.barplot <- ggplot(dd.rename, aes(sample,prop)) + geom_bar(aes(fill=rename),stat='identity') + scale_fill_manual(values=dd.palette)
+dd.rename.barplot <- ggplot(dd.rename, aes(sample,prop)) + geom_bar(aes(fill=rename),stat='identity') + scale_fill_manual(values=dd.palette) + labs(x="Library",y="Proportion of SSU rRNA reads", fill="Taxon")
 
 # Write file
 outname <- conf$options$out[1]

@@ -80,6 +80,7 @@ my %task_hash;
 my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
+my $barplot_palette = 'Set3';
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
 my $keeptmp;
@@ -190,9 +191,16 @@ barplot script is produced by I<phyloFlash_compare.pl> (i.e. this script).
 
 =item --displaytaxa I<INTEGER>
 
-Number of top taxa to display in barplot. Integer between 1 and 12 is preferable.
+Number of top taxa to display in barplot. Integer between 3 and 12 is preferable.
 
 Default: 5
+
+=item --barplot_palette I<STRING>
+
+Palette to color taxa in barplot. Should be one of the qualitative ColorBrewer2
+palettes: Accent, Dark2, Paired, Pastel1, Pastel2, Set1, Set2, or Set3.
+
+Default: "Set3"
 
 =back
 
@@ -297,6 +305,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "level=i" => \$taxlevel,
             "recalculate_NTU_from_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
+            "barplot_palette=s" => \$barplot_palette,
             "cluster-samples=s" => \$heatmap_clustersamples,
             "cluster-taxa=s" => \$heatmap_clustertaxa,
             "long-taxnames" => \$heatmap_longtaxnames,
@@ -490,7 +499,9 @@ if (defined $task_hash{'barplot'} ) {
     my $outfile_name = "$out_prefix.barplot.$outfmt";
     my @barplot_args = ("-f $ntuall_filename",
                         "-t $barplot_display",
-                        "-o $outfile_name");
+                        "-o $outfile_name",
+                        "-p $barplot_palette",
+                        );
     my $barplot_cmd = join " ", ('Rscript', $barplot_script, @barplot_args);
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);
