@@ -6,20 +6,19 @@
 
 =head1 SYNOPSIS
 
-./ENA_phyloFlash.pl -acc [ENA ACCESSION] -phyloFlash -http_proxy="http://..."
+ENA_phyloFlash.pl --acc [ENA ACCESSION] --phyloFlash --http_proxy="http://..."
 
-./ENA_phyloFlash.pl -help
+ENA_phyloFlash.pl --help
 
 =head1 DESCRIPTION
 
 Download Fastq files associated with an ENA Read Archive run accession number,
-and run phyloFlash on those files if option -phyloFlash is chosen.
+and run phyloFlash on those files if option I<--phyloFlash> is chosen.
 
 Requires phyloFlash v3.0+ and wget
 
 =cut
 
-use 5.010; # For the 'say' command
 use strict;
 use warnings;
 
@@ -36,7 +35,7 @@ use PhyloFlash qw(msg err @msg_log $VERSION);
 my $acc;
 my $CPUs = 8; # Num processors - for nhmmer
 my $download = 1; # By default, download
-my $download_dir = ".";
+my $download_dir = '.';
 my $cleanup;
 my $run_pF; # By default, do not run phyloFlash
 my $pF_dbhome;
@@ -50,7 +49,7 @@ GetOptions ("acc=s" => \$acc,
             "download|d!" => \$download,
             "download_dir=s" => \$download_dir,
             "cleanup" => \$cleanup,
-            "phyloFlash|p!:s" => \$run_pF, # Colon means arguments are optional
+            "p|phyloFlash:s" => \$run_pF, # Colon means arguments are optional
             "dbhome=s" => \$pF_dbhome,
             "http_proxy=s" => \$http_proxy,
             'help|h' => sub { pod2usage(1) },
@@ -162,8 +161,13 @@ if (defined $fastq_urls[0]) {
     # Open log file to record details on this file
     # Header line for log file
     foreach my $fastq (@fastq_urls) {
-        msg ("Running wget with command: $wget $fastq");
-        system (join " ", ($wget, $fastq)) if ($download == 1);
+        if ($download == 1) {
+            msg ("Running wget with command: $wget $fastq");
+            system (join " ", ($wget, $fastq));
+        } else {
+            msg ("Skipping download, assuming that files are already present at path $download_dir");
+        }
+        
         # Strip URL dirs from filename, save to an array
         my $filename = $1 if $fastq =~ m/([^\/]+)$/;
         push @fastq_basenames, $filename;
