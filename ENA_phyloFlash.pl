@@ -50,7 +50,7 @@ GetOptions ("acc=s" => \$acc,
             "download|d!" => \$download,
             "download_dir=s" => \$download_dir,
             "cleanup" => \$cleanup,
-            "phyloFlash|p!" => \$run_pF,
+            "phyloFlash|p!:s" => \$run_pF, # Colon means arguments are optional
             "dbhome=s" => \$pF_dbhome,
             "http_proxy=s" => \$http_proxy,
             'help|h' => sub { pod2usage(1) },
@@ -70,11 +70,15 @@ ERR..., SRR..., or DRR....
 
 =item --CPUs I<INTEGER>
 
-Number of processors to use (passed to phyloFlash) (Default: 8)
+Number of processors to use (passed to phyloFlash)
+
+Default: 8
 
 =item -d|--download
 
-Download files? Turn off with -nodownload (Default: Yes)
+Download files? Turn off with -nodownload
+
+Default: Yes
 
 =item --download_dir I<PATH>
 
@@ -88,9 +92,13 @@ Delete downloaded read files
 
 Default: No
 
-=item -p|--phyloFlash 
+=item -p|--phyloFlash="I<ARGS>"
 
-Run phyloFlash? (Default: No, download only)
+Run phyloFlash? If no additional arguments are supplied, run phyloFlash with
+the I<--almosteverything> option. Otherwise the argument string is simply passed
+to phyloFlash.
+
+Default: No, download only
 
 =item --dbhome I<PATH>
 
@@ -100,7 +108,8 @@ where phyloFlash script is located
 =item --http_proxy I<URL>
 
 URL for http proxy - be sure to specify the protocol with "http://..."
-(Default: none)
+
+Default: none
 
 =item --help
 
@@ -161,32 +170,36 @@ if (defined $fastq_urls[0]) {
     }
 }
 
-# Run phyloFlash (v3.0beta1+) to extract SSU reads
-my @pF_args = ("-lib pF_$acc",
-               "-CPUs $CPUs",
-               "-emirge",               # Run both SPAdes and EMIRGE
-               "-zip",                  # Output to archive
-               "-log",
-               );
-
-# If specific dbhome specified, pass to phyloFlash, otherwise use default detected
-push @pF_args, "-dbhome $pF_dbhome" if defined $pF_dbhome;
-
 # Add paths to Fastq file names
-
 foreach my $file (@fastq_basenames) {
     push @fastq_fullpaths, "$download_dir/$file";
 }
 
-# Check how many Fastq files (paired or unpaired)
-if (scalar (@fastq_fullpaths) == 1) {
-    push @pF_args, "-read1 ".$fastq_fullpaths[0];
-} elsif (scalar (@fastq_basenames) == 2) {
-    push @pF_args, "-read1 ".$fastq_fullpaths[0];
-    push @pF_args, "-read2 ".$fastq_fullpaths[1];
-}
-
 if (defined $run_pF) {
+    # Run phyloFlash (v3.0beta1+) to extract SSU reads
+    my @pF_args = ("-lib pF_$acc",
+                   "-CPUs $CPUs",
+                   );
+    
+    if ($run_pF eq '') { # If defined but empty string
+        # Default if running phyloFlash
+        push @pF_args, '--almosteverything'; 
+    } else {
+        # User-specified arguments to pass to phyloFlash
+        push @pF_args, $run_pF;
+    }
+    
+    # If specific dbhome specified, pass to phyloFlash, otherwise use default detected
+    push @pF_args, "-dbhome $pF_dbhome" if defined $pF_dbhome;
+    
+    # Check how many Fastq files (paired or unpaired)
+    if (scalar (@fastq_fullpaths) == 1) {
+        push @pF_args, "-read1 ".$fastq_fullpaths[0];
+    } elsif (scalar (@fastq_basenames) == 2) {
+        push @pF_args, "-read1 ".$fastq_fullpaths[0];
+        push @pF_args, "-read2 ".$fastq_fullpaths[1];
+    }
+
     my $pF_cmd = join " ", ($phyloFlash, @pF_args);
     msg ("Running phyloFlash with command: $pF_cmd");
     system (join " ", ($phyloFlash, @pF_args));
