@@ -1771,7 +1771,7 @@ sub emirge_run {
 
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\' "
-		 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 .$outfiles{"reads_mapped_cat"}{"filename"},
                  $outfiles{"reads_mapped_cat_rename"}{"filename"});
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
@@ -2197,11 +2197,16 @@ sub run_plotscript_SVG {
                         "-title=\"Coverage on 18S model\"",
                         "-color=\"blue\"",
                         );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_euk),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_euk_histogram"}{"filename"}) {
+            # Check that Nhmmer has output a nonzero-sized file (if no reads
+            # found, it will still produce output)
+            run_prog("plotscript_SVG",
+                     join (" ", @args_euk),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        }
+
         # Prokaryotic gene model
         my @args_prok = ("-hist",
                          $outfiles{"nhmmer_prok_histogram"}{"filename"},
@@ -2210,11 +2215,13 @@ sub run_plotscript_SVG {
                          "-title=\"Coverage on 16S model\"",
                          "-color=\"blue\"",
                          );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_prok),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_prok_histogram"}{"filename"}) {
+            run_prog("plotscript_SVG",
+                     join (" ", @args_prok),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        }
     }
 
     # Plot tree if spades/emirge unless no alignment was output
@@ -2427,8 +2434,8 @@ sub write_report_html {
 
     # Slurp in positional coverage histograms, if defined
     if ($poscov_flag == 1) {
-        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
-        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
+        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_prok_histogram_svg"}{"made"};
+        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_euk_histogram_svg"}{"made"};
     }
 
     # Params defined only for assembled (SPAdes) reads
