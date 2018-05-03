@@ -38,7 +38,7 @@ my $CPUs = 8; # Num processors - for nhmmer
 my $download = 1; # By default, download
 my $download_dir = ".";
 my $cleanup;
-my $run_pF = 0; # By default, do not run phyloFlash
+my $run_pF; # By default, do not run phyloFlash
 my $pF_dbhome;
 my $http_proxy;
 
@@ -127,20 +127,23 @@ my $wget = "wget --no-verbose";   # Wget binary and options
 
 ## MAIN ########################################################################
 
+welcome();
+
 @fastq_urls = get_fastq_urls($acc);
 
 if (@fastq_urls) {
-    say STDERR "Found the following Fastq files associated with accession $acc";
-    say STDERR join ("\n", @fastq_urls);
+    msg ("Found the following Fastq files associated with accession $acc");
+    msg (join ("\n", @fastq_urls));
 }
 
 # Check download path to make sure is a directory and is writable
 if (defined $download_dir) {
     if (! -d $download_dir) {
-        die ("Path to place downloaded files $download_dir is not a valid directory");
+        err ("Path to place downloaded files $download_dir is not a valid directory");
     } elsif (! -w $download_dir) {
-        die ("You do not have write permissions to path $download_dir");
+        err ("You do not have write permissions to path $download_dir");
     } else {
+        msg ("Downloading read files to folder $download_dir");
         $wget .= " -P $download_dir"; # Add path option to wget command
     }
 }
@@ -150,6 +153,7 @@ if (defined $fastq_urls[0]) {
     # Open log file to record details on this file
     # Header line for log file
     foreach my $fastq (@fastq_urls) {
+        msg ("Running wget with command: $wget $fastq");
         system (join " ", ($wget, $fastq)) if ($download == 1);
         # Strip URL dirs from filename, save to an array
         my $filename = $1 if $fastq =~ m/([^\/]+)$/;
@@ -182,9 +186,18 @@ if (scalar (@fastq_fullpaths) == 1) {
     push @pF_args, "-read2 ".$fastq_fullpaths[1];
 }
 
-system (join " ", ($phyloFlash, @pF_args)) if $run_pF == 1;
+if (defined $run_pF) {
+    my $pF_cmd = join " ", ($phyloFlash, @pF_args);
+    msg ("Running phyloFlash with command: $pF_cmd");
+    system (join " ", ($phyloFlash, @pF_args));
+}
 
-unlink @fastq_fullpaths if defined $cleanup; # Delete read files 
+if (defined $cleanup) {
+    msg ("Deleting read files");
+    unlink @fastq_fullpaths if defined $cleanup; # Delete read files 
+}
+
+msg ("Thank you for using ENA_phyloFlash.pl"); # Be nice
 
 ## SUBS ########################################################################
 
@@ -194,7 +207,6 @@ sub welcome {
     print STDERR "\n";
 }
 
-
 sub get_fastq_urls {
     # Get the URL(s) of ENA Fastq file(s) for a given ENA entry
 
@@ -203,7 +215,7 @@ sub get_fastq_urls {
     my @urls_arr;    # Output array containing URLs
     # Get report table using ENA REST query
     my $url = "http://www.ebi.ac.uk/ena/data/warehouse/filereport?accession=$acc&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes";
-    say STDERR $url;
+    msg ("Sending REST query to ENA at URL: $url");
     
     my $ua = LWP::UserAgent->new;
     if (defined $http_proxy) {
@@ -215,7 +227,7 @@ sub get_fastq_urls {
     }
     
     my $response = $ua->get($url);
-    die "Cannot get $url: ", $response->status_line unless $response->is_success;
+    err ("Cannot get $url: ". $response->status_line) unless $response->is_success;
     my $tab = $response->content();
     
     foreach my $line (split /\n/, $tab) {
