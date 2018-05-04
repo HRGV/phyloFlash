@@ -1771,7 +1771,7 @@ sub emirge_run {
 
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\' "
-		 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 .$outfiles{"reads_mapped_cat"}{"filename"},
                  $outfiles{"reads_mapped_cat_rename"}{"filename"});
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
@@ -2061,23 +2061,39 @@ sub nhmmer_model_pos {
             $prok_pos{$hash{$readname}{"pos"}}++;
         }
     }
+    
+    # Total up number of hits per model. If fewer than 50 hits, do not draw
+    # histogram
+    my ($prok_total, $euk_total) = (0,0);
+    foreach my $pos (keys %prok_pos) { $prok_total += $prok_pos{$pos}; }
+    foreach my $pos (keys %euk_pos) { $euk_total += $euk_pos{$pos}; }
+    
     # Write result to prokaryote histogram
-    my $fh_prok;
-    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
-    foreach my $key (sort {$a <=> $b} keys %prok_pos) {
-        print $fh_prok $key."\t". $prok_pos{$key}."\n";
+    if ($prok_total >= 50) {
+        my $fh_prok;
+        open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
+        foreach my $key (sort {$a <=> $b} keys %prok_pos) {
+                print $fh_prok $key."\t". $prok_pos{$key}."\n";
+        }
+        close($fh_prok);
+        $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+    } else {
+        msg ("Fewer than 50 maps to prokaryotic SSU HMM model, skip plotting histogram...");
     }
-    close($fh_prok);
-    $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+    
     # Write results for eukaryote histogram
-    my $fh_euk;
-    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
-    foreach my $key (sort {$a <=> $b} keys %euk_pos) {
-        print $fh_euk $key."\t". $euk_pos{$key}."\n";
+    if ($euk_total >= 50) {
+        my $fh_euk;
+        open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
+        foreach my $key (sort {$a <=> $b} keys %euk_pos) {
+            print $fh_euk $key."\t". $euk_pos{$key}."\n";
+        }
+        close($fh_euk);
+        $outfiles{"nhmmer_euk_histogram"}{"made"}++;
+    } else {
+        msg ("Fewer than 50 maps to eukaryotic SSU HMM model, skip plotting histogram...");
     }
-    close($fh_euk);
-    $outfiles{"nhmmer_euk_histogram"}{"made"}++;
-
+    
     msg ("done");
 }
 
@@ -2108,16 +2124,19 @@ sub clean_up {
     # Compress output into tar.gz archive if requested
     if ($zip == 1) {
         my @filelist;
+        my @todelete;
         my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
         msg ("Compressing results into tar.gz archive $tarfile");
         foreach my $key (keys %outfiles) {
             if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
                 push @filelist, $outfiles{$key}{"filename"};
+                push @todelete, $outfiles{$key}{'filename'} unless $key eq 'report_html'; # Retain report file after zip
             }
         }
         my $to_tar = join " ", @filelist;
+        my $todelete_str = join " ", @todelete;
         system ("tar -czf $tarfile $to_tar");
-        system ("rm -r $to_tar");
+        system ("rm -r $todelete_str");
     }
 
     msg("Done...");
@@ -2197,11 +2216,16 @@ sub run_plotscript_SVG {
                         "-title=\"Coverage on 18S model\"",
                         "-color=\"blue\"",
                         );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_euk),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_euk_histogram"}{"filename"}) {
+            # Check that Nhmmer has output a nonzero-sized file (if no reads
+            # found, it will still produce output)
+            run_prog("plotscript_SVG",
+                     join (" ", @args_euk),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        }
+
         # Prokaryotic gene model
         my @args_prok = ("-hist",
                          $outfiles{"nhmmer_prok_histogram"}{"filename"},
@@ -2210,11 +2234,13 @@ sub run_plotscript_SVG {
                          "-title=\"Coverage on 16S model\"",
                          "-color=\"blue\"",
                          );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_prok),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_prok_histogram"}{"filename"}) {
+            run_prog("plotscript_SVG",
+                     join (" ", @args_prok),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        }
     }
 
     # Plot tree if spades/emirge unless no alignment was output
@@ -2427,8 +2453,8 @@ sub write_report_html {
 
     # Slurp in positional coverage histograms, if defined
     if ($poscov_flag == 1) {
-        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
-        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
+        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_prok_histogram_svg"}{"made"};
+        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_euk_histogram_svg"}{"made"};
     }
 
     # Params defined only for assembled (SPAdes) reads
