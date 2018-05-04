@@ -115,7 +115,7 @@ Default: 500000
 =item -id I<N>
 
 Minimum allowed identity for read mapping process in %. Must be within
-63..98. Set this to a lower value for very divergent taxa
+50..98. Set this to a lower value for very divergent taxa
 Default: 70
 
 =item -clusterid I<N>
@@ -844,10 +844,10 @@ sub bbmap_fast_filter_sam_run {
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
     }
-    # Minimum mapping ID of 63%
+    # Minimum mapping ID of 50%
     my $minID= $id / 100;
-    if ($minID < 0.63) {
-        $minID = 0.63
+    if ($minID < 0.50) {
+        $minID = 0.50
     }
     # Set up input arguments for BBmap
     my @bbmap_args = ("fast=t",
