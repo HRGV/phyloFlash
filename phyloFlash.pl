@@ -472,13 +472,13 @@ sub parse_cmdline {
     msg("Using dbhome '$DBHOME'");
 
     # verify valid lib name
-    pod2usage("Please specify output file basename with -lib")
+    pod2usage("Please specify output file basename with -lib\n")
         if !defined($libraryNAME);
-    pod2usage("\nArgument to -lib may not be empty")
+    pod2usage("\nERROR: Argument to -lib may not be empty\n")
         if length($libraryNAME) == 0;
-    pod2usage("\nArgument to -lib may contain only alphanumeric characters,"
-              ."'_' and '-'.")
-        if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
+    pod2usage("\nERROR: Argument to -lib may contain only alphanumeric characters,"
+              ."'_' and '-'.\n")
+        if $libraryNAME =~ m/[^a-zA-Z0-9_-]/ ;
 
     msg("working on library $libraryNAME");
 

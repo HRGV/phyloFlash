@@ -55,6 +55,8 @@ Path to local copy of Univec database file. Ignored if --remote flag is used.
 
 Do not delete intermediary files
 
+=back
+
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
@@ -108,7 +110,9 @@ GetOptions("remote|r" => \$use_remote,
            "univec_file=s" => \$univec_file,
            "CPUs=i" => \$cpus,  # override default CPU usage if necessary
            "keep|k" => \$keep,
-           "help|h" => sub{pod2usage(0)})
+           "help|h" => sub{pod2usage(-verbose=>1);},
+           "man|m" => sub {pod2usage(-verbose=>2);},
+           )
 or pod2usage(2);
 
 if ($use_remote==0 && ($silva_file eq "" | $univec_file eq "")) {
