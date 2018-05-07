@@ -531,8 +531,8 @@ sub parse_cmdline {
         if ($readlength < 50 or $readlength > 500);
     pod2usage("\nMaxinsert must be within 0..1200")
         if ($maxinsert < 0 or $maxinsert > 1200);
-    pod2usage("\nReadmapping identity (-id) must be within 63..98")
-        if ($id < 63 or $id > 98);
+    pod2usage("\nReadmapping identity (-id) must be within 50..98")
+        if ($id < 50 or $id > 98);
     pod2usage("\nClustering identidy (-clusterid) must be within 50..100")
         if ($clusterid < 50 or $clusterid > 100);
 
