@@ -145,6 +145,18 @@ Assembler used. Either "megahit" or "spades".
 
 Default: 'megahit'
 
+=item --compare-ssu I<FILE>
+
+=item --compare-zip I<FILE>
+
+If a targeted assembly of SSU rRNA has already been performed for this library,
+compare the sequences to those extracted from the metagenome assembly by barrnap.
+
+The sequences can be supplied either as a Fasta flie (option I<--compare-ssu>)
+or as a phyloFlash tar.gz archive (option I<--compare-zip>).
+
+Default: None.
+
 =back
 
 =head2 OUTPUT OPTIONS
