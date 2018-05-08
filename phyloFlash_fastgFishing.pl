@@ -9,13 +9,24 @@ phyloFlash_fastgFishing.pl
 
 =head1 DESCRIPTION
 
-From (meta)genome assembly graph in Fastg format, extract contig clusters with
-total length > cutoff (default 100 kbp), predict SSU rRNA sequences and match
+From (meta)genome assembly graph in Fastg format, predict SSU rRNA sequences,
+extract contig clusters with total length > cutoff (default 100 kbp), and match
 them to phyloFlash SSU rRNA-targeted assembly results.
 
 This is intended to aid binning of microbial genomes from metagenomes. Each
 cluster in a Fastg graph is likely to originate from a single genome, and so
 represents a putative genome bin.
+
+If only a Fasta and Fastg file are specified, predict SSU rRNA sequences in the
+Fasta contigs and report all contig clusters containing an SSU rRNA with total
+cluster length above the cutoff.
+
+If I<--clusteronly> option is used, then the SSU rRNA are not predicted, and the
+script simply returns all contig clusters above the length cutoff.
+
+If a Fasta file containing SSU rRNA sequences (e.g. from phyloFlash) is
+specified with option I<--ssufasta>, these will be searched against the Fasta
+contigs, and a table of which bin each sequence occurs in will also be reported.
 
 =cut
 
@@ -28,10 +39,13 @@ use lib $FindBin::RealBin;
 use PhyloFlash qw(msg err @msg_log $VERSION);
 use Data::Dumper;
 
+# Input files
 my $fastgfile; # Input Fastg file, assume from MegaHIT
 my $fastafile;
 my $pathsfile;
 my $out = "test";       # Output file prefix
+
+# Hashes
 my %edge_hash;          # Hash to store edge names from Fastg file
 #my %edge_seq_hash;      # Hash to store edge sequences from Fastg file
 my %node_seq_hash;      # Hash to store nucleotide sequences
@@ -41,11 +55,16 @@ my %node_cluster_hash;
 my %megahit_id_hash;
 my %edge2node_hash;     # Hash of Fasta nodes by Fastg edges
 my %node2edge_hash;  # Hash of Fastg edges (as array) by Fasta nodes (there can be more than one edge per node)
+
+# Options
 my $cutoff = 100000;
 my $dofasta;
 my $assembler = "megahit";
 my $list_fastg_header;
 my $list_fasta_header;
+my $barrnap_slurp;
+my $barrnap_path = "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV";
+my $CPUs = 8;
 
 pod2usage (-verbose => 1) if (!@ARGV);
 
@@ -58,6 +77,7 @@ GetOptions ("fastg=s" => \$fastgfile,
             "out|o=s" => \$out,
             "cutoff|c=i" => \$cutoff,
             "outfasta" => \$dofasta,
+            "CPUs=i" => \$CPUs,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man|m" => sub { pod2usage(-verbose=>3); },
             ) or pod2usage (-verbose=>1);
@@ -66,13 +86,13 @@ GetOptions ("fastg=s" => \$fastgfile,
 
 =over 8
 
-=item --fastg <file>
+=item --fastg I<FILE>
 
 Input Fastg file from Megahit or Spades. NB: The de facto Fastg format used by
 these programs differs from the Fastg standard, as described in the Bandage
 documentation.
 
-=item --fasta <file>
+=item --fasta I<FILE>
 
 Input Fasta file, to convert Fastg sequence identifiers to corresponding Fasta
 sequence IDs.
@@ -80,19 +100,25 @@ sequence IDs.
 If using MEGAHIT, this is the *.contigs.fa file. For SPAdes this is either the
 scaffolds or contigs file (after repeat resolution).
 
-=item --paths <file>
+=item --paths I<FILE>
 
 Input Paths file, to convert EDGE to NODE identifiers, if using SPAdes assembler.
 
-=item --assembler <string>
+=item --assembler I<STRING>
 
 Assembler used. Either "megahit" or "spades". (Default: 'megahit')
 
-=item --out|-o <string>
+=item --CPUs I<INTEGER>
+
+Number of CPUs to use for Barrnap rRNA prediction
+
+Default: 8
+
+=item --out|-o I<STRING>
 
 Output file name prefix (Default: 'test')
 
-=item --cutoff|-c <integer>
+=item --cutoff|-c I<INTEGER>
 
 Minimum total sequence length of contig cluster to be reported (Default: 100000)
 
@@ -119,7 +145,7 @@ if ($assembler eq 'megahit') {
     if (defined $pathsfile) {
         print STDERR "WARNING: Ignoring paths file, not part of Megahit output\n";
     }
-    
+
     read_megahit_fasta($fastafile,
                        \%node_seq_hash);
     my $href = megahit_edge2node(\%edge_hash,
@@ -193,7 +219,7 @@ foreach my $edge (keys %$edge_shortlist_href) {
 my $node_cluster_href = make_node2cluster(\%edge_cluster_hash,
                                           \%edge2node_hash);
 %node_cluster_hash = %$node_cluster_href;
-# Get edge/node names hashed by cluster 
+# Get edge/node names hashed by cluster
 my $clust2edge_href = refactor_hash (\%edge_cluster_hash);
 my $clust2node_href = refactor_hash (\%node_cluster_hash);
 
@@ -216,7 +242,7 @@ foreach my $clust (sort {$clust_stats_href->{$b}{'length'} <=> $clust_stats_href
         foreach my $node (@{$clust2node_href->{$clust}}) {
             print $fh_node2clust $bin."\t".$node."\n";
             if ($dofasta) {
-                # Print fasta output if requested 
+                # Print fasta output if requested
                 print $fh_fasta ">".$node."\n";
                 my $shortid;
                 if ($assembler eq 'spades') {
@@ -236,12 +262,20 @@ close ($fh_node2clust);
 
 ## SUBS ########################################################################
 
+sub run_barrnap_on_fasta {
+    my ($file, $bin, $threads) = @_;
+    my @barrnap_args = ('--quiet',
+                        "--threads $threads",
+                        );
+
+}
+
 sub flip_edge2node {
     # Convert edge2node hash to node2edge
     my ($href) = @_;
     my %hash;
     foreach my $edge (keys %$href) {
-        my @nodes = @{$href->{$edge}}; # There can be mroe than one node per edge
+        my @nodes = @{$href->{$edge}}; # There can be more than one node per edge
         foreach my $node (@nodes) {
             my ($nodeshort, @discard) = split /\s+/, $node; # Split on first space because HMMer does
             push @{$hash{$nodeshort}}, $edge; # There can be more than one edge per node
@@ -256,7 +290,7 @@ sub spades_edge2node {
     my ($file, # Paths file from SPAdes
         $edge_href,
         $node_href) = @_;
-    
+
     # Get full names of edges from edge hash
     my %edgefull;
     foreach my $edge (keys %$edge_href) {
@@ -264,7 +298,7 @@ sub spades_edge2node {
             $edgefull{$1} = $edge;
         }
     }
-    
+
     # Parse paths file
     my %hash;
     open (my $fh, "<", $file) or die ("$!");
@@ -345,7 +379,7 @@ sub read_megahit_fasta {
             my $node = $2;      # Get NODE id
             $line =~ s/^>//;    # Remove leading ">" character from ID
             $href->{$node}{'id'} = $line; # Hash sequence ID
-            $current_id = $node;          # Set current sequence 
+            $current_id = $node;          # Set current sequence
         } else {
             $href->{$current_id}{'seq'} .= $line;
         }
@@ -442,9 +476,9 @@ sub read_hash_fastg {
                     push @{$conhref->{$id_only}}, $currconn;
                 }
             }
-            # Store Edge name 
+            # Store Edge name
             $edgehref->{$id_only} = 1;
-        } 
+        }
     }
     close ($fh);
 }
