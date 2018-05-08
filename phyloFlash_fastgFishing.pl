@@ -37,7 +37,7 @@ use Pod::Usage;
 use FindBin;
 use lib $FindBin::RealBin;
 use PhyloFlash qw(msg err @msg_log $VERSION);
-use Data::Dumper;
+#use Data::Dumper;
 
 # Input files
 my $fastgfile; # Input Fastg file, assume from MegaHIT
@@ -58,13 +58,17 @@ my %node2edge_hash;  # Hash of Fastg edges (as array) by Fasta nodes (there can 
 
 # Options
 my $cutoff = 100000;
+my $rejectthreshold = 0.2; # Minimum frac of full-length to reject as 16S (for barrnap)
 my $dofasta;
 my $assembler = "megahit";
 my $list_fastg_header;
 my $list_fasta_header;
 my $barrnap_slurp;
 my $barrnap_path = "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV";
+my $gff_aref;
+my $contig_shortlist_href;
 my $CPUs = 8;
+my $clusteronly;
 
 pod2usage (-verbose => 1) if (!@ARGV);
 
@@ -76,10 +80,13 @@ GetOptions ("fastg=s" => \$fastgfile,
             "list_fasta=s" => \$list_fasta_header,  # List of Fasta headers to use as "bait" for extracting contig clusters
             "out|o=s" => \$out,
             "cutoff|c=i" => \$cutoff,
+            "min-SSU-frac=f" => \$rejectthreshold,
             "outfasta" => \$dofasta,
+            "clusteronly" => \$clusteronly,
             "CPUs=i" => \$CPUs,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man|m" => sub { pod2usage(-verbose=>3); },
+            "version|v" => sub { welcome(); exit(); },
             ) or pod2usage (-verbose=>1);
 
 =head1 ARGUMENTS
@@ -108,6 +115,13 @@ Input Paths file, to convert EDGE to NODE identifiers, if using SPAdes assembler
 
 Assembler used. Either "megahit" or "spades". (Default: 'megahit')
 
+=item --clusteronly
+
+Do not search for SSU rRNA sequences, instead only report all connected contig 
+clusters above length threshold, regardless of whether they have SSU rRNA or not
+
+Default: Off
+
 =item --CPUs I<INTEGER>
 
 Number of CPUs to use for Barrnap rRNA prediction
@@ -122,6 +136,10 @@ Output file name prefix (Default: 'test')
 
 Minimum total sequence length of contig cluster to be reported (Default: 100000)
 
+=item --min-SSU-frac I<NUMERIC>
+
+
+
 =item --outfasta
 
 Logical: Output Fasta files for clusters with total length above cutoff?
@@ -133,17 +151,33 @@ Logical: Output Fasta files for clusters with total length above cutoff?
 
 ## MAIN ########################################################################
 
+welcome();
+
 ## INPUT ##############################
 
+# Run barrnap to predict 16S on Fasta file
+
+unless ($clusteronly) {
+    msg ("Running Barrnap to extract 16S rRNA sequences from Fasta file $fastafile");
+    $gff_aref = run_barrnap_on_fasta($fastafile,$barrnap_path, $CPUs);
+    if (defined $gff_aref) {
+        $contig_shortlist_href = ssu_contigs_from_barrnap_gff($gff_aref);
+        my $num_hits = scalar (keys %$contig_shortlist_href);
+        msg ("Number of contigs containing SSU rRNA above $rejectthreshold of full-length found: $num_hits");
+    }
+}
+
 # Read in the Fastg file containing edges and graph connectivity info
+msg ("Reading contig graph from Fastg file $fastgfile");
 read_hash_fastg($fastgfile,
                 \%edge_hash,
                 \%connected_hash);
 
 # Read in the Fasta and Paths files to translate edges to nodes
+msg ("Translating edge names to node names");
 if ($assembler eq 'megahit') {
     if (defined $pathsfile) {
-        print STDERR "WARNING: Ignoring paths file, not part of Megahit output\n";
+        msg "WARNING: Ignoring paths file, not part of Megahit output\n";
     }
 
     read_megahit_fasta($fastafile,
@@ -154,7 +188,7 @@ if ($assembler eq 'megahit') {
 } elsif ($assembler eq 'spades') {
     if (!defined $pathsfile) {
         # Catch exception
-        die ("ERROR: Please specify SPAdes 'paths' file to --paths\n");
+        err ("ERROR: Please specify SPAdes 'paths' file to --paths\n");
     }
     read_spades_fasta($fastafile,
                       \%node_seq_hash);
@@ -163,16 +197,22 @@ if ($assembler eq 'megahit') {
                                  \%node_seq_hash);
     %edge2node_hash = %$href;
 } else {
-    die("ERROR: Please specify either 'megahit' or 'spades' as --assembler\n");
+    err ("ERROR: Please specify either 'megahit' or 'spades' as --assembler\n");
 }
 
 my $href = flip_edge2node(\%edge2node_hash);
 %node2edge_hash = %$href;
 
+if (defined $contig_shortlist_href) {
+    get_barrnap_hit_seqs($contig_shortlist_href, \%node_seq_hash);
+}
+
+
 ## FISHING ############################
 
 my $edge_shortlist_href;
 if (defined $list_fastg_header) {
+    msg ("Using shortlist of defined Fastg header names from file $list_fastg_header");
     # Iterate through Fastg header IDs and pull out clusters of connected contigs
     open(my $fhin, "<", $list_fastg_header) or die ("$!");
     while (my $line = <$fhin>) {
@@ -183,6 +223,7 @@ if (defined $list_fastg_header) {
 } elsif (defined $list_fasta_header) {
     # Convert Fasta contig IDs to corresponding Fastg IDs, and pull out clusters
     # of connected configs
+    msg ("Using shortlist of defined Fasta header names from file $list_fasta_header");
     open(my $fhin, "<", $list_fasta_header) or die ("$!");
     while (my $line = <$fhin>) {
         chomp $line;
@@ -192,10 +233,20 @@ if (defined $list_fastg_header) {
         }
     }
     close($fhin);
+} elsif (defined $contig_shortlist_href && ref($contig_shortlist_href) eq 'HASH') {
+    msg ("Using contigs identified with SSU rRNA sequences by barrnap");
+    foreach my $contig (keys %$contig_shortlist_href) {
+        foreach my $edge (@{$node2edge_hash{$contig}}) {
+            $edge_shortlist_href->{$edge} = $contig;
+        }
+    }
 } else {
     # Get ALL clusters
+    msg ("Finding all clusters of connected contigs");
     $edge_shortlist_href = \%edge_hash;
 }
+
+msg ("Iteratively finding connected contigs from Fastg graph");
 
 # Initialize names in ID cluster hash
 # Iterate through ALL node IDs and pull out clusters of connected contigs
@@ -225,49 +276,214 @@ my $clust2node_href = refactor_hash (\%node_cluster_hash);
 
 # Get lengths of node sequences and compute total length / nodes per cluster
 my $seq_lens_href = get_seq_lens(\%node_seq_hash);
-my $clust_stats_href = get_cluster_stats($node_cluster_href,
-                                         $seq_lens_href);
 
-# Report clusters in descending length above cutoff
-open (my $fh_summary, ">", "$out.clustersummary.tab") or die ("$!");            # File handle for summary table
-open (my $fh_node2clust, ">", "$out.nodes_to_cluster.tab") or die ("$!");       # File handle for node ID to cluster list
-my $bin_counter = 0;    # Counter for number of bins
+my ($clust_stats_href, $ssuid2clust_href) = get_cluster_stats($node_cluster_href,
+                                                              $seq_lens_href,
+                                                              $contig_shortlist_href);
 
-# For each cluster, in descending order of total sequence length...
-foreach my $clust (sort {$clust_stats_href->{$b}{'length'} <=> $clust_stats_href->{$a}{'length'}} keys %$clust_stats_href) {
-    my $bin = "bin$bin_counter"; # Name for bin, numbered in descending order of size
-    if ($clust_stats_href->{$clust}{'length'} > $cutoff) {
-        print $fh_summary $bin."\t".$clust_stats_href->{$clust}{'length'}."\t".$clust_stats_href->{$clust}{'nodes'}."\n";
-        open (my $fh_fasta, ">", "$out.$bin.fasta") if $dofasta; # Fasta output of cluster if option called
-        foreach my $node (@{$clust2node_href->{$clust}}) {
-            print $fh_node2clust $bin."\t".$node."\n";
-            if ($dofasta) {
-                # Print fasta output if requested
-                print $fh_fasta ">".$node."\n";
-                my $shortid;
-                if ($assembler eq 'spades') {
-                    ($shortid) = $node =~ m/NODE_(\d+)_/;
-                } else {
-                    ($shortid) = $node =~ m/k\d+_(\d+)/;
-                }
-                print $fh_fasta $node_seq_hash{$shortid}{'seq'}."\n";
+msg ("Reporting contig cluster summary to $out.cluster_stats.tab");
+msg ("Reporting table of extracted SSU IDs vs bins to $out.cluster_ssu_summary.tab") if defined $gff_aref;
+report_cluster_summary($clust_stats_href,
+                       $ssuid2clust_href,
+                       "$out.cluster_stats.tab",
+                       "$out.cluster_ssu_summary.tab");
+
+msg ("Reporting list of contig names per cluster to $out.nodes_to_cluster.tab");
+msg ("Writing Fasta files of each genome bin to $out.binXX.fasta") if $dofasta;
+report_nodes_to_cluster($clust_stats_href,
+                        $clust2node_href,
+                        \%node_seq_hash,
+                        "$out.nodes_to_cluster.tab");
+
+if (defined $gff_aref) {
+    msg ("Writing GFF file from Barrnap to $out.barrnap.gff");
+    open(my $fh_gff, ">", "$out.barrnap.gff") or die ("$!");
+    foreach my $entry (@$gff_aref) {
+        print $fh_gff $entry;
+        print $fh_gff "\n";
+    }
+    close ($fh_gff);
+    
+    if ($dofasta) {
+        msg ("Writing sequences of extracted SSU rRNA to $out.barrnap_SSU.fasta");
+        open(my $fh_ssu, ">", "$out.barrnap_SSU.fasta") or die ("$!");
+        foreach my $contig (keys %$contig_shortlist_href) {
+            foreach my $id (keys %{$contig_shortlist_href->{$contig}}) {
+                print $fh_ssu ">$id\n";
+                print $fh_ssu $contig_shortlist_href->{$contig}{$id}{'seq'};
+                print $fh_ssu "\n";
             }
         }
-        close ($fh_fasta) if $dofasta;
+        close ($fh_ssu);
     }
-    $bin_counter ++;
 }
-close ($fh_summary);
-close ($fh_node2clust);
 
 ## SUBS ########################################################################
 
+
+sub get_barrnap_hit_seqs {
+    my ($hit_href,
+        $nodeseq_href) = @_;
+    foreach my $contig (keys %$hit_href) {
+        foreach my $id (keys %{$hit_href->{$contig}}) {
+            my @splitgff = split /\t/, $hit_href->{$contig}{$id}{'gff'};
+            my $start = $splitgff[3];
+            my $stop = $splitgff[4];
+            my $length = $stop - $start + 1;
+            my $offset = $start - 1;
+            my $shortid;
+            if ($assembler eq 'spades') {
+                ($shortid) = $contig =~ m/NODE_(\d+)_/;
+            } else {
+                ($shortid) = $contig =~ m/k\d+_(\d+)/;
+            }
+            
+            my $seq = substr $nodeseq_href->{$shortid}{'seq'}, $offset, $length;
+            $seq = revcomp_DNA($seq) if ($splitgff[6] eq '-');
+            $hit_href->{$contig}{$id}{'seq'} = $seq if defined $seq;
+            $hit_href->{$contig}{$id}{'length'} = $length if defined $seq;
+            $hit_href->{$contig}{$id}{'offset'} = $offset if defined $seq;
+        }
+    }
+}
+
+sub revcomp_DNA {
+    my ($seq) = @_;
+    my $rev = reverse $seq;
+    $rev =~ tr/ATCGatcgYRWSKMDVHByrwskmdvhb/TAGCtagcRYWSMKHBDVrywsmkhbdv/; # Include ambiguity codes
+    return $rev;
+}
+
+sub report_nodes_to_cluster {
+    my ($cluster_href,
+        $clust2node_href,
+        $node2seq_href,
+        $outfile,
+        ) = @_;
+    # Report clusters in descending length above cutoff
+    open (my $fh_node2clust, ">", $outfile) or die ("$!");       # File handle for node ID to cluster list
+    my $bin_counter = 0;    # Counter for number of bins
+    
+    # For each cluster, in descending order of total sequence length...
+    foreach my $clust (sort {$cluster_href->{$b}{'length'} <=> $cluster_href->{$a}{'length'}} keys %$cluster_href) {
+        my $bin = "bin$bin_counter"; # Name for bin, numbered in descending order of size
+        if ($cluster_href->{$clust}{'length'} > $cutoff) {
+            open (my $fh_fasta, ">", "$out.$bin.fasta") if $dofasta; # Fasta output of cluster if option called
+            foreach my $node (@{$clust2node_href->{$clust}}) {
+                print $fh_node2clust $bin."\t".$node."\n";
+                if ($dofasta) {
+                    # Print fasta output if requested
+                    print $fh_fasta ">".$node."\n";
+                    my $shortid;
+                    if ($assembler eq 'spades') {
+                        ($shortid) = $node =~ m/NODE_(\d+)_/;
+                    } else {
+                        ($shortid) = $node =~ m/k\d+_(\d+)/;
+                    }
+                    print $fh_fasta $node2seq_href->{$shortid}{'seq'}."\n";
+                }
+            }
+            close ($fh_fasta) if $dofasta;
+        }
+        $bin_counter ++;
+    }
+    close ($fh_node2clust);
+}
+
+sub report_cluster_summary {
+    my ($cluster_href,
+        $ssuid2clust_href,
+        $outfile,
+        $outfile2,
+       ) = @_;
+    my %clust2bin;
+    open (my $fh_summary, ">", $outfile) or die ("$!");            # File handle for summary table
+    my @head_arr = qw(bin length contigs);
+    push @head_arr, 'num_ssu' unless $clusteronly;
+    print $fh_summary "#".join("\t", @head_arr)."\n"; # Header line
+    my $bin_counter = 0;
+    foreach my $clust (sort {$cluster_href->{$b}{'length'} <=> $cluster_href->{$a}{'length'}} keys %$cluster_href) {
+        my $bin = "bin$bin_counter"; # Name for bin, numbered in descending order of size
+        $clust2bin{$clust} = $bin;
+        if ($cluster_href->{$clust}{'length'} > $cutoff) {
+            my @out_arr = ($bin,
+                           $cluster_href->{$clust}{'length'},
+                           $cluster_href->{$clust}{'nodes'},
+                           );
+            push @out_arr, $cluster_href->{$clust}{'ssu'} unless $clusteronly;
+            print $fh_summary join "\t", @out_arr;
+            print $fh_summary "\n";
+        }
+        $bin_counter ++;
+    }
+        
+    close ($fh_summary);
+    
+    if (defined $ssuid2clust_href && ref($ssuid2clust_href) eq 'HASH' && !defined $clusteronly) {
+        open (my $fh_ssulist, ">", $outfile2) or die ("$!");
+        print $fh_ssulist "#".join ("\t", qw(ssu_id bin note))."\n";
+        foreach my $ssuid (sort keys %$ssuid2clust_href) {
+            my $clust = $ssuid2clust_href->{$ssuid};
+            my @outarr = ($ssuid, $clust2bin{$clust});
+            if ($cluster_href->{$clust}{'length'} < $cutoff) {
+                push @outarr, 'Below length cutoff';
+            } else {
+                push @outarr, '';
+            }
+            print $fh_ssulist join "\t", @outarr;
+            print $fh_ssulist "\n";
+        }
+        close ($fh_ssulist);
+    }
+
+}
+
+sub welcome {
+    print STDERR "This is phyloFlash_fastgFishing.pl from phyloFlash v$VERSION\n";
+}
+
+sub ssu_contigs_from_barrnap_gff {
+    # Get names of contigs containing 16S rRNA hits from barrnap GFF results
+    # Return ref to array of contig names
+    my ($aref,          # Ref to array of GFF file
+        ) = @_;
+    my %outhash;
+    foreach my $line (@$aref) {
+        next if $line =~ m/^#/; # Skip header
+        my @splitline = split /\t/, $line;
+        if (defined $splitline[8] && $splitline[8] =~ m/Name=16S_rRNA/) {
+            #push @{$outhash{$splitline[0]}}, $line;
+            my ($id) = ($splitline[8] =~ m/ID=(.+?);/);
+            $outhash{$splitline[0]}{$id}{'gff'} = $line;
+        }
+    }
+    return \%outhash;
+}
+
 sub run_barrnap_on_fasta {
-    my ($file, $bin, $threads) = @_;
+    my ($file,          # Fasta file
+        $bin,           # Path to Barrnap
+        $threads        # Num threads for barrnap
+        ) = @_;
+    my @outarr;
     my @barrnap_args = ('--quiet',
                         "--threads $threads",
+                        "--reject $rejectthreshold",
                         );
-
+    my $barrnap_cmd = join " ", ($bin, @barrnap_args, $file);
+    msg ("Running barrnap with the command: $barrnap_cmd");
+    my $barrnap_gff_str = `$barrnap_cmd`;
+    my @barrnap_gff_arr = split /\n/, $barrnap_gff_str;
+    my %idcounter;
+    foreach my $line (@barrnap_gff_arr) {
+        my @splitline = split /\t/, $line;
+        if (defined $splitline[8]) {
+            $idcounter{$splitline[0]} ++;
+            $splitline[8] = "ID=$splitline[0]_$idcounter{$splitline[0]};".$splitline[8];
+        }
+        push @outarr, join "\t", @splitline;
+    }
+    return \@outarr;
 }
 
 sub flip_edge2node {
@@ -389,15 +605,23 @@ sub read_megahit_fasta {
 
 sub get_cluster_stats {
     # Get total sequence length of each cluster
-    my ($clusthref, $lenhref) = @_;
-    my %hash;
+    my ($clusthref, $lenhref, $ssuhit_href) = @_;
+    my %hash;       # Hash of cluster summary stats
+    my %hash2;      # Hash of cluster hashed by ssu ID
     foreach my $node (keys %$clusthref) {
+        my ($nodeshort,@discard) = split /\s+/, $node;
         my $clust = $clusthref->{$node};
         my $len = $lenhref->{$node};
         $hash{$clust}{'length'} += $len if defined $len;
         $hash{$clust}{'nodes'} ++ if defined $clust;
+        if (defined $ssuhit_href->{$nodeshort}) {
+            $hash{$clust}{'ssu'} += scalar(keys %{$ssuhit_href->{$nodeshort}});
+            foreach my $id (keys %{$ssuhit_href->{$nodeshort}}) {
+                $hash2{$id} = $clust;
+            }
+        }
     }
-    return \%hash;
+    return (\%hash, \%hash2);
 }
 
 sub print_node_cluster_tab {
@@ -493,10 +717,6 @@ sub get_seq_lens {
         $hash{$id} = $len;
     }
     return \%hash;
-}
-
-sub welcome {
-    print STDERR "This is phyloFlash_fastgFishing.pl from phyloFlash v$VERSION\n";
 }
 
 
