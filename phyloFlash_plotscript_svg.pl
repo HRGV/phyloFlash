@@ -24,7 +24,7 @@ Output files are simply input filename with .svg suffix, silently overwritten.
 
 use strict;
 use warnings;
-use diagnostics;
+#use diagnostics;
 use Pod::Usage;
 use POSIX qw (ceil floor);
 use List::Util qw(min max);
