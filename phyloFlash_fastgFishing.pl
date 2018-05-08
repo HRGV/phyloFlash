@@ -1,11 +1,24 @@
 #!/usr/bin/env perl
+
 =head1 NAME
 
 phyloFlash_fastgFishing.pl - Bin genomes from Fastg graph by SSU sequence
 
 =head1 SYNOPSIS
 
-phyloFlash_fastgFishing.pl
+### Megahit assembly
+
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --out [PREFIX]
+
+### SPAdes assembly
+
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out [PREFIX]
+
+### Help
+
+phyloFlash_fastgFishing.pl --help
+
+phyloFlash_fastgFishing.pl --man
 
 =head1 DESCRIPTION
 
@@ -70,7 +83,7 @@ my $contig_shortlist_href;
 my $CPUs = 8;
 my $clusteronly;
 
-pod2usage (-verbose => 1) if (!@ARGV);
+pod2usage (-verbose => 0) if (!@ARGV);
 
 GetOptions ("fastg=s" => \$fastgfile,
             "fasta=s" => \$fastafile,
@@ -84,12 +97,15 @@ GetOptions ("fastg=s" => \$fastgfile,
             "outfasta" => \$dofasta,
             "clusteronly" => \$clusteronly,
             "CPUs=i" => \$CPUs,
+            "barrnap-path=s" => \$barrnap_path,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man|m" => sub { pod2usage(-verbose=>3); },
             "version|v" => sub { welcome(); exit(); },
             ) or pod2usage (-verbose=>1);
 
 =head1 ARGUMENTS
+
+=head2 INPUT
 
 =over 8
 
@@ -115,6 +131,16 @@ Input Paths file, to convert EDGE to NODE identifiers, if using SPAdes assembler
 
 Assembler used. Either "megahit" or "spades". (Default: 'megahit')
 
+=back
+
+=head2 OUTPUT OPTIONS
+
+=over 8
+
+=item --out|-o I<STRING>
+
+Output file name prefix (Default: 'test')
+
 =item --clusteronly
 
 Do not search for SSU rRNA sequences, instead only report all connected contig 
@@ -122,28 +148,51 @@ clusters above length threshold, regardless of whether they have SSU rRNA or not
 
 Default: Off
 
-=item --CPUs I<INTEGER>
-
-Number of CPUs to use for Barrnap rRNA prediction
-
-Default: 8
-
-=item --out|-o I<STRING>
-
-Output file name prefix (Default: 'test')
-
 =item --cutoff|-c I<INTEGER>
 
 Minimum total sequence length of contig cluster to be reported (Default: 100000)
 
 =item --min-SSU-frac I<NUMERIC>
 
+Minimum fraction of SSU sequence to report (parameter passed to the '--reject'
+option in Barrnap)
 
+Default: 0.2
 
 =item --outfasta
 
 Logical: Output Fasta files for clusters with total length above cutoff?
 (Default: No)
+
+=back
+
+=head2 USAGE OPTIONS
+
+=over 8
+
+=item --CPUs I<INTEGER>
+
+Number of CPUs to use for Barrnap rRNA prediction
+
+Default: 8
+
+=item --barnap-path I<PATH>
+
+Path to barrnap executable
+
+Default: Use version bundled with phyloFlash
+
+=item --help|-h
+
+Brief help message
+
+=item --man|-m
+
+Manual page
+
+=item --version|-v
+
+Report phyloFlash version
 
 =back
 
