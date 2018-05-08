@@ -129,7 +129,9 @@ Input Paths file, to convert EDGE to NODE identifiers, if using SPAdes assembler
 
 =item --assembler I<STRING>
 
-Assembler used. Either "megahit" or "spades". (Default: 'megahit')
+Assembler used. Either "megahit" or "spades".
+
+Default: 'megahit'
 
 =back
 
@@ -139,7 +141,9 @@ Assembler used. Either "megahit" or "spades". (Default: 'megahit')
 
 =item --out|-o I<STRING>
 
-Output file name prefix (Default: 'test')
+Output file name prefix
+
+Default: 'test'
 
 =item --clusteronly
 
@@ -162,7 +166,8 @@ Default: 0.2
 =item --outfasta
 
 Logical: Output Fasta files for clusters with total length above cutoff?
-(Default: No)
+
+Default: No
 
 =back
 
