@@ -38,8 +38,11 @@ If I<--clusteronly> option is used, then the SSU rRNA are not predicted, and the
 script simply returns all contig clusters above the length cutoff.
 
 If a Fasta file containing SSU rRNA sequences (e.g. from phyloFlash) is
-specified with option I<--ssufasta>, these will be searched against the Fasta
+specified with option I<--compare-ssu>, these will be searched against the Fasta
 contigs, and a table of which bin each sequence occurs in will also be reported.
+If you have a phyloFlash (v3.1+) output tar.gz archive, you can specify it with
+the option I<--compare-zip> and the assembled SSU file will be automatically
+extracted for you.
 
 =cut
 
@@ -50,6 +53,9 @@ use Pod::Usage;
 use FindBin;
 use lib $FindBin::RealBin;
 use PhyloFlash qw(msg err @msg_log $VERSION);
+use File::Temp;
+use File::Basename;
+use Archive::Tar;
 #use Data::Dumper;
 
 # Input files
@@ -57,6 +63,8 @@ my $fastgfile; # Input Fastg file, assume from MegaHIT
 my $fastafile;
 my $pathsfile;
 my $out = "test";       # Output file prefix
+my $comparessu;
+my $comparezip;
 
 # Hashes
 my %edge_hash;          # Hash to store edge names from Fastg file
@@ -78,6 +86,8 @@ my $list_fastg_header;
 my $list_fasta_header;
 my $barrnap_slurp;
 my $barrnap_path = "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV";
+my $vsearch_path = "vsearch";
+my $mafft_path = "mafft";
 my $gff_aref;
 my $contig_shortlist_href;
 my $CPUs = 8;
@@ -88,6 +98,8 @@ pod2usage (-verbose => 0) if (!@ARGV);
 GetOptions ("fastg=s" => \$fastgfile,
             "fasta=s" => \$fastafile,
             "paths=s" => \$pathsfile,
+            "compare-ssu=s" => \$comparessu,
+            "compare-zip=s" => \$comparezip,
             "assembler|a=s" => \$assembler,
             "list_fastg=s" => \$list_fastg_header,  # List of Fastg headers to use as "bait" for extracting contig clusters
             "list_fasta=s" => \$list_fasta_header,  # List of Fasta headers to use as "bait" for extracting contig clusters
@@ -358,7 +370,7 @@ if (defined $gff_aref) {
     }
     close ($fh_gff);
     
-    if ($dofasta) {
+    if ($dofasta || defined $comparessu || defined $comparezip) {
         msg ("Writing sequences of extracted SSU rRNA to $out.barrnap_SSU.fasta");
         open(my $fh_ssu, ">", "$out.barrnap_SSU.fasta") or die ("$!");
         foreach my $contig (keys %$contig_shortlist_href) {
@@ -372,8 +384,77 @@ if (defined $gff_aref) {
     }
 }
 
+if (defined $comparezip && -f $comparezip) {
+    msg ("Using assembled SSU rRNA from phyloFlash run archived in file $comparezip");
+    my ($comparezip_base, $comparezip_dir) = fileparse $comparezip;
+    if ($comparezip_base =~ m/(.+)\.phyloFlash\.tar\.gz/) {
+        my $lib = $1;
+        my $tarhandle = Archive::Tar->new();
+        $tarhandle->read($comparezip);
+        if ($tarhandle->contains_file("$lib.all.final.fasta")) {
+            $tarhandle->extract("$lib.all.final.fasta");
+            $comparessu = "$lib.all.final.fasta";
+        } else {
+            msg ("Fasta file of assembled SSU rRNA not found in phyloFlash archive. Perhaps archive file has been renamed, or no SSU was assembled?");
+        }
+        
+        
+    } else {
+        msg ("Filename supplied to $comparezip does not match expected pattern for phyloFlash tar.gz archive");
+    }
+    
+}
+
+if (defined $comparessu && -f $comparessu) {
+    msg ("Comparing extracted SSU rRNA from assembly to user-specified set of sequences in $comparessu");
+    compare_ssu_vsearch($comparessu,
+                        "$out.barrnap_SSU.fasta",
+                        "$out.compare-ssu.alnout",
+                        "$out.compare-ssu.samout",
+                        );
+    compare_ssu_mafft($comparessu,
+                      "$out.barrnap_SSU.fasta");
+}
+
 ## SUBS ########################################################################
 
+sub compare_ssu_mafft {
+    my ($fasta1,
+        $fasta2,
+       ) = @_;
+    my $concatout = "$out.compare-ssu_concat.fasta";
+    system ("cat $fasta1 $fasta2 > $concatout");
+    my $treeout = "$concatout.tree";
+    my @mafft_args = ('--quiet',
+                      "--treeout $concatout",
+                      ">",
+                      "$concatout.mafft");
+    my $mafft_cmd = join " ", ($mafft_path, @mafft_args);
+    msg ("Running mafft with command: $mafft_cmd");
+    system ($mafft_cmd);
+}
+
+sub compare_ssu_vsearch {
+    my ($db,
+        $query,
+        $alnoutfile,
+        $samoutfile,
+        ) = @_;
+    my @vsearch_args = ("--usearch_global $query",
+                        "--db $db",
+                        '--id 0.95',
+                        '--maxhits 1',
+                        "--threads $CPUs",
+                        '--quiet',
+#                        "--blast6out $blast6outfile",
+                        "--alnout $alnoutfile",
+                        "--samout $samoutfile",
+                        );
+    my $vsearch_cmd = join " ", ($vsearch_path, @vsearch_args);
+    msg ("Running vsearch with command: $vsearch_cmd");
+    my $returnval = system ($vsearch_cmd);
+    return ($returnval);
+}
 
 sub get_barrnap_hit_seqs {
     my ($hit_href,
@@ -489,7 +570,6 @@ sub report_cluster_summary {
         }
         close ($fh_ssulist);
     }
-
 }
 
 sub welcome {
