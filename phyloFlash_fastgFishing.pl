@@ -409,12 +409,9 @@ if (defined $comparezip && -f $comparezip) {
         } else {
             msg ("Fasta file of assembled SSU rRNA not found in phyloFlash archive. Perhaps archive file has been renamed, or no SSU was assembled?");
         }
-        
-        
     } else {
         msg ("Filename supplied to $comparezip does not match expected pattern for phyloFlash tar.gz archive");
     }
-    
 }
 
 if (defined $comparessu && -f $comparessu) {
@@ -484,7 +481,6 @@ sub get_barrnap_hit_seqs {
             } else {
                 ($shortid) = $contig =~ m/k\d+_(\d+)/;
             }
-            
             my $seq = substr $nodeseq_href->{$shortid}{'seq'}, $offset, $length;
             $seq = revcomp_DNA($seq) if ($splitgff[6] eq '-');
             $hit_href->{$contig}{$id}{'seq'} = $seq if defined $seq;
@@ -510,7 +506,6 @@ sub report_nodes_to_cluster {
     # Report clusters in descending length above cutoff
     open (my $fh_node2clust, ">", $outfile) or die ("$!");       # File handle for node ID to cluster list
     my $bin_counter = 0;    # Counter for number of bins
-    
     # For each cluster, in descending order of total sequence length...
     foreach my $clust (sort {$cluster_href->{$b}{'length'} <=> $cluster_href->{$a}{'length'}} keys %$cluster_href) {
         my $bin = "bin$bin_counter"; # Name for bin, numbered in descending order of size
@@ -563,9 +558,7 @@ sub report_cluster_summary {
         }
         $bin_counter ++;
     }
-        
     close ($fh_summary);
-    
     if (defined $ssuid2clust_href && ref($ssuid2clust_href) eq 'HASH' && !defined $clusteronly) {
         open (my $fh_ssulist, ">", $outfile2) or die ("$!");
         print $fh_ssulist "#".join ("\t", qw(ssu_id bin note))."\n";
@@ -652,7 +645,6 @@ sub spades_edge2node {
     my ($file, # Paths file from SPAdes
         $edge_href,
         $node_href) = @_;
-
     # Get full names of edges from edge hash
     my %edgefull;
     foreach my $edge (keys %$edge_href) {
@@ -660,7 +652,6 @@ sub spades_edge2node {
             $edgefull{$1} = $edge;
         }
     }
-
     # Parse paths file
     my %hash;
     open (my $fh, "<", $file) or die ("$!");
@@ -836,7 +827,6 @@ sub read_hash_fastg {
             # : character separates current node id and list of connected nodes
             my ($id, $conn) = split /:/, $entry;
             my $id_only = $id =~ s/'$//r;
-
             if (defined $conn) {
                 # List of connected nodes is separated by ,
                 my @conns = split /,/, $conn;
