@@ -4,7 +4,7 @@ use warnings;
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
-an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
+an Illumina (meta)genomic dataset and reconstruct SSU rRNA genes
 
 =head1 SYNOPSIS
 
@@ -18,14 +18,16 @@ B<phyloFlash.pl> -check_env
 
 =head1 DESCRIPTION
 
-This tool rapidly approximates the phylogenetic composition of a
-(meta)genomic read set based on SSU mapping and reconstruction.
-Right now Illumina paired end or single HiSeq and MiSeq reads
-are supported.
+This tool rapidly approximates the phylogenetic composition of a (meta)genomic
+library by mapping reads to a reference SSU rRNA database, and reconstructing
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired- or
+single-end HiSeq and MiSeq reads.
 
-=head1 INPUT ARGUMENTS
+=head1 ARGUMENTS
 
-=over 15
+=head2 INPUT
+
+=over 8
 
 =item -lib I<NAME>
 
@@ -60,11 +62,15 @@ Show manual.
 
 Show detailed list of output and temporary files and exit.
 
+=item -version
+
+Report version
+
 =back
 
-=head1 LOCAL SETTINGS
+=head2 LOCAL SETTINGS
 
-=over 15
+=over 8
 
 =item -CPUs I<N>
 
@@ -77,6 +83,7 @@ Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
 =item -decimalcomma
 
 Use decimal comma instead of decimal point to fix locale problems.
+
 Default: Off
 
 =item -dbhome F<DIR>
@@ -86,9 +93,9 @@ Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
 =back
 
-=head1 INPUT AND ANALYSIS OPTIONS
+=head2 INPUT AND ANALYSIS OPTIONS
 
-=over 15
+=over 8
 
 =item -interleaved
 
@@ -103,6 +110,7 @@ differs from 100 (the default). Must be within 50..500.
 
 Limits processing to the first I<N> reads in each input file. Use this
 for transcriptomes with a lot of rRNA reads (use values <1000000).
+
 Default: unlimited
 
 =item -amplimit I<N>
@@ -110,23 +118,28 @@ Default: unlimited
 Sets the limit of SSU read pairs to switch from emirge.py to
 emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py
 has been problematic to run (use values >100000).
+
 Default: 500000
 
 =item -id I<N>
 
 Minimum allowed identity for read mapping process in %. Must be within
 50..98. Set this to a lower value for very divergent taxa
+
 Default: 70
 
 =item -clusterid I<N>
 
 Identity threshold for clustering with vsearch in %.
-Must be within 50..100. Default: 97
+Must be within 50..100.
+
+Default: 97
 
 =item -taxlevel I<N>
 
 Level in the taxonomy string to summarize read counts per taxon.
 Numeric and 1-based (i.e. "1" corresponds to "Domain").
+
 Default: 4 ("Order")
 
 =item -tophit
@@ -134,16 +147,20 @@ Default: 4 ("Order")
 Report taxonomic summary based on the best hit per read only. Otherwise, the
 consensus of all ambiguous mappings of a given read will be used to assign its
 taxonomy. (This was the default behavior before v3.2)
+
 Default: No (use consensus)
 
 =item -maxinsert I<N>
 
 Maximum insert size allowed for paired end read mapping. Must be within
-0..1200. Default: 1200
+0..1200.
+
+Default: 1200
 
 =item -emirge
 
 Turn on EMIRGE reconstruction of SSU sequences
+
 Default: Off ("-noemirge")
 
 =item -skip_spades
@@ -165,6 +182,7 @@ screened against these extracted "trusted" SSU sequences
 Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
 the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
 coverage evenness.
+
 Default: Off ("-noposcov")
 
 =item -everything
@@ -179,38 +197,42 @@ Like I<-everything> except without running EMIRGE.
 
 =back
 
-=head1 OUTPUT OPTIONS
+=head2 OUTPUT OPTIONS
 
-=over 15
+=over 8
 
 =item -html
 
 Generate output in HTML format.
-Default: On.
-(Turn off with "-nohtml")
+
+Default: On. (Turn off with "-nohtml")
 
 =item -treemap
 
-Draw interactive treemap of taxonomic classification in html-formatted
-report. This uses Google Visualization API, which requires an internet
-connection, requires that you agree to their terms of service (see
-https://developers.google.com/chart/terms), and is not open source,
-although it is free to use.
+Draw interactive treemap of taxonomic classification in html-formatted report.
+This uses Google Visualization API, which requires an internet connection,
+requires that you agree to their terms of service (see
+https://developers.google.com/chart/terms), and is not open source, although it
+is free to use.
+
 Default: Off ("-notreemap")
 
 =item -zip
 
 Compress output into a tar.gz archive file
+
 Default: Off ("-nozip")
 
 =item -keeptmp
 
 Keep temporary/intermediate files
+
 Default: No ("-nokeeptmp")
 
 =item -log
 
 Write status messages printed to STDERR also to a log file
+
 Default: Off ("-nolog")
 
 =back
@@ -221,7 +243,7 @@ Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
                     and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
                     with help from Brandon Seah <kbseah@mpi-bremen.de>
 
-LICENCE
+LICENSE
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -408,9 +430,26 @@ sub process_required_tools {
     }
 }
 
+sub verify_dbhome {
+    # verify database present
+    if (defined($DBHOME)) {
+        if (my $file = check_dbhome($DBHOME)) {
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+        }
+    } else {
+        $DBHOME = find_dbhome();
+        pod2usage("Failed to find suitable DBHOME. (Searched \""
+                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
+                  ."You can build a reference database using phyloflash_makedb.pl\n")
+            if ($DBHOME eq "");
+    }
+    msg("Using dbhome '$DBHOME'");
+}
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
+    pod2usage(-verbose=>0) if !@ARGV;
     my $emirge = 0;
     my $everything = 0 ;
     my $almosteverything = 0;
@@ -445,32 +484,26 @@ sub parse_cmdline {
                'tophit!' => \$tophit_flag,
                'check_env' => \$check_env,
                'outfiles' => \&output_description,
-               'help|h' => sub { pod2usage(1) },
-               'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
+               'help|h' => sub { pod2usage(-verbose=>0); },
+               'man' => sub { pod2usage(-exitval=>0, -verbose=>2); },
+               'version' => sub { welcome(); exit; }, 
            )
         or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
+    
+    # Say hello
+    welcome();
 
     # verify tools present
     if ($check_env == 1) {
         process_required_tools();
         check_environment(); # will die on failure
+        verify_dbhome();
+        exit();
     }
 
-    # verify database present
-    if (defined($DBHOME)) {
-        if (my $file = check_dbhome($DBHOME)) {
-            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
-        }
-    } else {
-        $DBHOME = find_dbhome();
-        pod2usage("Failed to find suitable DBHOME. (Searched \""
-                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-                  ."You can build a reference database using phyloflash_makedb.pl\n")
-            if ($DBHOME eq "");
-    }
-    msg("Using dbhome '$DBHOME'");
-
+    verify_dbhome();
+    
     # verify valid lib name
     pod2usage("Please specify output file basename with -lib\n")
         if !defined($libraryNAME);
@@ -2120,25 +2153,25 @@ sub clean_up {
             }
         }
     }
+}
 
+sub do_zip {
     # Compress output into tar.gz archive if requested
-    if ($zip == 1) {
-        my @filelist;
-        my @todelete;
-        my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
-        msg ("Compressing results into tar.gz archive $tarfile");
-        foreach my $key (keys %outfiles) {
-            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
-                push @filelist, $outfiles{$key}{"filename"};
-                push @todelete, $outfiles{$key}{'filename'} unless $key eq 'report_html'; # Retain report file after zip
-            }
+    my @filelist;
+    my @todelete;
+    my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
+    msg ("Compressing results into tar.gz archive $tarfile");
+    foreach my $key (keys %outfiles) {
+        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
+            push @filelist, $outfiles{$key}{"filename"};
+            push @todelete, $outfiles{$key}{'filename'} unless ($key eq 'report_html' || $key eq 'phyloFlash_log');
+            # Retain report and log file after zip
         }
-        my $to_tar = join " ", @filelist;
-        my $todelete_str = join " ", @todelete;
-        system ("tar -czf $tarfile $to_tar");
-        system ("rm -r $todelete_str");
     }
-
+    my $to_tar = join " ", @filelist;
+    my $todelete_str = join " ", @todelete;
+    system ("tar -czf $tarfile $to_tar");
+    system ("rm -r $todelete_str");
     msg("Done...");
 }
 
@@ -2590,16 +2623,17 @@ sub write_report_html {
 }
 
 sub write_logfile {
-    # This should always be run last
+    # This should always be run last (except do_zip)
     msg("Saving log to file");
     my $fh;
     open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
+    $outfiles{'phyloFlash_log'}{'made'} ++;
     print $fh join "\n", @PhyloFlash::msg_log;
     close($fh);
 }
 
 ######################### MAIN ###########################
-welcome();
+
 parse_cmdline();
 process_required_tools();
 check_environment();
@@ -2688,10 +2722,10 @@ if ($html_flag) {
 # Clean up temporary files
 clean_up();
 
-
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
 
 write_logfile() if ($save_log == 1);
+do_zip() if ($zip == 1) ;

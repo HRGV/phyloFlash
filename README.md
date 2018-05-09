@@ -1,5 +1,5 @@
 phyloFlash v3.2 beta 1
-==============
+======================
 
 <img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
 
@@ -73,7 +73,14 @@ phyloFlash reports a taxonomic summary of the reads from the initial mapping, th
 
 Plain text and HTML-formatted reports are produced, reporting summary statistics from each run. The HTML report includes an interactive graphical summary.
 
-Compare the taxonomic composition of multiple samples with `phyloFlash_compare.pl`. This produces a barplot, heatmap, or distance matrix based on the NTU abundances in two or more samples.
+Going further
+-------------
+
+The phyloFlash suite also includes other tools for SSU rRNA-centric metagenome analyses. Run the commands without arguments to see help messages.
+
+ * `ENA_phyloFlash.pl` - Automatically download read files from [ENA](https://www.ebi.ac.uk/ena) given a read accession number, and run phyloFlash on them
+ * `phyloFlash_compare.pl` - Compare the taxonomic composition of multiple samples from their phyloFlash results. This produces a barplot, heatmap, or distance matrix based on the NTU abundances in two or more samples.
+ * `phyloFlash_fastgFishing.pl` - Given a metagenomic assembly graph in [Fastg](http://fastg.sourceforge.net/) format, identify SSU rRNA sequences and extract contigs connected to them. Optionally compare to phyloFlash results from the same library.
 
 Manual
 ------
@@ -86,6 +93,7 @@ Versions and changes
 * v3.2 beta 1
   * Report ambiguous hits during mapping step, use consensus of top hits to assign taxonomy instead of single best hit
   * Add utility `phyloFlash_compare.pl` to compare taxonomic composition of multiple libraries from phyloFlash output
+  * Add utility `phyloFlash_fastgFishing.pl` to extract genome bins from Fastg files
 * v3.1 beta 2
   * Fix bug in Fasta headers with changed output from Bedtools v2.26+
   * Make bbmap and reformat.sh overwrite existing output files of same name
