@@ -4,7 +4,7 @@ use warnings;
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
-an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
+an Illumina (meta)genomic dataset and reconstruct SSU rRNA genes
 
 =head1 SYNOPSIS
 
@@ -18,14 +18,16 @@ B<phyloFlash.pl> -check_env
 
 =head1 DESCRIPTION
 
-This tool rapidly approximates the phylogenetic composition of a
-(meta)genomic read set based on SSU mapping and reconstruction.
-Right now Illumina paired end or single HiSeq and MiSeq reads
-are supported.
+This tool rapidly approximates the phylogenetic composition of a (meta)genomic
+library by mapping reads to a reference SSU rRNA database, and reconstructing
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired-
+end or single HiSeq and MiSeq reads.
 
-=head1 INPUT ARGUMENTS
+=head1 ARGUMENTS
 
-=over 15
+=head2 INPUT
+
+=over 8
 
 =item -lib I<NAME>
 
@@ -62,9 +64,9 @@ Show detailed list of output and temporary files and exit.
 
 =back
 
-=head1 LOCAL SETTINGS
+=head2 LOCAL SETTINGS
 
-=over 15
+=over 8
 
 =item -CPUs I<N>
 
@@ -77,6 +79,7 @@ Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
 =item -decimalcomma
 
 Use decimal comma instead of decimal point to fix locale problems.
+
 Default: Off
 
 =item -dbhome F<DIR>
@@ -86,9 +89,9 @@ Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
 =back
 
-=head1 INPUT AND ANALYSIS OPTIONS
+=head2 INPUT AND ANALYSIS OPTIONS
 
-=over 15
+=over 8
 
 =item -interleaved
 
@@ -103,6 +106,7 @@ differs from 100 (the default). Must be within 50..500.
 
 Limits processing to the first I<N> reads in each input file. Use this
 for transcriptomes with a lot of rRNA reads (use values <1000000).
+
 Default: unlimited
 
 =item -amplimit I<N>
@@ -110,12 +114,14 @@ Default: unlimited
 Sets the limit of SSU read pairs to switch from emirge.py to
 emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py
 has been problematic to run (use values >100000).
+
 Default: 500000
 
 =item -id I<N>
 
 Minimum allowed identity for read mapping process in %. Must be within
 50..98. Set this to a lower value for very divergent taxa
+
 Default: 70
 
 =item -clusterid I<N>
@@ -127,6 +133,7 @@ Must be within 50..100. Default: 97
 
 Level in the taxonomy string to summarize read counts per taxon.
 Numeric and 1-based (i.e. "1" corresponds to "Domain").
+
 Default: 4 ("Order")
 
 =item -tophit
@@ -134,6 +141,7 @@ Default: 4 ("Order")
 Report taxonomic summary based on the best hit per read only. Otherwise, the
 consensus of all ambiguous mappings of a given read will be used to assign its
 taxonomy. (This was the default behavior before v3.2)
+
 Default: No (use consensus)
 
 =item -maxinsert I<N>
@@ -165,6 +173,7 @@ screened against these extracted "trusted" SSU sequences
 Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
 the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
 coverage evenness.
+
 Default: Off ("-noposcov")
 
 =item -everything
@@ -179,23 +188,24 @@ Like I<-everything> except without running EMIRGE.
 
 =back
 
-=head1 OUTPUT OPTIONS
+=head2 OUTPUT OPTIONS
 
-=over 15
+=over 8
 
 =item -html
 
 Generate output in HTML format.
-Default: On.
-(Turn off with "-nohtml")
+
+Default: On. (Turn off with "-nohtml")
 
 =item -treemap
 
-Draw interactive treemap of taxonomic classification in html-formatted
-report. This uses Google Visualization API, which requires an internet
-connection, requires that you agree to their terms of service (see
-https://developers.google.com/chart/terms), and is not open source,
-although it is free to use.
+Draw interactive treemap of taxonomic classification in html-formatted report.
+This uses Google Visualization API, which requires an internet connection,
+requires that you agree to their terms of service (see
+https://developers.google.com/chart/terms), and is not open source, although it
+is free to use.
+
 Default: Off ("-notreemap")
 
 =item -zip
@@ -221,7 +231,7 @@ Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
                     and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
                     with help from Brandon Seah <kbseah@mpi-bremen.de>
 
-LICENCE
+LICENSE
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
