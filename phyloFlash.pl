@@ -20,8 +20,8 @@ B<phyloFlash.pl> -check_env
 
 This tool rapidly approximates the phylogenetic composition of a (meta)genomic
 library by mapping reads to a reference SSU rRNA database, and reconstructing
-full-length SSU rRNA sequences. The pipeline is intended for Illumina paired-
-end or single HiSeq and MiSeq reads.
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired- or
+single-end HiSeq and MiSeq reads.
 
 =head1 ARGUMENTS
 
@@ -61,6 +61,10 @@ Show manual.
 =item -outfiles
 
 Show detailed list of output and temporary files and exit.
+
+=item -version
+
+Report version
 
 =back
 
@@ -127,7 +131,9 @@ Default: 70
 =item -clusterid I<N>
 
 Identity threshold for clustering with vsearch in %.
-Must be within 50..100. Default: 97
+Must be within 50..100.
+
+Default: 97
 
 =item -taxlevel I<N>
 
@@ -147,11 +153,14 @@ Default: No (use consensus)
 =item -maxinsert I<N>
 
 Maximum insert size allowed for paired end read mapping. Must be within
-0..1200. Default: 1200
+0..1200.
+
+Default: 1200
 
 =item -emirge
 
 Turn on EMIRGE reconstruction of SSU sequences
+
 Default: Off ("-noemirge")
 
 =item -skip_spades
@@ -211,16 +220,19 @@ Default: Off ("-notreemap")
 =item -zip
 
 Compress output into a tar.gz archive file
+
 Default: Off ("-nozip")
 
 =item -keeptmp
 
 Keep temporary/intermediate files
+
 Default: No ("-nokeeptmp")
 
 =item -log
 
 Write status messages printed to STDERR also to a log file
+
 Default: Off ("-nolog")
 
 =back
@@ -421,6 +433,7 @@ sub process_required_tools {
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
+    pod2usage(-verbose=>0) if !@ARGV;
     my $emirge = 0;
     my $everything = 0 ;
     my $almosteverything = 0;
@@ -455,8 +468,9 @@ sub parse_cmdline {
                'tophit!' => \$tophit_flag,
                'check_env' => \$check_env,
                'outfiles' => \&output_description,
-               'help|h' => sub { pod2usage(1) },
-               'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
+               'help|h' => sub { pod2usage(-verbose=>0); },
+               'man' => sub { pod2usage(-exitval=>0, -verbose=>2); },
+               'version' => sub { welcome(); exit; }, 
            )
         or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
@@ -2609,8 +2623,9 @@ sub write_logfile {
 }
 
 ######################### MAIN ###########################
-welcome();
+
 parse_cmdline();
+welcome();
 process_required_tools();
 check_environment();
 
