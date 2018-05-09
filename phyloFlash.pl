@@ -474,11 +474,15 @@ sub parse_cmdline {
            )
         or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
+    
+    # Say hello
+    welcome();
 
     # verify tools present
     if ($check_env == 1) {
         process_required_tools();
         check_environment(); # will die on failure
+        exit();
     }
 
     # verify database present
@@ -2144,25 +2148,25 @@ sub clean_up {
             }
         }
     }
+}
 
+sub do_zip {
     # Compress output into tar.gz archive if requested
-    if ($zip == 1) {
-        my @filelist;
-        my @todelete;
-        my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
-        msg ("Compressing results into tar.gz archive $tarfile");
-        foreach my $key (keys %outfiles) {
-            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
-                push @filelist, $outfiles{$key}{"filename"};
-                push @todelete, $outfiles{$key}{'filename'} unless $key eq 'report_html'; # Retain report file after zip
-            }
+    my @filelist;
+    my @todelete;
+    my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
+    msg ("Compressing results into tar.gz archive $tarfile");
+    foreach my $key (keys %outfiles) {
+        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
+            push @filelist, $outfiles{$key}{"filename"};
+            push @todelete, $outfiles{$key}{'filename'} unless ($key eq 'report_html' || $key eq 'phyloFlash_log');
+            # Retain report and log file after zip
         }
-        my $to_tar = join " ", @filelist;
-        my $todelete_str = join " ", @todelete;
-        system ("tar -czf $tarfile $to_tar");
-        system ("rm -r $todelete_str");
     }
-
+    my $to_tar = join " ", @filelist;
+    my $todelete_str = join " ", @todelete;
+    system ("tar -czf $tarfile $to_tar");
+    system ("rm -r $todelete_str");
     msg("Done...");
 }
 
@@ -2614,10 +2618,11 @@ sub write_report_html {
 }
 
 sub write_logfile {
-    # This should always be run last
+    # This should always be run last (except do_zip)
     msg("Saving log to file");
     my $fh;
     open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
+    $outfiles{'phyloFlash_log'}{'made'} ++;
     print $fh join "\n", @PhyloFlash::msg_log;
     close($fh);
 }
@@ -2625,7 +2630,6 @@ sub write_logfile {
 ######################### MAIN ###########################
 
 parse_cmdline();
-welcome();
 process_required_tools();
 check_environment();
 
@@ -2713,10 +2717,10 @@ if ($html_flag) {
 # Clean up temporary files
 clean_up();
 
-
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
 
 write_logfile() if ($save_log == 1);
+do_zip() if ($zip == 1) ;
