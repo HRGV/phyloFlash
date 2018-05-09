@@ -37,7 +37,7 @@ This script generates approx. 5Gbytes of extracted databases
 
 =head1 ARGUMENTS
 
-=over 3
+=over 8
 
 =item --remote
 
@@ -54,6 +54,24 @@ Path to local copy of Univec database file. Ignored if --remote flag is used.
 =item --keep
 
 Do not delete intermediary files
+
+=item --CPUs I<N>
+
+Number of processors to use
+
+Default: All available
+
+=item --help
+
+Help message
+
+=item --man
+
+Full manual page
+
+=item --version
+
+Report version
 
 =back
 
@@ -104,7 +122,7 @@ my $keep = 0;
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
 
 # parse cmdline
-
+pod2usage(-verbose=>0) if !@ARGV;
 GetOptions("remote|r" => \$use_remote,
            "silva_file=s" => \$silva_file,
            "univec_file=s" => \$univec_file,
@@ -112,8 +130,9 @@ GetOptions("remote|r" => \$use_remote,
            "keep|k" => \$keep,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
+           "version" => sub { welcome(); exit(); },
            )
-or pod2usage(2);
+or pod2usage(-verbose=>0,-exit=>2);
 
 if ($use_remote==0 && ($silva_file eq "" | $univec_file eq "")) {
     pod2usage("Please specify paths to local copies of SILVA and Univec databases.");
@@ -133,6 +152,8 @@ require_tools((
 check_environment();
 
 ### MAIN ###
+
+welcome();
 
 # check whether user has local copy of Univec and Silva files, or if
 # they should be downloaded
@@ -237,6 +258,10 @@ bowtie_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta")
 finish();
 
 ### subroutines ###
+
+sub welcome {
+    print STDERR "\nThis is phyloFlash_makedb.pl from phyloFlash.pl v$VERSION\n\n";
+}
 
 # searching for LSU genes in the SSU RefNR using a modified b
 # barrnap version that only utilizes LSU hmm profiles
