@@ -430,6 +430,22 @@ sub process_required_tools {
     }
 }
 
+sub verify_dbhome {
+    # verify database present
+    if (defined($DBHOME)) {
+        if (my $file = check_dbhome($DBHOME)) {
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+        }
+    } else {
+        $DBHOME = find_dbhome();
+        pod2usage("Failed to find suitable DBHOME. (Searched \""
+                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
+                  ."You can build a reference database using phyloflash_makedb.pl\n")
+            if ($DBHOME eq "");
+    }
+    msg("Using dbhome '$DBHOME'");
+}
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
@@ -482,23 +498,12 @@ sub parse_cmdline {
     if ($check_env == 1) {
         process_required_tools();
         check_environment(); # will die on failure
+        verify_dbhome();
         exit();
     }
 
-    # verify database present
-    if (defined($DBHOME)) {
-        if (my $file = check_dbhome($DBHOME)) {
-            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
-        }
-    } else {
-        $DBHOME = find_dbhome();
-        pod2usage("Failed to find suitable DBHOME. (Searched \""
-                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-                  ."You can build a reference database using phyloflash_makedb.pl\n")
-            if ($DBHOME eq "");
-    }
-    msg("Using dbhome '$DBHOME'");
-
+    verify_dbhome();
+    
     # verify valid lib name
     pod2usage("Please specify output file basename with -lib\n")
         if !defined($libraryNAME);
