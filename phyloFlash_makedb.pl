@@ -31,11 +31,14 @@ Dependencies: wget, vsearch, bbmap and Emirge
 
 =item -
 
-This script generates approx. 5Gbytes of extracted databases
+This script generates approx. 5 Gbytes of extracted databases (9 Gb if Vsearch
+UDB database is also produced, with vsearch v2.5.0+)
 
 =back
 
 =head1 ARGUMENTS
+
+=head2 INPUT FILES
 
 =over 8
 
@@ -51,6 +54,32 @@ Path to local copy of SILVA database file. Ignored if --remote flag is used.
 
 Path to local copy of Univec database file. Ignored if --remote flag is used.
 
+=back
+
+=head2 OPTIONAL TOOLS
+
+=over 8
+
+=item --emirge
+
+Index database with Bowtie for Emirge. Requires I<bowtie-build> to be in path.
+
+Default: Yes (turn off with --noemirge)
+
+=item --sortmerna
+
+Index database for Sortmerna, if you wish to use it as an alternative to BBmap
+for extracting rRNA reads from the read file. Requires I<indexdb_rna> to be in
+path.
+
+Default: No (--nosortmerna).
+
+=back
+
+=head2 CONFIGURATION AND HELP
+
+=over 8
+
 =item --keep
 
 Do not delete intermediary files
@@ -60,6 +89,18 @@ Do not delete intermediary files
 Number of processors to use
 
 Default: All available
+
+=item --mem I<N>
+
+Memory limit (in Gb) for indexing tools.
+
+Default: 10
+
+=item --check_env
+
+Check that required dependencies are available in your path. If specifying
+optional tools I<--sortmerna> and I<--emirge>, put the I<--check_env> argument
+at the end of the command.
 
 =item --help
 
@@ -79,6 +120,7 @@ Report version
 
 Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
                        Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                       Brandon Seah <kbseah@mpi-bremen.de>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -104,6 +146,7 @@ use Net::FTP;
 use Digest::MD5;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
 use Cwd;
+use Storable;
 
 # URLS
 my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
@@ -115,8 +158,11 @@ my $silva_file = "";
 my $univec_file = "";
 my $cwd = getcwd;
 my $timer = new Timer;
-my $cpus = get_cpus      # num cpus to use
-my $keep = 0;
+my $cpus = get_cpus     # num cpus to use
+my $keep = 0;           # Keep temp files
+my $sortmerna = 0;      # Index sortmerna tool
+my $emirge = 1;         # Index emirge
+my $memlimitGb = 10;    # In Gb
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
@@ -126,11 +172,18 @@ pod2usage(-verbose=>0) if !@ARGV;
 GetOptions("remote|r" => \$use_remote,
            "silva_file=s" => \$silva_file,
            "univec_file=s" => \$univec_file,
+           "emirge!" => \$emirge,
+           "sortmerna!" => \$sortmerna,
            "CPUs=i" => \$cpus,  # override default CPU usage if necessary
+           "mem=i" => \$memlimitGb,
+           "check_env" => sub { process_dependencies();
+                                check_environment();
+                                exit; },
            "keep|k" => \$keep,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
-           "version" => sub { welcome(); exit(); },
+           "version" => sub { welcome();
+                              exit(); },
            )
 or pod2usage(-verbose=>0,-exit=>2);
 
@@ -138,17 +191,7 @@ if ($use_remote==0 && ($silva_file eq "" | $univec_file eq "")) {
     pod2usage("Please specify paths to local copies of SILVA and Univec databases.");
 }
 
-# binaries needed by phyloFlash
-require_tools((
-    barrnapHGV => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
-    grep => "grep",
-    bbmask => "bbmask.sh",
-    bbduk => "bbduk.sh",
-    bbmap => "bbmap.sh",
-    bowtiebuild => "bowtie-build",
-    vsearch => 'vsearch',
-    ));
-
+process_dependencies();
 check_environment();
 
 ### MAIN ###
@@ -224,10 +267,9 @@ if (defined $vsearch_ver_check) {
     make_vsearch_udb($fasta_in, $udb_out);
 }
 
-
 #the cleaned, masked and trimmed databases are clustered
 # 1) at 99id with full labels for bbmap
-# 2) at 96id for emirge
+# 2) at 96id for emirge and sortmerna
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
@@ -253,7 +295,12 @@ fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96
               "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
 unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta" unless ($keep==1);
 
-bowtie_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+bowtie_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta") if $emirge == 1;
+
+if ($sortmerna == 1) {
+    sortmerna_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+    hash_SILVA_acc_taxstrings_from_fasta ("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+}
 
 finish();
 
@@ -262,6 +309,32 @@ finish();
 sub welcome {
     print STDERR "\nThis is phyloFlash_makedb.pl from phyloFlash.pl v$VERSION\n\n";
 }
+
+sub process_dependencies {
+    # binaries needed by phyloFlash
+    require_tools((
+        barrnapHGV => "$FindBin::RealBin/barrnap-HGV/bin/barrnap_HGV",
+        grep => "grep",
+        bbmask => "bbmask.sh",
+        bbduk => "bbduk.sh",
+        bbmap => "bbmap.sh",
+        vsearch => 'vsearch',
+        ));
+    
+    # Binaries for optional tools
+    if ($emirge == 1) {
+        require_tools ((
+            bowtiebuild => "bowtie-build",
+        ));
+    }
+    if ($sortmerna == 1) {
+        # If Sortmerna is required, add to dependencies list
+        require_tools ((
+            indexdb_rna => "indexdb_rna",
+        ));
+    }
+}
+
 
 # searching for LSU genes in the SSU RefNR using a modified b
 # barrnap version that only utilizes LSU hmm profiles
@@ -365,6 +438,42 @@ sub bowtie_index {
     msg("creating bowtie index (for emirge)");
     run_prog("bowtiebuild", "$fasta $btidx -q");
 }
+
+# Generate index for Sortmerna from the filtered fixed SSU clustered at 96% id
+sub sortmerna_index {
+    my ($fasta) = @_;
+    my $memlimitMb = $memlimitGb * 1000;
+    my $prefix = $fasta =~ s/\.fasta$//r;
+    msg ("creating sortmerna index");
+    my @indexdb_args = ("--ref $fasta,$prefix",
+                        "-m $memlimitMb",
+                        "-v");
+    run_prog("indexdb_rna",
+             join (" ", @indexdb_args),
+             )
+}
+
+sub hash_SILVA_acc_taxstrings_from_fasta {
+    # Hash of accession numbers and taxonomy strings from SILVA fasta headers
+    # Store as a perl hash image with Storable
+    # For later when wrangling sortmerna SAM output to bbmap-like format
+    my ($fasta) = @_;
+    my $prefix = $fasta =~ s/\.fasta$//r;
+    msg ("Hashing SILVA accession numbers to taxonomy strings");
+    my %hash;
+    open(my $fh, "<", $fasta) or die ("$!");
+    while (my $line = <$fh>) {
+        if ($line =~ m/^>(.+)/) {
+            my $header = $1;
+            chomp $header;
+            my ($id, @taxsplit) = split / /, $header; # Split on first space
+            $hash{$id} = join " ", @taxsplit; # Rejoin tax string if it has spaces
+        }
+    }
+    close($fh);
+    store \%hash, "$prefix.acc2taxstr.hashimage";
+}
+
 
 #--------------------------------------------- final timing stats and goodbye
 sub finish {
