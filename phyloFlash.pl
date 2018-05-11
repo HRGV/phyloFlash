@@ -267,6 +267,8 @@ use PhyloFlash;
 use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
+use File::Temp;
+use Storable;
 use IPC::Cmd qw(can_run);
 use Cwd;
 #use Data::Dumper;
@@ -302,6 +304,7 @@ my $html_flag   = 1;            # generate HTML output? (default = 1, on)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
+my $use_sortmerna = 0;          # Flag - Use Sortmerna instead of BBmap? (Default = 0, no)
 my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $poscov_flag = 0;            # Flag - use Nhmmer to estimate positional coverage? (Default = 0, no)
@@ -417,6 +420,11 @@ sub process_required_tools {
                       emirge_amp => "emirge_amplicon.py",
                       emirge_rename_fasta => "emirge_rename_fasta.py");
     }
+    if ($use_sortmerna == 1) {
+        require_tools (sortmerna => "sortmerna",
+                       indexdb_rna => "indexdb_rna");
+    }
+    
     # Check operating system to decide which nhmmer to use
     my $opsys = $^O;
     msg ("Current operating system $opsys");
@@ -470,6 +478,7 @@ sub parse_cmdline {
                'treemap!' => \$treemap_flag,
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
+               'sortmerna!' => \$use_sortmerna,
                'emirge!' => \$emirge,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
@@ -574,6 +583,13 @@ sub parse_cmdline {
     # check CPUS
     if ($cpus eq "all" or $cpus < 0) {
         $cpus = get_cpus();
+    }
+
+    # Warn user about Sortmerna requirements
+    if ($use_sortmerna == 1) {
+        msg ("Sortmerna will be used instead of BBmap for the initial SSU rRNA read extraction");
+        msg ("Sortmerna requires uncompressed input files - Ensure that you have enough disk space");
+        msg ("The following input parameters specific to BBMap will be ignored: --id, --tophit, --maxinsert");
     }
 
     # check surplus arguments
@@ -927,6 +943,25 @@ sub bbmap_fast_filter_sam_run {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
+}
+
+sub sortmerna_filter_sam {
+    # To do:
+    
+    # Reformat input read files to raw Fastq - cutoff to max reads if necessary - write to a temp file
+    # Report both SAM and Fastq files
+    # Sortmerna splits Fastq header on first whitespace
+    # Read Fastq IDs and sequences into memory - use this to match full Fastq headers to split names and to decide which is forward and which reverse reads
+    
+    # Fix the following in SAM file
+    # - bitflag
+    # - Full header with taxstring for Reference
+    # - Full header with fwd rev
+    # Won't be fixed for now:
+    # - RNEXT
+    # - PNEXT
+    # - TLEN
+    # - CIGAR strings with M character
 }
 
 sub bbmap_fast_filter_parse {

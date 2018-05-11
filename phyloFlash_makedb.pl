@@ -62,7 +62,7 @@ Path to local copy of Univec database file. Ignored if --remote flag is used.
 
 =item --emirge
 
-Index database with Bowtie for Emirge. Requires I<bowtie-build> to be in path.
+Index database with Bowtie v1 for Emirge. Requires I<bowtie-build> to be in path.
 
 Default: Yes (turn off with --noemirge)
 
@@ -92,7 +92,7 @@ Default: All available
 
 =item --mem I<N>
 
-Memory limit (in Gb) for indexing tools.
+Memory limit (in Gb) for indexing tools. At least 10 is recommended. 
 
 Default: 10
 
@@ -194,7 +194,7 @@ if ($use_remote==0 && ($silva_file eq "" | $univec_file eq "")) {
 process_dependencies();
 check_environment();
 
-### MAIN ###
+## MAIN ########################################################################
 
 welcome();
 
@@ -243,7 +243,6 @@ anyuncompress $silva_file => "$dbdir/SILVA_SSU.fasta"
 
 my @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.fasta");
 
-
 fasta_copy_except("$dbdir/SILVA_SSU.fasta",
                   "$dbdir/SILVA_SSU.noLSU.fasta",
                   @lsu_in_ssh);
@@ -277,13 +276,11 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
            $cpus);
 # no unlink -> trimmed.fasta needed for vsearch
 
-
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
 
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
-
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
@@ -304,7 +301,7 @@ if ($sortmerna == 1) {
 
 finish();
 
-### subroutines ###
+## SUBS ########################################################################
 
 sub welcome {
     print STDERR "\nThis is phyloFlash_makedb.pl from phyloFlash.pl v$VERSION\n\n";
@@ -320,7 +317,6 @@ sub process_dependencies {
         bbmap => "bbmap.sh",
         vsearch => 'vsearch',
         ));
-    
     # Binaries for optional tools
     if ($emirge == 1) {
         require_tools ((
@@ -343,7 +339,6 @@ sub process_dependencies {
 sub find_LSU {
     msg("searching for LSU contamination in SSU RefNR");
     my @lsus;
-
     my $fh;
     foreach ('bac', 'arch', 'euk') {
         my $log = "tmp.barrnap_hits.$_.barrnap.out";
@@ -379,7 +374,6 @@ sub make_vsearch_udb {
     run_prog("vsearch",
              join (" ", @vsearch_params)
              );
-    
 }
 
 #bbmask masks low entropy regions and repeats in the fasta file
@@ -388,7 +382,7 @@ sub mask_repeats {
     msg("masking low entropy regions in SSU RefNR");
     run_prog("bbmask",
              "  overwrite=t "
-             . "-Xmx4g "
+             . "-Xmx4".$memlimitGb."g "
              . "threads=$cpus "
              . "in=$src "
              . "out=$dst "
@@ -403,7 +397,7 @@ sub univec_trim {
     run_prog("bbduk",
              "ref=$univec "
              . "  overwrite=t "
-             . "-Xmx4g "
+             . "-Xmx".$memlimitGb."4g "
              . "threads=$cpus "
              . "fastawrap=0 "
              . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
@@ -425,7 +419,7 @@ sub bbmap_db {
     my ($ref, $path) = @_;
     msg("creating bbmap reference");
     run_prog("bbmap",
-             "  -Xmx10g "   # Original 4 Gb limit was not enough
+             "  -Xmx".$memlimitGb."10g "   # Original 4 Gb limit was not enough
              . "threads=$cpus "
              . "ref=$ref "
              . "path=$path ");
