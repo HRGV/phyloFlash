@@ -93,6 +93,30 @@ Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
 =back
 
+=head2 ANALYSIS TOOLS
+
+=over 8
+
+=item -emirge
+
+Turn on EMIRGE reconstruction of SSU sequences
+
+Default: Off ("-noemirge")
+
+=item -skip_spades
+
+Turn off SPAdes assembly of SSU sequences
+
+Default: No (use SPAdes by default)
+
+=item -sortmerna
+
+Use Sortmerna instead of BBmap to extract SSU rRNA reads
+
+Default: No
+
+=back
+
 =head2 INPUT AND ANALYSIS OPTIONS
 
 =over 8
@@ -156,16 +180,6 @@ Maximum insert size allowed for paired end read mapping. Must be within
 0..1200.
 
 Default: 1200
-
-=item -emirge
-
-Turn on EMIRGE reconstruction of SSU sequences
-
-Default: Off ("-noemirge")
-
-=item -skip_spades
-
-Turn off SPAdes assembly of SSU sequences
 
 =item -sc
 
@@ -949,22 +963,99 @@ sub bbmap_fast_filter_sam_run {
 }
 
 sub sortmerna_filter_sam {
-    # To do:
+    msg ("Using Sortmerna to extract SSU rRNA reads instead of BBmap");
     
-    # Reformat input read files to raw Fastq - cutoff to max reads if necessary - write to a temp file
-    # Report both SAM and Fastq files
-    # Sortmerna splits Fastq header on first whitespace
-    # Read Fastq IDs and sequences into memory - use this to match full Fastq headers to split names and to decide which is forward and which reverse reads
+    # Reformat Fastq file
+    msg ("Reformatting input files to uncompressed Fastq format for Sortmerna");
+    my @reformat_args = ("in=$readsf_full",
+                         "reads=$readlimit",
+                         "threads=$cpus",
+                         "out=".$outfiles{'reads_uncompressed'}{'filename'},
+                         );
+    if ($SEmode == 0) {
+        # Additionally for paired-end input
+        if ($interleaved == 1) {
+            push @reformat_args, ("interleaved=t");
+        } else {
+            push @reformat_args, ("in2=$readsr_full");
+        }
+    }
+    run_prog("reformat",
+             join (" ", @reformat_args),
+             );
     
-    # Fix the following in SAM file
-    # - bitflag
-    # - Full header with taxstring for Reference
-    # - Full header with fwd rev
-    # Won't be fixed for now:
-    # - RNEXT
-    # - PNEXT
-    # - TLEN
-    # - CIGAR strings with M character
+    # Record that file was made
+    $outfiles{'reads_uncompressed'}{'made'} ++;
+    
+    # Sortmerna arguments
+    my @sortmerna_args = ("--ref $DBHOME/$sortmerna_db.fasta,$DBHOME/$sortmerna_db",
+                          "--reads ".$outfiles{'reads_uncompressed'}{'filename'},
+                          "--aligned $libraryNAME.sortmerna", # Output file prefix
+                          "--fastx",        # Report extracted reads in Fastq format
+                          "--paired_in",    # Report both segments in pair to Fastq format 
+                          "--sam",          # SAM alignment output
+                          #"--blast 1",     # Blast-tabular alignment output
+                          "--log",
+                          "--best 10",      # Take 10 best hits
+                          "--min_lis 10",
+                          "-e 1.00e-05",    # E-value cutoff
+                          "-a $cpus",
+                          "-v",             # Verbose (turn off?)
+                          );
+    msg ("Running sortmerna:");
+    # Run Sortmerna
+    run_prog("sortmerna",
+             join (" ", @sortmerna_args),
+             );
+    
+    # Record which files created
+    foreach my $madekey (qw (sortmerna_sam sortmerna_fastq sortmerna_log)) {
+        $outfiles{$madekey}{'made'} ++;
+    }
+    
+    msg ("Fixing bitflags and RNAME in SAM file output of Sortmerna");
+    # Fix Sortmerna output file - bitflags and names of ref sequences
+    my $fixed_sam_aref = fix_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
+                                           $outfiles{'sortmerna_sam'}{'filename'},
+                                           "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
+                                           $SEmode);
+    # Write file
+    if (defined $fixed_sam_aref) {
+        my $sam_fh;
+        open_or_die(\$sam_fh,
+                    ">",
+                    $outfiles{"sam_map"}{"filename"});
+        foreach my $line (@$fixed_sam_aref) {
+            print $sam_fh "$line\n";
+        }
+        close ($sam_fh);
+        $outfiles{"sam_map"}{"made"} ++ ;
+    }
+    
+    # Reformat fwd and rev mapped Fastq reads from Sortmerna
+    if ($SEmode == 0) {
+        msg ("Reformatting interleaved mapped Fastq from sortmerna to split files");
+        # Split paired reads into fwd and rev files
+        my @split_paired_mapped_args = ("in=".$outfiles{'sortmerna_fastq'}{'filename'},
+                                        'interleaved=t', # Force interleaved input
+                                        "out=".$outfiles{"reads_mapped_f"}{"filename"},
+                                        "out2=".$outfiles{"reads_mapped_r"}{"filename"},
+                                        "threads=$cpus",
+                                        );
+        run_prog('reformat',
+                 join (" ", @split_paired_mapped_args),
+                 );
+        $outfiles{"reads_mapped_f"}{'made'} ++;
+        $outfiles{"reads_mapped_r"}{'made'} ++;
+    } else {
+        system (join " ", ('mv',
+                           $outfiles{'sortmerna_fastq'}{'filename'},
+                           $outfiles{'reads_mapped_f'}{'filename'}));
+        $outfiles{'sortmerna_fastq'}{'made'} = undef;
+        $outfiles{'reads_mapped_f'}{'made'} ++;
+    }
+    
+    msg ("Done");
 }
 
 sub bbmap_fast_filter_parse {
@@ -2678,18 +2769,26 @@ check_environment();
 
 my $timer = new Timer;
 
-# Run BBmap against the SILVA database
-bbmap_fast_filter_sam_run();
-
-# Parse statistics from BBmap initial mapping
-my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
-
-# Dereference stats
-($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
-if (defined $skipflag && $skipflag == 1) {
-    # If coverage too low, skip assembly
-    $skip_spades = 1;
-    $skip_emirge = 1;
+if ($use_sortmerna == 1 ) {
+    # Run Sortmerna if explicitly called for 
+    sortmerna_filter_sam();
+    
+    # To do: Parse mapping stats and skip spades/emirge if necessary
+    
+} else {
+    # Run BBmap against the SILVA database
+    bbmap_fast_filter_sam_run();
+    
+    # Parse statistics from BBmap initial mapping
+    my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+    
+    # Dereference stats
+    ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
+    if (defined $skipflag && $skipflag == 1) {
+        # If coverage too low, skip assembly
+        $skip_spades = 1;
+        $skip_emirge = 1;
+    }
 }
 
 # Parse sam file
