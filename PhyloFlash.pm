@@ -54,6 +54,7 @@ our @EXPORT      = qw(
   hashtreeconsensus
   taxstring2hash
   consensus_taxon_counter
+  revcomp_DNA
   initialize_outfiles_hash
 );
 
@@ -825,6 +826,19 @@ sub consensus_taxon_counter {
     }
     
     return \%hashout;
+}
+
+=item revcomp_DNA ($seq)
+
+Return reverse complement of a DNA sequence
+
+=cut 
+
+sub revcomp_DNA {
+    my ($seq) = @_;
+    my $rev = reverse $seq;
+    $rev =~ tr/ATCGatcgYRWSKMDVHByrwskmdvhb/TAGCtagcRYWSMKHBDVrywsmkhbdv/; # Include ambiguity codes
+    return $rev;
 }
 
 =item initialize_outfiles_hash ($libraryNAME, $readsf)
