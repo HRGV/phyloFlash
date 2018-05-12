@@ -465,7 +465,7 @@ sub hash_SILVA_acc_taxstrings_from_fasta {
         }
     }
     close($fh);
-    store \%hash, "$prefix.acc2taxstr.hashimage";
+    store \%hash, "$prefix.acc2taxstring.hashimage";
 }
 
 
