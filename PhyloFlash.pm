@@ -6,6 +6,7 @@ use Exporter qw(import);
 use Time::Piece;
 use Text::Wrap;
 use Config;
+use Storable;
 
 $Text::Wrap::huge = "overflow";
 
