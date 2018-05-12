@@ -55,6 +55,7 @@ our @EXPORT      = qw(
   taxstring2hash
   consensus_taxon_counter
   revcomp_DNA
+  fix_sortmerna_sam
   initialize_outfiles_hash
 );
 
@@ -841,6 +842,311 @@ sub revcomp_DNA {
     return $rev;
 }
 
+=item fix_sortmerna_sam
+
+Fix SAM file produced by Sortmerna. Returns ref to array of fixed SAM file lines
+
+=cut
+
+sub fix_sortmerna_sam {
+    # Fix SAM file produced by Sortmerna v2.1b
+    my ($fastq,
+        $sam_original,
+        $acc2tax,
+        $semode) = @_;
+    
+    my $pe;
+    if ($semode == 0) {
+        $pe = 1;
+    } else {
+        $pe = 0;
+    }
+    
+    # Read in Fastq file and hash read orientations and sequences
+    my $fastq_href = read_interleaved_fastq ($fastq);
+    #print Dumper $fastq_href;
+    
+    # Read in SAM file and fix bit flags 0x1, 0x40, 0x80, 0x100
+    my ($sambyread_href, $sambyline_aref) = read_sortmerna_sam($sam_original, $fastq_href, $pe);
+    
+    # Fix flags related to read pairs: 0x2, 0x4, 0x8, 0x20
+    fix_pairing_flags($sambyread_href, $fastq_href) if $pe == 1;
+    #print Dumper $sambyread_href;
+    
+    # Add back the tax strings to RNAME field
+    if (defined $acc2tax) {
+        my $acc2tax_href = retrieve ($acc2tax);
+        fix_rname_taxstr($sambyread_href, $acc2tax_href);
+    }
+    
+    # Flatten hash back to array and print to output
+    my $aref = samaref_to_lines($sambyline_aref, $fastq_href);
+    #foreach my $line (@$aref) {
+    #    print "$line\n";
+    #}
+    
+    # Return ref to array containing the fixed SAM file
+    return $aref;
+}
+
+sub fix_rname_taxstr {
+    # Replace the accession number of RNAME with the original version
+    # retrieved from hash of acc vs taxstring
+    my ($sam_href,
+        $acc_href
+       ) = @_;
+    foreach my $id (keys %$sam_href) {
+        foreach my $segment (keys %{$sam_href->{$id}}) {
+            foreach my $rname (keys %{$sam_href->{$id}{$segment}}) {
+                my $new_rname = join " ", ($sam_href->{$id}{$segment}{$rname}{'RNAME'}, $acc_href->{$sam_href->{$id}{$segment}{$rname}{'RNAME'}});
+                $sam_href->{$id}{$segment}{$rname}{'RNAME'} = $new_rname;
+            }
+        }
+    }
+}
+
+sub samaref_to_lines {
+    # Reconstruct SAM lines, and also insert dummy entries for unmapped read fwd segments
+    # Input is an array of hash references and hash of Fastq sequences produced
+    # by read_interleaved_fastq()
+    my ($aref,
+        $fastq_href) = @_;
+    my @lines;
+    foreach my $href (@$aref) {
+        # Splice in first segment dummy entry if this is rev with fwd read unmapped
+        if ($href->{'FLAG'} & 0x80 && $href->{'FLAG'} & 0x8) {
+            my @splice = ($href->{'QNAME'}, # QNAME
+                          0x1 + 0x4 + 0x40, # Paired read, segment unmapped, first segment
+                          '*', # RNAME
+                          '0', # POS
+                          '255', # MAPQ
+                          '*', # CIGAR
+                          '*', # RNEXT
+                          '0', # PNEXT
+                          '0', # TLEN
+                          $fastq_href->{$href->{'QNAME'}}{'fwd'}{'seq'}, # SEQ
+                          $fastq_href->{$href->{'QNAME'}}{'fwd'}{'qual'} # QUAL
+                          );
+            push @lines, join "\t", @splice unless $href->{'FLAG'} & 0x100;
+        }
+        
+        # Otherwise continue
+        my @outarr;
+        my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+        foreach my $field (@fields) {
+            push @outarr, $href->{$field};
+        }
+        push @outarr, $href->{'OPTIONAL'} if defined $href->{'OPTIONAL'};
+        push @lines, join "\t", @outarr;
+    }
+    return \@lines;
+}
+
+sub fix_pairing_flags {
+    # Correct the following flags:
+    #  - 0x2
+    #  - 0x4
+    #  - 0x8
+    #  - 0x20
+    my ($sam_href,
+        $fastq_href
+        ) = @_;
+    foreach my $id (keys %$sam_href) {
+        if (defined $sam_href->{$id}{'fwd'} && $sam_href->{$id}{'rev'}) {
+            my %segment_revcomp;
+            my %other_segment = ( 'rev' => 'fwd',
+                                  'fwd' => 'rev' );
+            # Flag 0x2 - both segments have alignments
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x2 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x2;
+                    # Record if flag 0x10 set for this segment
+                    $segment_revcomp{$segment} ++ if $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x10;
+                }
+            }
+            # Sweep through once more
+            # Flag 0x20 - next segment rev comp'ed
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    if (defined $segment_revcomp{$other_segment{$segment}}) {
+                        $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x20 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x20;
+                    }
+                }
+            }
+        } else {
+            # Unflag 0x2
+            # Flag 0x8 - next segment unmapped
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} -= 0x2 if $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x2;
+                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x8 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x8;
+                }
+            }
+        }
+    }
+    
+    # No return value because it modifies hash in place
+}
+
+sub read_sortmerna_sam {
+    # Read in SAM file,
+    #  - hash entries by read and by line number
+    #  - Correct the following bit flags:
+    #     0x1
+    #     0x40
+    #     0x80
+    #     0x100
+    my ($file,
+        $fastq_href,
+        $pe,
+        ) = @_;
+    #my %samhash_by_line;
+    my @samhref_arr;
+    my %samhash_by_qname_segment_ref;
+    open(my $fh, "<", $file) or die ("$!");
+    my $counter = 0;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if ($line =~ m/^@/); # Skip header lines
+        
+        # Split entry into fields
+        my $href = split_sam_line_to_hash($line);
+        
+        # Hash SAM record by line number
+        push @samhref_arr, $href;
+        #$samhash_by_line {$counter} = $href;
+        
+        # Split read ID on first whitespace [not necessary as sortmerna already does this]
+        #my ($id, @discard) = split / /, $href->{'QNAME'};
+        my $id = $href->{'QNAME'};
+        
+        # Get sequence revcomp if bitflag 0x10 is set
+        my $sequence_original;
+        if ($href->{'FLAG'} & 0x16) {
+            $sequence_original = revcomp_DNA($href->{'SEQ'});
+        } else {
+            $sequence_original = $href->{'SEQ'};
+        }
+        
+        # Check whether fwd or rev segment if PE read
+        my $segment;
+        if ($pe == 1) {
+            $segment = $fastq_href->{$id}{'byseq'}{$sequence_original};
+            # Flag 0x1 (PE read) unless already set
+            $href->{'FLAG'} += 0x1 unless ($href->{'FLAG'} & 0x1);
+            # Flag 0x40 or 0x80 (fwd or rev) unless already set
+            if ($segment eq 'fwd') {
+                $href->{'FLAG'} += 0x40 unless $href->{'FLAG'} & 0x40;
+            } elsif ($segment eq 'rev') {
+                $href->{'FLAG'} += 0x80 unless $href->{'FLAG'} & 0x80;
+            } else {
+                # Diagnostics if segment not found
+                print STDERR "Segment not found for this sequence under header $id\n";
+                print STDERR "$sequence_original\n\n";
+                #print Dumper $fastq_href->{$id};
+                #print Dumper $href;
+            }
+        } else {
+            $segment = 'fwd';
+            # Unflag as 0x1 if erroneously set
+            $href->{'FLAG'} -= 0x1 if ($href->{'FLAG'} & 0x1); 
+        }
+        
+        # Check whether it is primary or secondary alignment for this read
+        # Assume that supplementary alignments not reported
+        if (defined $samhash_by_qname_segment_ref{$href->{'QNAME'}}{$segment}) {
+            # Flag 0x100 as secondary alignment if entry for this read already encountered
+            $href->{'FLAG'} += 0x100 unless $href->{'FLAG'} & 0x100;
+        }
+        $samhash_by_qname_segment_ref{$href->{'QNAME'}}{$segment}{$href->{'RNAME'}} = $href;
+        $counter ++;
+    }
+    close($fh);
+    
+    # Diagnostics
+    #print Dumper \%samhash_by_qname_segment_ref;
+    #print Dumper \@samhref_arr;
+    
+    # Return both hashes
+    return (\%samhash_by_qname_segment_ref, \@samhref_arr);
+}
+
+sub split_sam_line_to_hash {
+    # According to SAM v1 specification 2018-04-27
+    my $line = shift;
+    my @split = split /\t/, $line;
+    my %hash;
+    # Mandatory fields (spec part 1.4)
+    my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+    foreach my $field (@fields) {
+        # Fields should occur in the correct order
+        $hash{$field} = shift @split;
+    }
+    if (@split) {
+        # If anything is left-  optional alignment section (spec part 1.5)
+        $hash{'OPTIONAL'} = join "\t", @split;
+    }
+    return \%hash;
+}
+
+=item read_interleaved_fastq
+
+=cut
+
+sub read_interleaved_fastq {
+    # Assume that interleaved Fastq is properly paired, i.e. produced with
+    # "--paired_in" option to sortmerna
+    my ($file, $limit) = @_;
+    my $counter = 0;
+    my %hash;
+    my $currid;
+    open(my $fh, "<", $file) or die ("$!");
+    while (my $line = <$fh>){
+        chomp $line;
+        my $modulo = $counter % 8;
+        last if defined $limit && ( $counter / 8 ) > $limit;
+        if ($counter % 8 == 0 && $line =~ m/^@(.+)/) {
+            # Header line of fwd read
+            my $fullheader = $1;
+            my ($id, @discard) = split / /, $fullheader; # Split on whitespace
+            $currid = $id;
+            if (defined $hash{$currid}) {
+                # If another sequence of this name already defined, warn
+                print STDERR "WARNING: Splitting Fastq header on whitespace yields non-unique seq ID: $currid\n";
+            }
+            $hash{$currid}{'fwd'}{'fullheader'} = $fullheader;
+        } elsif ($counter % 8 == 1) {
+            # Seq line of fwd read
+            $hash{$currid}{'fwd'}{'seq'} = $line;
+            $hash{$currid}{'byseq'}{$line} = 'fwd';
+        } elsif ($counter % 8 == 3) {
+            # Quality line of fwd read
+            $hash{$currid}{'fwd'}{'qual'} = $line;
+        } elsif ($counter % 8 == 4 && $line =~ m/^@(.+)/) {
+            # Header line of rev read
+            my $fullheader = $1;
+            my ($id, @discard) = split / /, $fullheader; # Split on whitespace
+            if ($id ne $currid) {
+                print STDERR "WARNING: Fastq rev read header $id does not match fwd read $currid at line $counter\n";
+                print STDERR "Check if interleaved file correctly formatted\n";
+            }
+            
+            $hash{$currid}{'rev'}{'fullheader'} = $fullheader;
+        } elsif ($counter % 8 == 5) {
+            # Seq line of rev read
+            $hash{$currid}{'rev'}{'seq'} = $line;
+            $hash{$currid}{'byseq'}{$line} = 'rev';
+        } elsif ($counter % 8 == 7) {
+            # Qual line of rev read
+            $hash{$currid}{'rev'}{'qual'} = $line;
+        }
+        $counter ++;
+    }
+    close ($fh);
+    
+    return \%hash;
+}
+
 =item initialize_outfiles_hash ($libraryNAME, $readsf)
 
 Initialize a hash of the output filenames, descriptions, and flags when given
@@ -1369,6 +1675,34 @@ sub initialize_outfiles_hash {
         discard     => 1,
         filename    => "$libraryNAME.trusted.bbmap.outu.rev.fastq",
         intable     => 0,
+      },
+      "reads_uncompressed",
+      {
+        description => "Uncompressed input reads for Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.$readsf.uncompressed.fastq",
+        intable     => 0,
+      },
+      "sortmerna_sam",
+      {
+        description => "Original SAM file produced by Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.sortmerna.sam",
+        intable     => 0,
+      },
+      "sortmerna_fastq",
+      {
+        description => "Original Fastq file produced by Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.sortmerna.fastq",
+        intable     => 0,
+      },
+      "sortmerna_log",
+      {
+        description => "Log file produced by Sortmerna",
+        discard     => 0,
+        filename    => "$libraryNAME.sortmerna.log",
+        intable     => 1,
       },
       #"",
       #{
