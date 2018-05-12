@@ -319,6 +319,7 @@ my @tools_list;                 # Array to store list of tools required
 # default database names for EMIRGE and Vsearch
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
+my $sortmerna_db = $emirge_db;
 
 my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 
@@ -366,10 +367,12 @@ sub welcome {
 # (contains the necessary files for bbmap, emirge and vsearch)
 sub check_dbhome {
     my $dbhome = shift;
-    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
-         $vsearch_db.".fasta") {
-    return "${dbhome}/$_"
-        unless -r "${dbhome}/$_"
+    my @required_list = ('ref/genome/1/summary.txt',
+                         $emirge_db.".fasta",
+                         $vsearch_db.".fasta");
+    push @required_list, ("$sortmerna_db.bursttrie_0.dat","$sortmerna_db.acc2taxstring.hashimage") if defined $use_sortmerna;
+    foreach (@required_list) {
+        return "${dbhome}/$_" unless -r "${dbhome}/$_"
     }
     return "";
 }
