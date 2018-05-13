@@ -740,7 +740,7 @@ sub hash2taxstring_counts {
 
 =item hashtreeconsensus
 
-Walk hash of taxonomy tree and report where it diverges from single branch. 
+Walk hash of taxonomy tree and report where it diverges from single branch.
 As a side effect, report taxstring of the congruent portion of the tree
 
 =cut
@@ -792,10 +792,10 @@ sub consensus_taxon_counter {
         $aref,      # Array ref of list of reads to summarize
         $taxlevel,  # Taxonomic level for summarizing
         ) = @_;
-    
+
     my %hashout;
     my %taxhash;
-    
+
     foreach my $read (@$aref) {
         next if (!defined $href_in->{$read}); # Skip if this read has no taxonomic assignment
         # Get consensus taxstring for a given read
@@ -807,7 +807,7 @@ sub consensus_taxon_counter {
                 @outarr = @outarr[0..$taxlevel-1];
             } elsif (scalar @outarr < $taxlevel) {
                 # If taxonomic rank of consensus doesn't reach to requested rank,
-                # repeat the lowest taxonomic rank in brackets until requested 
+                # repeat the lowest taxonomic rank in brackets until requested
                 # rank, e.g. Bacteria;Proteobacteria;(Proteobacteria);(Proteobacteria); etc...
                 my $diff = $taxlevel - scalar (@outarr);
                 push @outarr, ("($outarr[$#outarr])") x $diff; # Parens before x operator make array
@@ -818,15 +818,15 @@ sub consensus_taxon_counter {
             taxstring2hash(\%{$taxhash{'ROOT'}}, \@outarr);
         }
     }
-    
+
     my %taxcounts;
     hash2taxstring_counts (\%taxhash, '', \%taxcounts);
     foreach my $key (keys %taxcounts) { # Replace ugly ;ROOT; from taxstring to be displayed
         my $display_taxstring = $key;
-        $display_taxstring =~ s/^;ROOT;//; 
+        $display_taxstring =~ s/^;ROOT;//;
         $hashout{$display_taxstring} = $taxcounts{$key};
     }
-    
+
     return \%hashout;
 }
 
@@ -834,7 +834,7 @@ sub consensus_taxon_counter {
 
 Return reverse complement of a DNA sequence
 
-=cut 
+=cut
 
 sub revcomp_DNA {
     my ($seq) = @_;
@@ -855,42 +855,44 @@ sub fix_sortmerna_sam {
         $sam_original,
         $acc2tax,
         $semode) = @_;
-    
+
     my $pe;
     if ($semode == 0) {
         $pe = 1;
     } else {
         $pe = 0;
     }
-    
+
     # Read in Fastq file and hash read orientations and sequences
     my $fastq_href = read_interleaved_fastq ($fastq);
     #print Dumper $fastq_href;
-    
+
     # Read in SAM file and fix bit flags 0x1, 0x40, 0x80, 0x100
     my ($sambyread_href, $sambyline_aref) = read_sortmerna_sam($sam_original, $fastq_href, $pe);
-    
+
     # Fix flags related to read pairs: 0x2, 0x4, 0x8, 0x20
     fix_pairing_flags($sambyread_href, $fastq_href) if $pe == 1;
     #print Dumper $sambyread_href;
-    
+
     # Add back the tax strings to RNAME field
     if (defined $acc2tax) {
         my $acc2tax_href = retrieve ($acc2tax);
         fix_rname_taxstr($sambyread_href, $acc2tax_href);
     }
-    
+
     # Flatten hash back to array and print to output
     my $aref = samaref_to_lines($sambyline_aref, $fastq_href);
     #foreach my $line (@$aref) {
     #    print "$line\n";
     #}
-    
+
     # Return ref to array containing the fixed SAM file
     return $aref;
 }
 
 sub fix_rname_taxstr {
+    # Function used by fix_sortmerna_sam
+
     # Replace the accession number of RNAME with the original version
     # retrieved from hash of acc vs taxstring
     my ($sam_href,
@@ -907,6 +909,8 @@ sub fix_rname_taxstr {
 }
 
 sub samaref_to_lines {
+    # Function used by fix_sortmerna_sam
+
     # Reconstruct SAM lines, and also insert dummy entries for unmapped read fwd segments
     # Input is an array of hash references and hash of Fastq sequences produced
     # by read_interleaved_fastq()
@@ -930,7 +934,7 @@ sub samaref_to_lines {
                           );
             push @lines, join "\t", @splice unless $href->{'FLAG'} & 0x100;
         }
-        
+
         # Otherwise continue
         my @outarr;
         my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
@@ -944,6 +948,8 @@ sub samaref_to_lines {
 }
 
 sub fix_pairing_flags {
+    # Function used by fix_sortmerna_sam
+
     # Correct the following flags:
     #  - 0x2
     #  - 0x4
@@ -985,11 +991,13 @@ sub fix_pairing_flags {
             }
         }
     }
-    
+
     # No return value because it modifies hash in place
 }
 
 sub read_sortmerna_sam {
+    # Function used by fix_sortmerna_sam
+
     # Read in SAM file,
     #  - hash entries by read and by line number
     #  - Correct the following bit flags:
@@ -1009,18 +1017,18 @@ sub read_sortmerna_sam {
     while (my $line = <$fh>) {
         chomp $line;
         next if ($line =~ m/^@/); # Skip header lines
-        
+
         # Split entry into fields
         my $href = split_sam_line_to_hash($line);
-        
+
         # Hash SAM record by line number
         push @samhref_arr, $href;
         #$samhash_by_line {$counter} = $href;
-        
+
         # Split read ID on first whitespace [not necessary as sortmerna already does this]
         #my ($id, @discard) = split / /, $href->{'QNAME'};
         my $id = $href->{'QNAME'};
-        
+
         # Get sequence revcomp if bitflag 0x10 is set
         my $sequence_original;
         if ($href->{'FLAG'} & 0x16) {
@@ -1028,7 +1036,7 @@ sub read_sortmerna_sam {
         } else {
             $sequence_original = $href->{'SEQ'};
         }
-        
+
         # Check whether fwd or rev segment if PE read
         my $segment;
         if ($pe == 1) {
@@ -1050,9 +1058,9 @@ sub read_sortmerna_sam {
         } else {
             $segment = 'fwd';
             # Unflag as 0x1 if erroneously set
-            $href->{'FLAG'} -= 0x1 if ($href->{'FLAG'} & 0x1); 
+            $href->{'FLAG'} -= 0x1 if ($href->{'FLAG'} & 0x1);
         }
-        
+
         # Check whether it is primary or secondary alignment for this read
         # Assume that supplementary alignments not reported
         if (defined $samhash_by_qname_segment_ref{$href->{'QNAME'}}{$segment}) {
@@ -1063,16 +1071,18 @@ sub read_sortmerna_sam {
         $counter ++;
     }
     close($fh);
-    
+
     # Diagnostics
     #print Dumper \%samhash_by_qname_segment_ref;
     #print Dumper \@samhref_arr;
-    
+
     # Return both hashes
     return (\%samhash_by_qname_segment_ref, \@samhref_arr);
 }
 
 sub split_sam_line_to_hash {
+    # Function used by fix_sortmerna_sam
+
     # According to SAM v1 specification 2018-04-27
     my $line = shift;
     my @split = split /\t/, $line;
@@ -1090,11 +1100,9 @@ sub split_sam_line_to_hash {
     return \%hash;
 }
 
-=item read_interleaved_fastq
-
-=cut
-
 sub read_interleaved_fastq {
+    # Function used by fix_sortmerna_sam
+
     # Assume that interleaved Fastq is properly paired, i.e. produced with
     # "--paired_in" option to sortmerna
     my ($file, $limit) = @_;
@@ -1131,7 +1139,7 @@ sub read_interleaved_fastq {
                 print STDERR "WARNING: Fastq rev read header $id does not match fwd read $currid at line $counter\n";
                 print STDERR "Check if interleaved file correctly formatted\n";
             }
-            
+
             $hash{$currid}{'rev'}{'fullheader'} = $fullheader;
         } elsif ($counter % 8 == 5) {
             # Seq line of rev read
@@ -1144,7 +1152,7 @@ sub read_interleaved_fastq {
         $counter ++;
     }
     close ($fh);
-    
+
     return \%hash;
 }
 
