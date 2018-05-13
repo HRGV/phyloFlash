@@ -15,7 +15,7 @@ phyloFlash_makedb.pl --remote
 
 ### use local copies
 
-phyloFlash makedb.pl --silva_file F<path/to/silva_db> --univec_file F<path/to/univec_db> 
+phyloFlash makedb.pl --silva_file F<path/to/silva_db> --univec_file F<path/to/univec_db>
 
 =head1 DESCRIPTION
 
@@ -92,7 +92,7 @@ Default: All available
 
 =item --mem I<N>
 
-Memory limit (in Gb) for indexing tools. At least 10 is recommended. 
+Memory limit (in Gb) for indexing tools. At least 10 is recommended.
 
 Default: 10
 
@@ -366,7 +366,7 @@ sub find_LSU {
 sub make_vsearch_udb {
     my ($infile, $outfile) = @_;
     msg ("Indexing $infile to make UDB file $outfile with Vsearch");
-    my @vsearch_params = ("--threads $cpus", 
+    my @vsearch_params = ("--threads $cpus",
                           '--notrunclabels', # Keep full header including taxstring
                           "--makeudb_usearch $infile",
                           "--output $outfile",
@@ -397,7 +397,7 @@ sub univec_trim {
     run_prog("bbduk",
              "ref=$univec "
              . "  overwrite=t "
-             . "-Xmx".$memlimitGb."4g "
+             . "-Xmx".$memlimitGb."g "
              . "threads=$cpus "
              . "fastawrap=0 "
              . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
@@ -419,7 +419,7 @@ sub bbmap_db {
     my ($ref, $path) = @_;
     msg("creating bbmap reference");
     run_prog("bbmap",
-             "  -Xmx".$memlimitGb."10g "   # Original 4 Gb limit was not enough
+             "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
              . "threads=$cpus "
              . "ref=$ref "
              . "path=$path ");
