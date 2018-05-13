@@ -57,6 +57,7 @@ our @EXPORT      = qw(
   consensus_taxon_counter
   revcomp_DNA
   fix_sortmerna_sam
+  split_sam_line_to_hash
   initialize_outfiles_hash
 );
 

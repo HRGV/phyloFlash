@@ -1172,6 +1172,52 @@ sub bbmap_fast_filter_parse {
     return (\@output_array,$skip_assembly_flag);
 }
 
+sub read_bbmap_sam_to_hash {
+    # Read BBMap SAM file to two hashes:
+    # One arranged by original order of entries in file
+    # The other keyed by the QNAME, read segment, and RNAME
+    # Also fix the following known issues in the input SAM file:
+    #  - rev read name is not properly represented for secondary alignments
+    #    therefore split read name on first whitespace
+    #  - bitflag not correct for rev read secondary alignments
+
+}
+
+sub parse_stats_taxonomy_from_sam_hash {
+    # From hash of fixed SAM records ...
+    # Parse out taxonomy summary to
+    #  $taxa_ambig_byread_hash
+    #  $taxa_full_href
+    #  @taxa_full
+    # $taxa_summary_href
+}
+
+sub diversity_stats_from_taxonomy {
+    # From hash of counts keyed by taxon (global var $taxa_summary_href)
+    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
+    my ($href) = @_;
+    my ($chao);
+    my ($oneton, $twoton, $moreton) = (0,0,0);
+    foreach my $taxon (keys %$href) {
+        if ($href->{$taxon} == 1) {        # 1-tons
+            $oneton++;
+        } elsif ($href->{$taxon} == 2) {   # 2-tons
+            $twoton++;
+        } elsif ($href->{$taxon} >= 3) {   # 3+-tons
+            $moreton++;
+        }
+    }
+    if ($twoton > 0) {
+        $chao =
+          $moreton +                               # Is there an error here? Should be sum of all spp. observed
+          ($oneton * $oneton) / 2 / $twoton;
+    } else {
+        $chao = 'n.d.';
+    }
+    return ($chao, $oneton, $twoton, $moreton);
+}
+
+
 sub readsam {
     # Read SAM file into memory
 
@@ -1266,23 +1312,8 @@ sub readsam {
         $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
     }
 
-    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
-    foreach my $taxon (keys %$taxa_summary_href) {
-        if ($taxa_summary_href->{$taxon} == 1) {        # 1-tons
-            $xtons[0]++;
-        } elsif ($taxa_summary_href->{$taxon} == 2) {   # 2-tons
-            $xtons[1]++;
-        } elsif ($taxa_summary_href->{$taxon} >= 3) {   # 3+-tons
-            $xtons[2]++;
-        }
-    }
-    if ($xtons[1] > 0) {
-        $chao1 =
-          $xtons[2] +                               # Is there an error here? Should be sum of all spp. observed
-          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
-    } else {
-        $chao1 = 'n.d.';
-    }
+    # Calculate Chao1 index from taxon counts
+    ($chao1, @xtons) = diversity_stats_from_taxonomy($taxa_summary_href);
 
     msg("done...");
 }
