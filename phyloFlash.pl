@@ -324,7 +324,6 @@ my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $poscov_flag = 0;            # Flag - use Nhmmer to estimate positional coverage? (Default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
-my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
 my $keeptmp     = 0;            # Do not delete temporary files (Default = 0, do delete temporary files)
 my $tophit_flag;                # Use "old" way of taxonomic summary, by taking top bbmap hit (no ambiguities) (Default: undef, no)
@@ -441,7 +440,7 @@ sub process_required_tools {
         require_tools (sortmerna => "sortmerna",
                        indexdb_rna => "indexdb_rna");
     }
-    
+
     # Check operating system to decide which nhmmer to use
     my $opsys = $^O;
     msg ("Current operating system $opsys");
@@ -508,28 +507,21 @@ sub parse_cmdline {
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
                'tophit!' => \$tophit_flag,
-               'check_env' => \$check_env,
+               'check_env' => \&check_env_wrapper,
                'outfiles' => \&output_description,
                'help|h' => sub { pod2usage(-verbose=>0); },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2); },
-               'version' => sub { welcome(); exit; }, 
+               'version' => sub { welcome(); exit; },
            )
         or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
-    
+
     # Say hello
     welcome();
 
-    # verify tools present
-    if ($check_env == 1) {
-        process_required_tools();
-        check_environment(); # will die on failure
-        verify_dbhome();
-        exit();
-    }
-
+    # Verify DBHOME is a valid phyloFlash DB folder
     verify_dbhome();
-    
+
     # verify valid lib name
     pod2usage("Please specify output file basename with -lib\n")
         if !defined($libraryNAME);
@@ -621,7 +613,7 @@ sub parse_cmdline {
             $trusted_contigs = undef;
         }
     }
-    
+
     # populate hash to keep track of output files
     my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
     %outfiles = %$outfiles_href;
@@ -645,6 +637,15 @@ sub parse_cmdline {
             msg ("Running \"everything\" except EMIRGE- overrides other command line options");
         }
     }
+}
+
+sub check_env_wrapper {
+    # verify tools present
+    welcome();
+    process_required_tools();
+    check_environment(); # will die on failure
+    verify_dbhome();
+    exit();
 }
 
 sub output_description {
@@ -774,7 +775,7 @@ NTU\treads
             print {$fh} join("\t", @out)."\n";
         }
     }
-    
+
     if (defined $outfiles{"trusted_fasta"}{"made"}) {
         ## Print the table of SSU extracted from trusted contigs to report file
         print {$fh} "---\n";
@@ -866,7 +867,7 @@ sub write_csv {
         }
         close($fh);
     }
-    
+
     # If full-length seqeunces were assembled or reconstructed
     if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{"trusted_fasta"}{"made"}) {
 
@@ -923,7 +924,7 @@ sub bbmap_fast_filter_sam_run {
                       "po=f",
                       "outputunmapped=f",
                       "path=$DBHOME",
-                      "out=".$outfiles{"sam_map"}{"filename"}, 
+                      "out=".$outfiles{"sam_map"}{"filename"},
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
                       'noheader=t', # Do not print header lines of SAM file
                       'ambiguous=all', # Report all ambiguous reads
@@ -964,7 +965,7 @@ sub bbmap_fast_filter_sam_run {
 
 sub sortmerna_filter_sam {
     msg ("Using Sortmerna to extract SSU rRNA reads instead of BBmap");
-    
+
     # Reformat Fastq file
     msg ("Reformatting input files to uncompressed Fastq format for Sortmerna");
     my @reformat_args = ("in=$readsf_full",
@@ -983,16 +984,16 @@ sub sortmerna_filter_sam {
     run_prog("reformat",
              join (" ", @reformat_args),
              );
-    
+
     # Record that file was made
     $outfiles{'reads_uncompressed'}{'made'} ++;
-    
+
     # Sortmerna arguments
     my @sortmerna_args = ("--ref $DBHOME/$sortmerna_db.fasta,$DBHOME/$sortmerna_db",
                           "--reads ".$outfiles{'reads_uncompressed'}{'filename'},
                           "--aligned $libraryNAME.sortmerna", # Output file prefix
                           "--fastx",        # Report extracted reads in Fastq format
-                          "--paired_in",    # Report both segments in pair to Fastq format 
+                          "--paired_in",    # Report both segments in pair to Fastq format
                           "--sam",          # SAM alignment output
                           #"--blast 1",     # Blast-tabular alignment output
                           "--log",
@@ -1007,12 +1008,12 @@ sub sortmerna_filter_sam {
     run_prog("sortmerna",
              join (" ", @sortmerna_args),
              );
-    
+
     # Record which files created
     foreach my $madekey (qw (sortmerna_sam sortmerna_fastq sortmerna_log)) {
         $outfiles{$madekey}{'made'} ++;
     }
-    
+
     msg ("Fixing bitflags and RNAME in SAM file output of Sortmerna");
     # Fix Sortmerna output file - bitflags and names of ref sequences
     my $fixed_sam_aref = fix_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
@@ -1031,7 +1032,7 @@ sub sortmerna_filter_sam {
         close ($sam_fh);
         $outfiles{"sam_map"}{"made"} ++ ;
     }
-    
+
     # Reformat fwd and rev mapped Fastq reads from Sortmerna
     if ($SEmode == 0) {
         msg ("Reformatting interleaved mapped Fastq from sortmerna to split files");
@@ -1054,7 +1055,7 @@ sub sortmerna_filter_sam {
         $outfiles{'sortmerna_fastq'}{'made'} = undef;
         $outfiles{'reads_mapped_f'}{'made'} ++;
     }
-    
+
     msg ("Done");
 }
 
@@ -1190,19 +1191,19 @@ sub readsam {
         next if ($line =~ m/^@/); # Skip header lines
         my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
         next if (!defined $bitflag); # Skip ill-formed alignment entries
-        
+
         if ($SEmode == 0) { # If paired end mode, use bitflag 0x40 to detect first read in pair
             if ($bitflag & 0x40) {
                 # Update counter for each read when encountering first segment
                 # primary alignment of each read pair
                 $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
             }
-        } else { # Single-end mode, bitflag 0x40 and 0x80 are not set 
+        } else { # Single-end mode, bitflag 0x40 and 0x80 are not set
             $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
         }
-        
+
         next if ($bitflag & 0x4); # If not mapped, skip entry, do NOT record into hash
-        
+
         # Check if reads are PE or SE
         my $pair;
         if ($bitflag & 0x1) { # If PE read
@@ -1232,12 +1233,12 @@ sub readsam {
         # Hash taxa hits by read
         if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
             my $taxonlongstring = $1;
-            
+
             if (defined $tophit_flag) {
                 # "old" way - just take the top hit of each read as the taxon
                 # Therefore ignore secondary alignments
                 # Count full-length taxon for treemap
-                $taxa_full_href->{$taxonlongstring}++ unless $bitflag & 0x100; 
+                $taxa_full_href->{$taxonlongstring}++ unless $bitflag & 0x100;
                 # Save full taxonomy string
                 push @taxa_full, $taxonlongstring unless $bitflag & 0x100;
             } else {
@@ -1253,10 +1254,10 @@ sub readsam {
 
     if (defined $tophit_flag) {
         # Using only top alignment per read to get taxonomy
-        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); # 
+        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
     } else {
         # Use consensus of all ambiguous alignments per read to get taxonomy
-        
+
         # List of all the readcounter IDs
         my @allreadcounters = (keys %taxa_ambig_byread_hash);
         ## Count taxonomy in tree from consensus taxstrings, truncated to taxonomic level requested
@@ -1437,7 +1438,7 @@ sub spades_parse {
         }
         close($fh);
         $outfiles{"gff_all"}{"made"}++;
-    
+
         # fastaFromBed will build a .fai index from the source .fasta
         # However, it does not notice if the .fasta changed. So we
         # delete the .fai if it is older than the .fasta.
@@ -1446,7 +1447,7 @@ sub spades_parse {
                            "$libraryNAME.spades/scaffolds.fasta.fai")) {
             unlink("$libraryNAME.spades/scaffolds.fasta.fai");
         }
-    
+
         # extract rrna fragments from spades scaffolds accoding to gff
         my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
                                  "-bed",$outfiles{"gff_all"}{"filename"},
@@ -1516,7 +1517,7 @@ sub fix_bedtools_header {
 sub trusted_contigs_parse {
     # Extract SSU rRNA sequences from "trusted contigs" Fasta file
     msg("Extracting SSU rRNA from trusted contigs $trusted_contigs...");
-    
+
     # run barrnap once for each domain
     # if single cell data - accept partial rRNAs down to 0.1
     # and use lower e-value setting
@@ -1586,7 +1587,7 @@ sub trusted_contigs_parse {
         }
         close($fh);
         $outfiles{"trusted_gff_all"}{"made"}++;
-    
+
         # fastaFromBed will build a .fai index from the source .fasta
         # However, it does not notice if the .fasta changed. So we
         # delete the .fai if it is older than the .fasta.
@@ -1595,7 +1596,7 @@ sub trusted_contigs_parse {
                            "$trusted_contigs.fai")) {
             unlink("$trusted_contigs.fai");
         }
-    
+
         # extract rrna fragments from trusted contigs accoding to gff
         my @fastaFromBed_args = ("-fi $trusted_contigs",
                                  "-bed",$outfiles{"trusted_gff_all"}{"filename"},
@@ -1683,14 +1684,14 @@ sub bbmap_remap {
             $outfiles{'reads_mapped_notrusted_r'}{'made'}++; # Record file as made
         }
     }
-    
+
     # Run BBmap
     run_prog("bbmap",
              join (" ", @remap_args),
              undef,
              $outlog,
              );
-    
+
     msg("done...");
 }
 
@@ -1751,7 +1752,7 @@ sub screen_remappings {
                     if (defined $ssu_sam{$read}{$pair}{'bitflag'}) {
                         push @unassem_readcounters, $ssu_sam{$read}{$pair}{'readcounter'} unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
                         if (defined $tophit_flag) {
-                            # If using top hit 
+                            # If using top hit
                             if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
                                 my $taxonlongstring = $1;
                                 push @unassem_taxa, $taxonlongstring unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
@@ -1765,7 +1766,7 @@ sub screen_remappings {
 
     # Summarize counts per NTU of unassembled reads
     if (defined $tophit_flag) {
-        $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);  
+        $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
     } else {
         $taxa_unassem_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@unassem_readcounters, $taxon_report_lvl);
     }
@@ -1801,7 +1802,7 @@ sub screen_remappings {
         }
         $ssu_sam_mapstats{'trusted_tot_map'} = $trusted_tot_map;
     }
-    
+
     # Write CSV of reads assembled for piechart
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$total_unassembled;
@@ -2109,7 +2110,7 @@ sub mafft_run {
            push @input_fasta, $outfiles{$ff}{"filename"};
         }
     }
-    # Cat all to one file for alignment 
+    # Cat all to one file for alignment
     run_prog("cat",
              join(" ", @input_fasta),
              $outfiles{"ssu_coll_fasta"}{"filename"});
@@ -2223,13 +2224,13 @@ sub nhmmer_model_pos {
             $prok_pos{$hash{$readname}{"pos"}}++;
         }
     }
-    
+
     # Total up number of hits per model. If fewer than 50 hits, do not draw
     # histogram
     my ($prok_total, $euk_total) = (0,0);
     foreach my $pos (keys %prok_pos) { $prok_total += $prok_pos{$pos}; }
     foreach my $pos (keys %euk_pos) { $euk_total += $euk_pos{$pos}; }
-    
+
     # Write result to prokaryote histogram
     if ($prok_total >= 50) {
         my $fh_prok;
@@ -2242,7 +2243,7 @@ sub nhmmer_model_pos {
     } else {
         msg ("Fewer than 50 maps to prokaryotic SSU HMM model, skip plotting histogram...");
     }
-    
+
     # Write results for eukaryote histogram
     if ($euk_total >= 50) {
         my $fh_euk;
@@ -2255,7 +2256,7 @@ sub nhmmer_model_pos {
     } else {
         msg ("Fewer than 50 maps to eukaryotic SSU HMM model, skip plotting histogram...");
     }
-    
+
     msg ("done");
 }
 
@@ -2702,16 +2703,16 @@ sub write_report_html {
         }
         $flags{"TRUSTED_SSU_TABLE"} = join "", @table_trusted_seq;
     }
-    
+
     # Params defined if either SPAdes or EMIRGE are run
     if (defined $outfiles{'spades_fasta'}{'made'} || defined $outfiles{'emirge_fasta'}{'made'} || defined $outfiles{'trusted_fasta'}{'made'}) {
         # Assembly ratios
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
         $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
-        
+
         # Sequence tree
         $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
-        
+
         # Table of unassembled SSU reads affiliations
         my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
         my @table_unassem_lines;
@@ -2770,18 +2771,18 @@ check_environment();
 my $timer = new Timer;
 
 if ($use_sortmerna == 1 ) {
-    # Run Sortmerna if explicitly called for 
+    # Run Sortmerna if explicitly called for
     sortmerna_filter_sam();
-    
+
     # To do: Parse mapping stats and skip spades/emirge if necessary
-    
+
 } else {
     # Run BBmap against the SILVA database
     bbmap_fast_filter_sam_run();
-    
+
     # Parse statistics from BBmap initial mapping
     my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
-    
+
     # Dereference stats
     ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
     if (defined $skipflag && $skipflag == 1) {
