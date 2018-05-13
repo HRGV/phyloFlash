@@ -1016,10 +1016,10 @@ sub sortmerna_filter_sam {
 
     msg ("Fixing bitflags and RNAME in SAM file output of Sortmerna");
     # Fix Sortmerna output file - bitflags and names of ref sequences
-    my $fixed_sam_aref = fix_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
-                                           $outfiles{'sortmerna_sam'}{'filename'},
-                                           "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
-                                           $SEmode);
+    my $fixed_sam_aref = fix_hash_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
+                                                $outfiles{'sortmerna_sam'}{'filename'},
+                                                "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
+                                                $SEmode);
     # Write file
     if (defined $fixed_sam_aref) {
         my $sam_fh;
@@ -1172,14 +1172,23 @@ sub bbmap_fast_filter_parse {
     return (\@output_array,$skip_assembly_flag);
 }
 
-sub read_bbmap_sam_to_hash {
-    # Read BBMap SAM file to two hashes:
-    # One arranged by original order of entries in file
-    # The other keyed by the QNAME, read segment, and RNAME
+sub fix_hash_bbmap_sam {
+    # Read BBMap SAM file to two structures:
+    #  - Array arranged by original order of entries in file
+    #  - Hash keyed by the QNAME, read segment, and RNAME
+    # Each contain refs to hashes of the SAM entries
+    # This allows us to keep the same data referenced in different ways,
+    # and when we modify the data (e.g. fix bitflags) it is accessible from both
+    # e.g. there are some fixes which are dependent on the order in the file
+    #
     # Also fix the following known issues in the input SAM file:
     #  - rev read name is not properly represented for secondary alignments
     #    therefore split read name on first whitespace
     #  - bitflag not correct for rev read secondary alignments
+
+    my ($infile,    # Raw SAM file from BBmap
+        ) = @_;
+
 
 }
 

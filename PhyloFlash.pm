@@ -56,7 +56,7 @@ our @EXPORT      = qw(
   taxstring2hash
   consensus_taxon_counter
   revcomp_DNA
-  fix_sortmerna_sam
+  fix_hash_sortmerna_sam
   split_sam_line_to_hash
   initialize_outfiles_hash
 );
@@ -844,13 +844,13 @@ sub revcomp_DNA {
     return $rev;
 }
 
-=item fix_sortmerna_sam
+=item fix_hash_sortmerna_sam
 
 Fix SAM file produced by Sortmerna. Returns ref to array of fixed SAM file lines
 
 =cut
 
-sub fix_sortmerna_sam {
+sub fix_hash_sortmerna_sam {
     # Fix SAM file produced by Sortmerna v2.1b
     my ($fastq,
         $sam_original,
@@ -892,7 +892,7 @@ sub fix_sortmerna_sam {
 }
 
 sub fix_rname_taxstr {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # Replace the accession number of RNAME with the original version
     # retrieved from hash of acc vs taxstring
@@ -910,7 +910,7 @@ sub fix_rname_taxstr {
 }
 
 sub samaref_to_lines {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # Reconstruct SAM lines, and also insert dummy entries for unmapped read fwd segments
     # Input is an array of hash references and hash of Fastq sequences produced
@@ -949,7 +949,7 @@ sub samaref_to_lines {
 }
 
 sub fix_pairing_flags {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # Correct the following flags:
     #  - 0x2
@@ -997,7 +997,7 @@ sub fix_pairing_flags {
 }
 
 sub read_sortmerna_sam {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # Read in SAM file,
     #  - hash entries by read and by line number
@@ -1082,7 +1082,7 @@ sub read_sortmerna_sam {
 }
 
 sub split_sam_line_to_hash {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # According to SAM v1 specification 2018-04-27
     my $line = shift;
@@ -1102,7 +1102,7 @@ sub split_sam_line_to_hash {
 }
 
 sub read_interleaved_fastq {
-    # Function used by fix_sortmerna_sam
+    # Function used by fix_hash_sortmerna_sam
 
     # Assume that interleaved Fastq is properly paired, i.e. produced with
     # "--paired_in" option to sortmerna
