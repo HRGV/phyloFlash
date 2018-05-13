@@ -1010,8 +1010,8 @@ sub read_sortmerna_sam {
         $pe,
         ) = @_;
     #my %samhash_by_line;
-    my @samhref_arr;
-    my %samhash_by_qname_segment_ref;
+    my @samhref_arr; # Array of refs to hash of each SAM entry, in original order from file
+    my %samhash_by_qname_segment_ref; # Hash of refs to hash of each SAM entry, keyed by QNAME, Segment (fwd or rev) and RNAME fields
     open(my $fh, "<", $file) or die ("$!");
     my $counter = 0;
     while (my $line = <$fh>) {
