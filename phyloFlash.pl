@@ -1064,7 +1064,141 @@ sub sortmerna_filter_sam {
     return ($fixed_sam_href, $fixed_sam_aref);
 }
 
-sub bbmap_fast_filter_parse {
+sub parse_mapstats_from_sam_arr {
+    my ($aref,      # Array of hrefs to SAM mapping
+        $readnr,    # Total reads (segments) input to mapper
+        $SEmode     # Flag for single-end mode
+        ) = @_;
+    #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
+    
+    # Variables used internally
+    my $ssu_pairs     = 0;  # Pairs with both segments mapping
+    my $ssu_bad_pairs = 0;  # Pairs where segments map to different references
+    my $ssu_f_reads   = 0;  # Forward segments mapping
+    my $ssu_r_reads   = 0;  # Reverse segments mapping
+    my $SSU_total_pairs = 0;# Total read pairs with at least one segment mapping
+    my $mapped_half = 0;    # Pairs where one segment maps but the other doesn't
+    my $unmapped_segment = 0; # Don't use this for summary
+    my $unmapped;
+    
+    foreach my $href (@$aref) {
+        # Go through each SAM record and check bitflags to see if mapping or not
+        next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
+        
+        if ($href->{'FLAG'} & 0x40) { # Fwd read
+            $SSU_total_pairs ++;                            # Add to total pairs when fwd read encountered
+            $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
+        } elsif ($href->{'FLAG'} & 0x80) { # Rev read
+            $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
+        }
+        
+        if ($href->{'FLAG'} & 0x2) { # Each segment properly aligned
+            $ssu_pairs ++; # This will have to be divided by two later
+        } elsif ($href->{'FLAG'} & 0x8) { # Next segment unmapped
+            $mapped_half ++;
+        } elsif ($href->{'FLAG'} & 0x4) { # Unmapped segment
+            $unmapped_segment ++;
+        } else { # Both segments map but to different references (bbmap 'bad pairs')
+            $ssu_bad_pairs ++; # Will have to be divided by two later
+        }
+    }
+    
+    # calculating mapping ratio
+    $readnr_pairs = $readnr;
+    # If paired reads, divide segment-based counts by two into pair-based counts
+
+    $readnr_pairs /= 2 if $SEmode == 0;
+    
+    $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
+    $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
+    
+    if ($SEmode == 0) {
+        # If paired reads, divide segment-based counts by two into pair-based counts
+        $ssu_pairs /= 2;
+        $ssu_bad_pairs /= 2;
+        # Report summary stats
+        msg("Total read pairs with at least one segment mapping: $SSU_total_pairs");
+        msg("Read pairs with both segments mapping to same reference: $ssu_pairs");
+        msg("Read pairs with both segments mapping to different references: $ssu_bad_pairs");
+        msg("Read segments where next segment unmapped: $mapped_half");
+    } elsif ($SEmode == 1) {
+        $unmapped = 1-$SSU_ratio;
+    }
+
+
+    # Ratios of mapped vs unmapped to report
+    my @mapratio_csv;
+    if ($SEmode == 1) { # TO DO: Add numerical values to text labels
+        
+        push @mapratio_csv, "Unmapped,".$unmapped;
+        push @mapratio_csv, "Mapped,".$SSU_ratio;
+    } elsif ($SEmode == 0) {
+        # For PE reads, do not include Unmapped in piechart because it will be
+        # impossible to read the other slices anyway. Instead report mapping
+        # ratio in title.
+
+        push @mapratio_csv, "Mapped pair,".$ssu_pairs*2;
+        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs*2;
+        push @mapratio_csv, "Mapped single,".$mapped_half;
+    }
+
+    # CSV file to draw piechart
+    my $fh_csv;
+    open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
+    $outfiles{"mapratio_csv"}{"made"}++;
+    print $fh_csv join ("\n", @mapratio_csv);
+    close ($fh_csv);
+
+    msg("mapping rate: $SSU_ratio_pc%");
+
+    my $skip_assembly_flag;
+    if ($SSU_total_pairs * 2 * $readlength < 1800) {
+        msg("WARNING: mapping coverage lower than 1x,\nreconstruction with SPADES and Emirge disabled.");
+        $skip_assembly_flag = 1;
+    }
+
+    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
+    return (\@output_array,$skip_assembly_flag);
+}
+
+
+sub get_total_reads_from_bbmap_log {
+    my ($infile) = @_;
+    my $fh;
+    my $readnr;
+    open_or_die(\$fh, "<", $infile);
+    while (<$fh>) {
+        if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
+            $readnr = $1;
+            msg("Total read segments processed: $readnr");
+        }
+        if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
+            $ins_me = $1;
+            msg("insert size median: $ins_me");
+        }
+        if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
+            $ins_std = $1;
+            msg("insert size std deviation: $ins_std");
+        }
+    }
+    return ($readnr,$ins_me,$ins_std);
+}
+
+sub get_total_reads_from_sortmerna_log {
+    my ($infile) = @_;
+    my $fh;
+    my $readnr;
+    open_or_die(\$fh, "<", $infile);
+    while (<$fh>) {
+        if (/^\s+Total reads = (\d+)$/) {
+            $readnr = $1;
+            msg("Total read segments processed: $readnr");
+        }
+    }
+    return ($readnr);
+}
+
+sub bbmap_fast_filter_parse {                                                   # To be replaced
     # parsing bbmap.out for used read numbers, mapped reads,
     # insert size median and standard deviation
 
@@ -1371,7 +1505,7 @@ sub diversity_stats_from_taxonomy {
 }
 
 
-sub readsam {
+sub readsam {                                                                   # To be replaced
     # Read SAM file into memory
 
     # Input params
@@ -2958,29 +3092,50 @@ check_environment();
 
 my $timer = new Timer;
 
+my $sam_fixed_href;
+my $sam_fixed_aref;
+
 if ($use_sortmerna == 1 ) {
     # Run Sortmerna if explicitly called for
-    my ($sortme_sam_href, $sortme_sam_aref) = sortmerna_filter_sam();
-    parse_stats_taxonomy_from_sam_array($sortme_sam_aref);
-    # To do: Parse mapping stats and skip spades/emirge if necessary
+    ($sam_fixed_href, $sam_fixed_aref) = sortmerna_filter_sam();
+    # Get total reads processed from Sortmerna log file
+    $readnr = get_total_reads_from_sortmerna_log($outfiles{'sortmerna_log'}{'filename'});
+    # Set insert size summary stats to 0 because not reported by sortmerna
+    ($ins_me, $ins_std) = (0,0); 
 
 } else {
     # Run BBmap against the SILVA database
     bbmap_fast_filter_sam_run();
+    # Fix bitflags and read names in SAM file if necessary
+    ($sam_fixed_href, $sam_fixed_aref) = fix_hash_bbmap_sam($outfiles{'bbmap_sam'}{'filename'},
+                                                            \%ssu_sam_mapstats);
+    # Get total reads and insert size stats from BBmap log file
+    ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
+    
+    ## Parse statistics from BBmap initial mapping
+    #my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+    #
+    ## Dereference stats
+    #($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
+    #if (defined $skipflag && $skipflag == 1) {
+    #    # If coverage too low, skip assembly
+    #    $skip_spades = 1;
+    #    $skip_emirge = 1;
+    #}
 
-    # Parse statistics from BBmap initial mapping
-    my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+}
 
-    # Dereference stats
-    ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
-    if (defined $skipflag && $skipflag == 1) {
-        # If coverage too low, skip assembly
-        $skip_spades = 1;
-        $skip_emirge = 1;
-    }
-    my ($bbmap_sam_href, $bbmap_sam_aref) = fix_hash_bbmap_sam($outfiles{'bbmap_sam'}{'filename'},
-                                                               \%ssu_sam_mapstats);
-    parse_stats_taxonomy_from_sam_array($bbmap_sam_aref);
+# Get taxonomic summary from hashed SAM records
+parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
+
+# Get mapping statistics from hashed SAM records
+my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,$SEmode);
+# Dereference stats
+($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$mapping_stats_aref;
+if (defined $skipflag && $skipflag == 1) {
+    # If coverage too low, skip assembly
+    $skip_spades = 1;
+    $skip_emirge = 1;
 }
 
 # Parse sam file
