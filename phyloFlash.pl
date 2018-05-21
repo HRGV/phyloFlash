@@ -924,7 +924,7 @@ sub bbmap_fast_filter_sam_run {
                       "po=f",
                       "outputunmapped=f",
                       "path=$DBHOME",
-                      "out=".$outfiles{"sam_map"}{"filename"},
+                      "out=".$outfiles{"bbmap_sam"}{"filename"},
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
                       'noheader=t', # Do not print header lines of SAM file
                       'ambiguous=all', # Report all ambiguous reads
@@ -957,7 +957,7 @@ sub bbmap_fast_filter_sam_run {
              $outfiles{"bbmap_log"}{"filename"}
              );
     # Record which files were created
-    foreach my $madekey (qw(sam_map reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
+    foreach my $madekey (qw(bbmap_sam reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
@@ -1016,17 +1016,21 @@ sub sortmerna_filter_sam {
 
     msg ("Fixing bitflags and RNAME in SAM file output of Sortmerna");
     # Fix Sortmerna output file - bitflags and names of ref sequences
-    my $fixed_sam_aref = fix_hash_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
-                                                $outfiles{'sortmerna_sam'}{'filename'},
-                                                "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
-                                                $SEmode);
+    my ($fixed_sam_href,
+        $fixed_sam_aref,
+        $fixed_sam_lines_aref
+        ) = fix_hash_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
+                                   $outfiles{'sortmerna_sam'}{'filename'},
+                                   "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
+                                   $SEmode
+                                   );
     # Write file
-    if (defined $fixed_sam_aref) {
+    if (defined $fixed_sam_lines_aref) {
         my $sam_fh;
         open_or_die(\$sam_fh,
                     ">",
                     $outfiles{"sam_map"}{"filename"});
-        foreach my $line (@$fixed_sam_aref) {
+        foreach my $line (@$fixed_sam_lines_aref) {
             print $sam_fh "$line\n";
         }
         close ($sam_fh);
@@ -1057,6 +1061,7 @@ sub sortmerna_filter_sam {
     }
 
     msg ("Done");
+    return ($fixed_sam_href, $fixed_sam_aref);
 }
 
 sub bbmap_fast_filter_parse {
@@ -1183,22 +1188,161 @@ sub fix_hash_bbmap_sam {
     #
     # Also fix the following known issues in the input SAM file:
     #  - rev read name is not properly represented for secondary alignments
-    #    therefore split read name on first whitespace
     #  - bitflag not correct for rev read secondary alignments
+    
+    #my $infile = $outfiles{"bbmap_sam"}{"filename"};  # Input is SAM from first mapping step
+    #my $href = \%ssu_sam;                           # Reference to hash to store SAM data
+    #my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
 
-    my ($infile,    # Raw SAM file from BBmap
+    my ($infile,        # Raw SAM file from BBmap
+        $stats_href,    # Ref to hash storing stats from mapping
         ) = @_;
 
-
+    # Hash refs to each SAM alignment by QNAME, segment, and RNAME
+    my %sam_hash;
+    # Store refs to each SAM alignment in an array, in order encountered in SAM file
+    my @sam_arr; 
+    
+    # Open sam file and hash each read entry
+    msg ("Reading SAM file $infile into memory");
+    my $fh;
+    open_or_die(\$fh, "<", $infile);
+    my $current_read; # Keep track of current read pair
+    my $current_orientation;
+    while (my $line = <$fh>) {
+        next if $line =~ m/^@/; # Skip headers
+        chomp $line;
+        my $line_href = split_sam_line_to_hash($line); # Hash fields accordingly
+        # Update current read if this is the first read
+        if (! defined $current_read ) { 
+            $current_read = $line_href->{'QNAME'};
+        }
+        if (! defined $current_orientation) {
+            $current_orientation = 'fwd';
+        }
+        
+        # Check if SE or PE mode, update current read field accordingly
+        if ($SEmode == 0) {
+            # PE input
+            if ($line_href->{'FLAG'} & 0x40) { # First segment in template
+                unless ($line_href->{'FLAG'} & 0x100) { # Ignore secondary alignments
+                    $current_read = $line_href->{'QNAME'};  # Update name
+                    $current_orientation = 'fwd';           # Update orientation.
+                    $stats_href->{'ssu_fwd_map'}++;         # Update stats counter
+                }
+            } elsif ($line_href->{'FLAG'} & 0x80) { # Last segment in template
+                unless ($line_href->{'FLAG'} & 0x100) {
+                    $current_orientation = 'rev';           # Update orientation
+                    $stats_href->{'ssu_rev_map'}++;         # Update stats counter
+                }
+            }
+        } else {
+            # SE input
+            unless ($line_href->{'FLAG'} & 0x100) {
+                $current_read = $line_href->{'QNAME'};      # Ignore secondary alignments
+                $stats_href->{'ssu_fwd_map'}++;             # Update stats counter
+            }
+        }
+        
+        # Fix wrong assignment of secondary alignments of reverse read
+        if ($line_href->{'FLAG'} & 0x100) {
+            if ($current_orientation eq 'rev' && $line_href->{'FLAG'} & 0x40) {
+                # Fix bug in bbmap handling of BItflags (current as of v37.99)
+                $line_href->{'QNAME'} = $current_read;
+                $line_href->{'FLAG'} -= 64;     # Turn off flag 0x40
+                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80 
+            }
+        }
+        
+        # Hash refs to each SAM alignment by QNAME, segment, and RNAME
+        $sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}} = $line_href;
+        # Store array of SAM alignments in order encountered in file
+        push @sam_arr, $line_href;
+        
+    }
+    close ($fh);
+    
+    # Write copy of fixed SAM file
+    if (@sam_arr) {
+        msg ("Writing fixed SAM file to ".$outfiles{'sam_map'}{'filename'});
+        my $sam_fh;
+        open_or_die(\$sam_fh,
+                    ">",
+                    $outfiles{"sam_map"}{"filename"});
+        foreach my $href (@sam_arr) {
+            my @outarr;
+            my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+            foreach my $field (@fields) {
+                push @outarr, $href->{$field};
+            }
+            push @outarr, $href->{'OPTIONAL'} if defined $href->{'OPTIONAL'};
+            print $sam_fh join "\t", @outarr;
+            print $sam_fh "\n";
+        }
+        $outfiles{"sam_map"}{"made"}++;
+        close $sam_fh;
+        msg ("Done");
+    }
+    
+    return (\%sam_hash,
+            \@sam_arr);
 }
 
-sub parse_stats_taxonomy_from_sam_hash {
-    # From hash of fixed SAM records ...
-    # Parse out taxonomy summary to
+sub parse_stats_taxonomy_from_sam_array {
+    # From array of fixed SAM records ...
+    # Parse out taxonomy summary to the following global vars
     #  $taxa_ambig_byread_hash
     #  $taxa_full_href
     #  @taxa_full
-    # $taxa_summary_href
+    #  $taxa_summary_href
+    #  $chao1
+    #  @xtons
+    
+    my ($aref) = @_;
+    
+    my @taxa_full;
+    
+    msg ("Summarizing taxonomy from mapping hits to SILVA database");
+    msg ("Using best hit only") if defined $tophit_flag;
+    foreach my $href (@$aref) {
+        # Hash taxa hits by read
+        if ($href->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) { # Match to SILVA header: Accession Taxstring
+            my $taxonlongstring = $1;
+            if (defined $tophit_flag) { # Global var $tophit_flag
+                # "old" way - just take the top hit of each read as the taxon
+                # Therefore ignore secondary alignments
+                # Count full-length taxon for treemap
+                $taxa_full_href->{$taxonlongstring}++ unless $href->{'FLAG'} & 0x100;
+                # Save full taxonomy string
+                push @taxa_full, $taxonlongstring unless $href->{'FLAG'} & 0x100;
+            } else {
+                # Use consensus of ambiguous mapping hits to get the consensus taxon per read
+                my @taxonlongarr = split /;/, $taxonlongstring;
+                taxstring2hash(\%{$taxa_ambig_byread_hash{$href->{'QNAME'}}}, \@taxonlongarr);
+            }
+        } else {
+            msg ("Warning: malformed database entry for ".$href->{'RNAME'});
+        }
+    }
+    
+    if (defined $tophit_flag) {
+        # Using only top alignment per read to get taxonomy
+        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
+    } else {
+        # Use consensus of all ambiguous alignments per read to get taxonomy
+
+        # List of all the readcounter IDs
+        my @allreadcounters = (keys %taxa_ambig_byread_hash);
+        ## Count taxonomy in tree from consensus taxstrings, truncated to taxonomic level requested
+        $taxa_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, $taxon_report_lvl);
+        ## Count taxonomy in tree from consensus taxstrings, to full taxonomic level (7)
+        $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
+    }
+
+    # Calculate Chao1 index from taxon counts
+    ($chao1, @xtons) = diversity_stats_from_taxonomy($taxa_summary_href);
+
+    msg("done...");
 }
 
 sub diversity_stats_from_taxonomy {
@@ -1267,14 +1411,14 @@ sub readsam {
             }
             if ($bitflag & 0x40) {
                 $pair="F";
-                ${$stats_href}{"ssu_fwd_map"}++;
+                ${$stats_href}{"ssu_fwd_map"}++ unless $bitflag & 0x100;
             } elsif ($bitflag & 0x80) {
                 $pair="R";
-                ${$stats_href}{"ssu_rev_map"}++;
+                ${$stats_href}{"ssu_rev_map"}++ unless $bitflag & 0x100;
             }
         } else {
             $pair = "U";
-            ${$stats_href}{"ssu_fwd_map"}++;
+            ${$stats_href}{"ssu_fwd_map"}++ unless $bitflag & 0x100;
         }
         # Record primary alignment into hash (ignore secondary alignments)
         # This will be used later during remapping stage to check unassembled
@@ -2812,8 +2956,8 @@ my $timer = new Timer;
 
 if ($use_sortmerna == 1 ) {
     # Run Sortmerna if explicitly called for
-    sortmerna_filter_sam();
-
+    my ($sortme_sam_href, $sortme_sam_aref) = sortmerna_filter_sam();
+    parse_stats_taxonomy_from_sam_array($sortme_sam_aref);
     # To do: Parse mapping stats and skip spades/emirge if necessary
 
 } else {
@@ -2830,10 +2974,13 @@ if ($use_sortmerna == 1 ) {
         $skip_spades = 1;
         $skip_emirge = 1;
     }
+    my ($bbmap_sam_href, $bbmap_sam_aref) = fix_hash_bbmap_sam($outfiles{'bbmap_sam'}{'filename'},
+                                                               \%ssu_sam_mapstats);
+    parse_stats_taxonomy_from_sam_array($bbmap_sam_aref);
 }
 
 # Parse sam file
-readsam();
+#readsam();
 
 # Find positional coverage along prok and euk SSU rRNA models using nhmmer
 # from a subsample of reads
@@ -2898,7 +3045,7 @@ if ($html_flag) {
 }
 
 # Clean up temporary files
-clean_up();
+#clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash

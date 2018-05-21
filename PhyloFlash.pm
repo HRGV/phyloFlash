@@ -887,8 +887,13 @@ sub fix_hash_sortmerna_sam {
     #    print "$line\n";
     #}
 
-    # Return ref to array containing the fixed SAM file
-    return $aref;
+    # Return ref to array containing the fixed SAM file including spliced
+    # dummy sequences for unmapped segments
+    # Return also sambyread_href and sambyline_aref
+    return ($sambyread_href,
+            $sambyline_aref,
+            $aref,
+            );
 }
 
 sub fix_rname_taxstr {
@@ -1376,6 +1381,13 @@ sub initialize_outfiles_hash {
         description => "SAM file of initial read mapping to SSU rRNA database",
         discard     => 0,
         filename    => "$libraryNAME.$readsf.SSU.sam",
+        intable     => 1,
+      },
+      "bbmap_sam",
+      {
+        description => "Raw BBmap SAM file of initial read mapping to SSU rRNA database",
+        discard     => 0,
+        filename    => "$libraryNAME.bbmap.sam",
         intable     => 1,
       },
       "barrnap_log",
