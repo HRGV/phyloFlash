@@ -2492,18 +2492,22 @@ sub do_zip {
 sub run_plotscript_SVG {
     msg ("generating graphics for report in SVG format");
     # Plot mapping ID histogram
-    my @idhist_args = ( "--hist",
-                        $outfiles{"idhistogram"}{"filename"},
-                        " --title=\"Mapping identity (%)\" ",
-                      );
-    if ($decimalcomma == 1) {
-        push @idhist_args, "--decimalcomma";
+    if (defined $outfiles{"idhistogram"}{"made"}) {
+        # If using BBmap, this file is generated
+        msg ("Plotting mapping ID histogram");
+        my @idhist_args = ( "--hist",
+                            $outfiles{"idhistogram"}{"filename"},
+                            " --title=\"Mapping identity (%)\" ",
+                          );
+        if ($decimalcomma == 1) {
+            push @idhist_args, "--decimalcomma";
+        }
+        run_prog("plotscript_SVG",
+             join (" ", @idhist_args),
+             $outfiles{"plotscript_out"}{"filename"},
+             "&1");
+        $outfiles{"idhistogram_svg"}{"made"}++;
     }
-    run_prog("plotscript_SVG",
-         join (" ", @idhist_args),
-         $outfiles{"plotscript_out"}{"filename"},
-         "&1");
-    $outfiles{"idhistogram_svg"}{"made"}++;
 
     # Piechart of proportion mapped
     my @map_args = ("-pie",
