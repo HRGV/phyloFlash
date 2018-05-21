@@ -1080,13 +1080,14 @@ sub parse_mapstats_from_sam_arr {
     my $mapped_half = 0;    # Pairs where one segment maps but the other doesn't
     my $unmapped_segment = 0; # Don't use this for summary
     my $unmapped;
+    my %qname_hash;
     
     foreach my $href (@$aref) {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
-        
+        my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
+        $qname_hash{$splitname} ++;
         if ($href->{'FLAG'} & 0x40) { # Fwd read
-            $SSU_total_pairs ++;                            # Add to total pairs when fwd read encountered
             $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
         } elsif ($href->{'FLAG'} & 0x80) { # Rev read
             $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
@@ -1103,6 +1104,13 @@ sub parse_mapstats_from_sam_arr {
         }
     }
     
+    $SSU_total_pairs = scalar (keys %qname_hash); # Count total reads mapped from read names hash
+    # This is because unmapped reads are not necessarily reported
+    
+    # Report fwd and reverse reads mapping
+    msg ("Forward read segments mapping: $ssu_f_reads");
+    msg ("Reverse read segments mapping: $ssu_r_reads");
+    
     # calculating mapping ratio
     $readnr_pairs = $readnr;
     # If paired reads, divide segment-based counts by two into pair-based counts
@@ -1117,9 +1125,10 @@ sub parse_mapstats_from_sam_arr {
         $ssu_pairs /= 2;
         $ssu_bad_pairs /= 2;
         # Report summary stats
+        msg("Reporting mapping statistics for paired end input");
         msg("Total read pairs with at least one segment mapping: $SSU_total_pairs");
-        msg("Read pairs with both segments mapping to same reference: $ssu_pairs");
-        msg("Read pairs with both segments mapping to different references: $ssu_bad_pairs");
+        msg("=> both segments mapping to same reference: $ssu_pairs");
+        msg("=> both segments mapping to different references: $ssu_bad_pairs");
         msg("Read segments where next segment unmapped: $mapped_half");
     } elsif ($SEmode == 1) {
         $unmapped = 1-$SSU_ratio;
@@ -2644,6 +2653,7 @@ sub run_plotscript_SVG {
     }
 
     # Piechart of proportion mapped
+    msg("Plotting piechart of mappign ratios");
     my @map_args = ("-pie",
                     $outfiles{"mapratio_csv"}{"filename"},
                     #"-title=\"$SSU_ratio_pc % reads mapped\""
@@ -2662,6 +2672,7 @@ sub run_plotscript_SVG {
 
     # Piechart of proportion assembled, if SPAdes or EMIRGE or trusted contigs output
     if (defined $outfiles{"assemratio_csv"}{"made"}) {
+        msg ("Plotting piechart of assembled reads ratio");
         my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
         my @pie_args = ("--pie",
                         $outfiles{"assemratio_csv"}{"filename"},
@@ -2674,8 +2685,9 @@ sub run_plotscript_SVG {
         $outfiles{"assemratio_svg"}{"made"}++;
     }
 
-    # Plot insert size histogram unless running in SE mode
-    if ($SEmode != 1) { # If not running in SE mode ...
+    # Plot insert size histogram unless running in SE mode or using sortmerna
+    if ($SEmode != 1 && defined $outfiles{"inserthistogram"}{"made"}) { # If not running in SE mode ...
+        msg ("Plotting histogram of insert sizes");
         my @inshist_args = ("--hist ",
                             $outfiles{"inserthistogram"}{"filename"},
                             " --title=\"Insert size (bp)\" ",
@@ -2693,6 +2705,7 @@ sub run_plotscript_SVG {
 
     # Plot positional coverage plots for 18S and 16S rRNA genes unless skipped
     if ($poscov_flag == 1) {
+        msg ("Plotting positional coverage across SSU rRNA hmm models");
         # Eukaryotic gene model
         my @args_euk = ("-hist",
                         $outfiles{"nhmmer_euk_histogram"}{"filename"},
@@ -2730,6 +2743,7 @@ sub run_plotscript_SVG {
 
     # Plot tree if spades/emirge unless no alignment was output
     if (defined $outfiles{"ssu_coll_tree"}{"made"}) {
+        msg ("Plotting tree of assembled + reference SSU sequences");
         my @treeplot_args = ("-tree",
                              $outfiles{"ssu_coll_tree"}{"filename"},
                              );
@@ -2751,6 +2765,7 @@ sub run_plotscript_SVG {
     }
 
     # Generate barplot of taxonomy at level XX
+    msg "Plotting barplot of taxonomic summary";
     my @barplot_args = ("-bar",
                         $outfiles{"ntu_csv"}{"filename"},
                         "-title=\"Taxonomic summary from reads mapped\"",
@@ -3181,12 +3196,12 @@ $runtime = $timer->minutes; # Log run time - This should go behind print_report(
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,
-    $readsf_full, $readsr_full, $readnr, $readnr_pairs,
-    $ins_me,$ins_std,$ins_used,
-    $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
-    $skip_spades, $skip_emirge, $treemap_flag, # flags
-    $taxon_report_lvl,
+    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,              # input parameters
+    $readsf_full, $readsr_full, $readnr, $readnr_pairs,                         # Read input stats
+    $ins_me,$ins_std,$ins_used,                                                 # Insert size stats
+    $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,                                # Mapping stats
+    $skip_spades, $skip_emirge, $treemap_flag,                                  # Option flags used
+    $taxon_report_lvl,                                                          # Taxonomic summary
     \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
     #\@ssuassem_results_sorted, \@ssurecon_results_sorted,
