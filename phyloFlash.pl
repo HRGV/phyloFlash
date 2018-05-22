@@ -111,7 +111,8 @@ Default: No (use SPAdes by default)
 
 =item -sortmerna
 
-Use Sortmerna instead of BBmap to extract SSU rRNA reads
+Use Sortmerna instead of BBmap to extract SSU rRNA reads. Insert size and
+%id to reference statistics will not be available.
 
 Default: No
 
@@ -716,6 +717,7 @@ Mapping ratio:\t$SSU_ratio_pc%
     if (defined $ssu_sam_mapstats{"assem_ratio"}) {
         print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
     }
+    my $chao1_3dp = sprintf("%.3f",$chao1);
 
     print {$fh} qq~
 ---
@@ -727,7 +729,7 @@ Read mapping based higher taxa (NTUs) detection
 NTUs observed once:\t$xtons[0]
 NTUs observed twice:\t$xtons[1]
 NTUs observed three or more times:\t$xtons[2]
-NTU Chao1 richness estimate:\t$chao1
+NTU Chao1 richness estimate:\t$chao1_3dp
 
 List of NTUs in order of abundance (min. 3 reads mapped):
 NTU\treads
@@ -833,7 +835,7 @@ sub write_csv {
         "NTUs observed once",$xtons[0],
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
-        "NTU Chao1 richness estimate",$chao1
+        "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
     ));
     my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
@@ -2653,7 +2655,7 @@ sub write_report_html {
         "XTONS0" => $xtons[0],
         "XTONS1" => $xtons[1],
         "XTONS2" => $xtons[2],
-        "CHAO1" => $chao1,
+        "CHAO1" => sprintf ("%.3f", $chao1), # Round to 3 decimal places
     );
 
     # Define suppress flags (which turn off writing of report)
