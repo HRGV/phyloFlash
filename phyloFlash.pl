@@ -386,7 +386,7 @@ sub check_dbhome {
     my @required_list = ('ref/genome/1/summary.txt',
                          $emirge_db.".fasta",
                          $vsearch_db.".fasta");
-    push @required_list, ("$sortmerna_db.bursttrie_0.dat","$sortmerna_db.acc2taxstring.hashimage") if defined $use_sortmerna;
+    push @required_list, ("$sortmerna_db.bursttrie_0.dat","$sortmerna_db.acc2taxstring.hashimage") if ($use_sortmerna == 1);
     foreach (@required_list) {
         return "${dbhome}/$_" unless -r "${dbhome}/$_"
     }

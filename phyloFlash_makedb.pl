@@ -253,16 +253,24 @@ if (! -e $dbdir) {
 }
 
 msg("unpacking SILVA database");
-anyuncompress $silva_file => "$dbdir/SILVA_SSU.fasta"
-    or err("unpacking failed:  $AnyUncompressError");
+if (! -e "$dbdir/SILVA_SSU.fasta" || $overwrite == 1 ) {
+    anyuncompress $silva_file => "$dbdir/SILVA_SSU.fasta"
+        or err("unpacking failed:  $AnyUncompressError");
+} else {
+    msg ("File $dbdir/SILVA_SSU.fasta exists, not overwriting");
+}
 
-my @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.fasta");
-
-fasta_copy_except("$dbdir/SILVA_SSU.fasta",
-                  "$dbdir/SILVA_SSU.noLSU.fasta",
-                  @lsu_in_ssh,
-                  $overwrite);
-unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
+my @lsu_in_ssh;
+if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
+    @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.noLSU.fasta");
+    fasta_copy_except("$dbdir/SILVA_SSU.fasta",
+                      "$dbdir/SILVA_SSU.noLSU.fasta",
+                      @lsu_in_ssh,
+                      $overwrite);
+    unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
+} else {
+    msg ("LSU-filtered file found, not overwriting");
+}
 
 mask_repeats("$dbdir/SILVA_SSU.noLSU.fasta",
              "$dbdir/SILVA_SSU.noLSU.masked.fasta",
@@ -300,7 +308,6 @@ cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
                            "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta",
                            $overwrite);
-
 
 bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta",
          "./$silva_release/",
@@ -412,50 +419,38 @@ sub make_vsearch_udb {
 sub mask_repeats {
     my ($src, $dst, $overwrite) = @_;
     msg("masking low entropy regions in SSU RefNR");
-    my $bbmap_overwrite;
-    if ($overwrite == 1) {
-        $bbmap_overwrite = 't';
-    } elsif ($overwrite == 0) {
-        $bbmap_overwrite = 'f';
-    } else {
-        msg ("Setting overwrite to 'false' by default");
-        $bbmap_overwrite = 'f';
-    }
-    
-    run_prog("bbmask",
-             "  overwrite=$bbmap_overwrite "
+    if (! -e $dst || $overwrite == 1) {
+        run_prog("bbmask",
+             "  overwrite=t "
              . "-Xmx".$memlimitGb."g "
              . "threads=$cpus "
              . "in=$src "
              . "out=$dst "
              . "minkr=4 maxkr=8 mr=t minlen=20 minke=4 maxke=8 "
              . "fastawrap=0 ");
+    } else {
+        msg ("File $dst exists, not overwriting");
+    }
 }
 
 #db is screened against UniVec and hit bases are trimmed using bbduk
 sub univec_trim {
     my ($univec, $src, $dst,$overwrite) = @_;
     msg("removing UniVec contamination in SSU RefNR");
-    my $bbmap_overwrite;
-    if ($overwrite == 1) {
-       $bbmap_overwrite = 't';
-    } elsif ($overwrite == 0) {
-        $bbmap_overwrite = 'f';
+    if (! -e $dst || $overwrite == 1 ) {
+        run_prog("bbduk",
+                 "ref=$univec "
+                 . "  overwrite=t "
+                 . "-Xmx".$memlimitGb."g "
+                 . "threads=$cpus "
+                 . "fastawrap=0 "
+                 . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
+                 . "in=$src "
+                 . "out=$dst "
+                 . "stats=$dst.UniVec_contamination_stats.txt");
     } else {
-        msg ("Setting overwrite = 'false' by default");
-        $bbmap_overwrite = 'f';
+        msg ("File $dst exists, not overwriting");
     }
-    
-    run_prog("bbduk",
-             "ref=$univec "
-             . "  overwrite=$bbmap_overwrite "
-             . "-Xmx".$memlimitGb."g "
-             . "threads=$cpus "
-             . "fastawrap=0 "
-             . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
-             . "in=$src "
-             . "out=$dst "
-             . "stats=$dst.UniVec_contamination_stats.txt");
 }
 
 sub iuppac_replace {

@@ -578,22 +578,26 @@ $source into FASTA file $dest.
 
 =cut
 sub fasta_copy_except {
-    my ($source, $dest, @accs) = @_;
+    my ($source, $dest, @accs, $overwrite) = @_;
     my $sfh;
     my $dfh;
-    open_or_die(\$sfh, "<", $source);
-    open_or_die(\$dfh, ">", $dest);
-
-    my %acc_hash = map { $_ => 1 } @accs;
-
-    my $skip = 0;
-    while(my $row = <$sfh>) {
-        if (substr($row, 0, 1) eq '>') {
-            my ($acc) = ($row =~ m/>([^ ]*) /);
-            $skip = exists $acc_hash{$acc};
+    if (! -e $dest || $overwrite == 1) { # Check whether file exists or overwrite allowed
+        open_or_die(\$sfh, "<", $source);
+        open_or_die(\$dfh, ">", $dest);
+        my %acc_hash = map { $_ => 1 } @accs;
+        my $skip = 0;
+        while(my $row = <$sfh>) {
+            if (substr($row, 0, 1) eq '>') {
+                my ($acc) = ($row =~ m/>([^ ]*) /);
+                $skip = exists $acc_hash{$acc};
+            }
+            print $dfh $row if (!$skip);
         }
-        print $dfh $row if (!$skip);
+    } else {
+        msg ("WARNING: File $dest already exists, will not overwrite");
     }
+    
+
 }
 
 =item cluster ($source, $dest, $id)
@@ -603,14 +607,18 @@ from $source into $dest at a cluster size of $id.
 
 =cut
 sub cluster {
-    my ($src, $dst, $id, $cpus) = @_;
+    my ($src, $dst, $id, $cpus, $overwrite) = @_;
     msg("clustering database");
-    run_prog("vsearch",
-             "  --cluster_fast $src "
-             . "--id $id "
-             . "--centroids $dst "
-             . "--notrunclabels "
-             . "--threads $cpus ");
+    if (! -e $dst || $overwrite == 1) {
+        run_prog("vsearch",
+                 "  --cluster_fast $src "
+                 . "--id $id "
+                 . "--centroids $dst "
+                 . "--notrunclabels "
+                 . "--threads $cpus ");
+    } else {
+        msg ("WARNING: File $dst already exists, not overwriting");
+    }
 }
 
 # hash of IUPAC characters coding for multiple possible bases
@@ -656,36 +664,37 @@ from the set of options (i.e. replaces B with C, T or G).
 
 =cut
 sub fasta_copy_iupac_randomize {
-    my ($infile, $outfile) = @_;
+    my ($infile, $outfile, $overwrite) = @_;
     my ($ifh, $ofh);
-    open_or_die(\$ifh, "<", $infile);
-    open_or_die(\$ofh, ">", $outfile);
-
-    # iterate over lines of FASTA file
-    while(my $row = <$ifh>) {
-        # pass through FASTA header
-        if (substr($row, 0, 1) eq ">") {
-            print $ofh $row;
-            next;
-        }
-
-        # remove alignment, uppercase, turn U into T
-        $row =~ tr/a-zA-Z.-/A-TTV-ZA-TTV-Z/d;
-
-        # split into ok / not-ok letter segments
-        for my $part ( split(/([^AGCT\n])/, $row) ) {
-            if (not $part =~ m/[AGCT\n]/) {
-                # segment in need of fix, iterate chars
-                for my $i ( 0 .. (length($part)-1) ) {
-                # get replacement character list
-                    my $rpl = $IUPAC_DECODE{substr($part, $i, 1)};
-                    substr($part, $i, 1) =
-                        substr($rpl, rand(length($rpl)), 1)
-                            if defined $rpl;
-                }
+    if (! -e $outfile || $overwrite == 1) {
+        open_or_die(\$ifh, "<", $infile);
+        open_or_die(\$ofh, ">", $outfile);
+        # iterate over lines of FASTA file
+        while(my $row = <$ifh>) {
+            # pass through FASTA header
+            if (substr($row, 0, 1) eq ">") {
+                print $ofh $row;
+                next;
             }
-            print $ofh $part;
+            # remove alignment, uppercase, turn U into T
+            $row =~ tr/a-zA-Z.-/A-TTV-ZA-TTV-Z/d;
+            # split into ok / not-ok letter segments
+            for my $part ( split(/([^AGCT\n])/, $row) ) {
+                if (not $part =~ m/[AGCT\n]/) {
+                    # segment in need of fix, iterate chars
+                    for my $i ( 0 .. (length($part)-1) ) {
+                    # get replacement character list
+                        my $rpl = $IUPAC_DECODE{substr($part, $i, 1)};
+                        substr($part, $i, 1) =
+                            substr($rpl, rand(length($rpl)), 1)
+                                if defined $rpl;
+                    }
+                }
+                print $ofh $part;
+            }
         }
+    } else {
+        msg ("WARNING: File $outfile already exists, not overwriting");
     }
 }
 
