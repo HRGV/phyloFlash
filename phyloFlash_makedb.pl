@@ -50,6 +50,11 @@ Download databases via FTP
 
 Path to local copy of SILVA database file. Ignored if --remote flag is used.
 
+This should be the Fasta-formatted SILVA SSURef file, clustered at 99% identity,
+with SILVA taxonomy strings in file header, and sequences truncated to SSU gene
+boundaries. The file name should be in the form
+I<SILVA_[Release]_SSURef_Nr99_tax_silva_trunc.fasta.gz>
+
 =item --univec_file F<path/to/univec_db>
 
 Path to local copy of Univec database file. Ignored if --remote flag is used.
@@ -83,6 +88,14 @@ Default: No (--nosortmerna).
 =item --keep
 
 Do not delete intermediary files
+
+=item --overwrite
+
+Overwrite files if already present. Files are not overwritten by default,
+allowing you to restart the DB build process if it was interrupted (but you will
+have to do find and delete corrupted files manually).
+
+Default: No ("--nooverwrite")
 
 =item --CPUs I<N>
 
@@ -166,6 +179,7 @@ my $memlimitGb = 10;    # In Gb
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
+my $overwrite = 0;
 
 # parse cmdline
 pod2usage(-verbose=>0) if !@ARGV;
@@ -180,6 +194,7 @@ GetOptions("remote|r" => \$use_remote,
                                 check_environment();
                                 exit; },
            "keep|k" => \$keep,
+           "overwrite!" => \$overwrite,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
            "version" => sub { welcome();
@@ -245,16 +260,19 @@ my @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.fasta");
 
 fasta_copy_except("$dbdir/SILVA_SSU.fasta",
                   "$dbdir/SILVA_SSU.noLSU.fasta",
-                  @lsu_in_ssh);
+                  @lsu_in_ssh,
+                  $overwrite);
 unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
 
 mask_repeats("$dbdir/SILVA_SSU.noLSU.fasta",
-             "$dbdir/SILVA_SSU.noLSU.masked.fasta");
+             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
+             $overwrite);
 unlink "$dbdir/SILVA_SSU.noLSU.fasta" unless ($keep==1);
 
 univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
-            "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta");
+            "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta",
+            $overwrite);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
 
 # Index database into UDB file, if Vsearch v2.5.0+
@@ -263,7 +281,9 @@ my $vsearch_ver_check = check_vsearch_version();
 if (defined $vsearch_ver_check) {
     my $fasta_in = "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta";
     my $udb_out = "$dbdir/SILVA_SSU.noLSU.masked.trimmed.udb";
-    make_vsearch_udb($fasta_in, $udb_out);
+    make_vsearch_udb($fasta_in,
+                     $udb_out,
+                     $overwrite);
 }
 
 #the cleaned, masked and trimmed databases are clustered
@@ -271,32 +291,40 @@ if (defined $vsearch_ver_check) {
 # 2) at 96id for emirge and sortmerna
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.fasta",
-           "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-           "0.99",
-           $cpus);
+        "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
+        "0.99",
+        $cpus,
+        $overwrite);
 # no unlink -> trimmed.fasta needed for vsearch
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-             "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta");
+                           "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta",
+                           $overwrite);
 
 
-bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta", "./$silva_release/");
+bbmap_db("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fixed.fasta",
+         "./$silva_release/",
+         $overwrite);
 
 cluster("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta",
-           "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
-           "0.96",
-           $cpus);
+        "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
+        "0.96",
+        $cpus,
+        $overwrite);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR99.fasta" unless ($keep==1);
 
 fasta_copy_iupac_randomize("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta",
-              "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+                           "./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta",
+                           $overwrite);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.trimmed.NR96.fasta" unless ($keep==1);
 
 bowtie_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta") if $emirge == 1;
 
 if ($sortmerna == 1) {
-    sortmerna_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
-    hash_SILVA_acc_taxstrings_from_fasta ("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta");
+    sortmerna_index("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta",
+                    $overwrite);
+    hash_SILVA_acc_taxstrings_from_fasta ("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta",
+                                          $overwrite);
 }
 
 finish();
@@ -364,25 +392,39 @@ sub find_LSU {
 }
 
 sub make_vsearch_udb {
-    my ($infile, $outfile) = @_;
+    my ($infile, $outfile, $overwrite) = @_;
     msg ("Indexing $infile to make UDB file $outfile with Vsearch");
-    my @vsearch_params = ("--threads $cpus",
-                          '--notrunclabels', # Keep full header including taxstring
-                          "--makeudb_usearch $infile",
-                          "--output $outfile",
-                          );
-    run_prog("vsearch",
-             join (" ", @vsearch_params)
-             );
+    if (! -e $outfile || $overwrite == 1) {
+        my @vsearch_params = ("--threads $cpus",
+                              '--notrunclabels', # Keep full header including taxstring
+                              "--makeudb_usearch $infile",
+                              "--output $outfile",
+                              );
+        run_prog("vsearch",
+                 join (" ", @vsearch_params)
+                 );
+    } else {
+        msg ("WARNING: File $outfile already exists. Not overwriting");
+    }
 }
 
 #bbmask masks low entropy regions and repeats in the fasta file
 sub mask_repeats {
-    my ($src, $dst) = @_;
+    my ($src, $dst, $overwrite) = @_;
     msg("masking low entropy regions in SSU RefNR");
+    my $bbmap_overwrite;
+    if ($overwrite == 1) {
+        $bbmap_overwrite = 't';
+    } elsif ($overwrite == 0) {
+        $bbmap_overwrite = 'f';
+    } else {
+        msg ("Setting overwrite to 'false' by default");
+        $bbmap_overwrite = 'f';
+    }
+    
     run_prog("bbmask",
-             "  overwrite=t "
-             . "-Xmx4".$memlimitGb."g "
+             "  overwrite=$bbmap_overwrite "
+             . "-Xmx".$memlimitGb."g "
              . "threads=$cpus "
              . "in=$src "
              . "out=$dst "
@@ -392,11 +434,21 @@ sub mask_repeats {
 
 #db is screened against UniVec and hit bases are trimmed using bbduk
 sub univec_trim {
-    my ($univec, $src, $dst) = @_;
+    my ($univec, $src, $dst,$overwrite) = @_;
     msg("removing UniVec contamination in SSU RefNR");
+    my $bbmap_overwrite;
+    if ($overwrite == 1) {
+       $bbmap_overwrite = 't';
+    } elsif ($overwrite == 0) {
+        $bbmap_overwrite = 'f';
+    } else {
+        msg ("Setting overwrite = 'false' by default");
+        $bbmap_overwrite = 'f';
+    }
+    
     run_prog("bbduk",
              "ref=$univec "
-             . "  overwrite=t "
+             . "  overwrite=$bbmap_overwrite "
              . "-Xmx".$memlimitGb."g "
              . "threads=$cpus "
              . "fastawrap=0 "
@@ -416,13 +468,17 @@ sub iuppac_replace {
 
 #the NR99 file is fixed and a reference file is generated for bbmap
 sub bbmap_db {
-    my ($ref, $path) = @_;
+    my ($ref, $path, $overwrite) = @_;
     msg("creating bbmap reference");
-    run_prog("bbmap",
-             "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
-             . "threads=$cpus "
-             . "ref=$ref "
-             . "path=$path ");
+    if (!-d $path || $overwrite == 1) {
+        run_prog("bbmap",
+                 "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
+                 . "threads=$cpus "
+                 . "ref=$ref "
+                 . "path=$path ");
+    } else {
+        msg ("WARNING: Folder $path exists, not overwriting");
+    }
 }
 
 #the NR96 file is fixed and a bowtie index is built
@@ -435,16 +491,22 @@ sub bowtie_index {
 
 # Generate index for Sortmerna from the filtered fixed SSU clustered at 96% id
 sub sortmerna_index {
-    my ($fasta) = @_;
+    my ($fasta,$overwrite) = @_;
     my $memlimitMb = $memlimitGb * 1000;
     my $prefix = $fasta =~ s/\.fasta$//r;
     msg ("creating sortmerna index");
-    my @indexdb_args = ("--ref $fasta,$prefix",
-                        "-m $memlimitMb",
-                        "-v");
-    run_prog("indexdb_rna",
-             join (" ", @indexdb_args),
-             )
+    if (! -e "$prefix.bursttrie_0.dat" || $overwrite == 1) {
+        my @indexdb_args = ("--ref $fasta,$prefix",
+                            "-m $memlimitMb",
+                            "-v");
+        run_prog("indexdb_rna",
+                 join (" ", @indexdb_args),
+                 )
+    } else {
+        msg ("WARNING: SortMeRNA indices for file prefix $prefix already exist, not overwriting");
+    }
+    
+
 }
 
 sub hash_SILVA_acc_taxstrings_from_fasta {
@@ -454,18 +516,22 @@ sub hash_SILVA_acc_taxstrings_from_fasta {
     my ($fasta) = @_;
     my $prefix = $fasta =~ s/\.fasta$//r;
     msg ("Hashing SILVA accession numbers to taxonomy strings");
-    my %hash;
-    open(my $fh, "<", $fasta) or die ("$!");
-    while (my $line = <$fh>) {
-        if ($line =~ m/^>(.+)/) {
-            my $header = $1;
-            chomp $header;
-            my ($id, @taxsplit) = split / /, $header; # Split on first space
-            $hash{$id} = join " ", @taxsplit; # Rejoin tax string if it has spaces
+    if (! -e "$prefix.acc2taxstring.hashimage" || $overwrite == 1) {
+        my %hash;
+        open(my $fh, "<", $fasta) or die ("$!");
+        while (my $line = <$fh>) {
+            if ($line =~ m/^>(.+)/) {
+                my $header = $1;
+                chomp $header;
+                my ($id, @taxsplit) = split / /, $header; # Split on first space
+                $hash{$id} = join " ", @taxsplit; # Rejoin tax string if it has spaces
+            }
         }
+        close($fh);
+        store \%hash, "$prefix.acc2taxstring.hashimage";
+    } else {
+        msg ("WARNING: File $prefix.acc2taxstring.hashimage already exists, not overwriting");
     }
-    close($fh);
-    store \%hash, "$prefix.acc2taxstring.hashimage";
 }
 
 
