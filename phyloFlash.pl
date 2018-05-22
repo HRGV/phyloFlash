@@ -339,7 +339,9 @@ my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 my %outfiles;           # Hash to keep track of output files
 
 # variables for report generation
-my %ssu_sam;            # Readin sam file from first mapping vs SSU database
+my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
+my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
+my %ssu_sam;            # Readin sam file from first mapping vs SSU database    # To be replaced
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
 # Hashes to keep count of NTUs
@@ -1332,10 +1334,6 @@ sub fix_hash_bbmap_sam {
     # Also fix the following known issues in the input SAM file:
     #  - rev read name is not properly represented for secondary alignments
     #  - bitflag not correct for rev read secondary alignments
-    
-    #my $infile = $outfiles{"bbmap_sam"}{"filename"};  # Input is SAM from first mapping step
-    #my $href = \%ssu_sam;                           # Reference to hash to store SAM data
-    #my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
 
     my ($infile,        # Raw SAM file from BBmap
         $stats_href,    # Ref to hash storing stats from mapping
@@ -1356,9 +1354,11 @@ sub fix_hash_bbmap_sam {
         next if $line =~ m/^@/; # Skip headers
         chomp $line;
         my $line_href = split_sam_line_to_hash($line); # Hash fields accordingly
+        my @discard;
+        ($line_href->{'QNAME'},@discard) = split /\s/, $line_href->{'QNAME'}; # Split on first whitespace
         # Update current read if this is the first read
-        if (! defined $current_read ) { 
-            $current_read = $line_href->{'QNAME'};
+        if (! defined $current_read ) {
+            $current_read = $line_href->{'QNAME'}; 
         }
         if (! defined $current_orientation) {
             $current_orientation = 'fwd';
@@ -1369,7 +1369,7 @@ sub fix_hash_bbmap_sam {
             # PE input
             if ($line_href->{'FLAG'} & 0x40) { # First segment in template
                 unless ($line_href->{'FLAG'} & 0x100) { # Ignore secondary alignments
-                    $current_read = $line_href->{'QNAME'};  # Update name
+                    $current_read = $line_href->{'QNAME'};  # Update name; split on whitespace
                     $current_orientation = 'fwd';           # Update orientation.
                     $stats_href->{'ssu_fwd_map'}++;         # Update stats counter
                 }
@@ -2028,7 +2028,7 @@ sub screen_remappings {
 
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
 
-    # first SAM in %ssu_sam
+    # first SAM in %$sam_fixed_href
     my %sam_spades; # too good to be true
     my %sam_emirge;
     my %sam_trusted;
@@ -2049,42 +2049,45 @@ sub screen_remappings {
     my @unassem_readcounters; # Readcounter IDs for unassembled reads
     my $ssu_fwd_map = 0;
     my $ssu_rev_map = 0;
-    my $total_assembled = 0;    # Count total that map to a full-length SSU
+    my $total_assembled = 0;    # Count total read segments that map to a full-length SSU
 
     # Go through hash of initial mapping
     # Count total reads, total assembled/reconstructed, and total unassembled/reconstructed
-    foreach my $read (keys %ssu_sam) {
+    foreach my $read (keys %$sam_fixed_href) {
         # Iterate through all segments of read pairs
         my @pairs;
         if ($SEmode == 1) {
-            push @pairs, "U";
+            push @pairs, 'fwd';
         } else {
-            push @pairs, ("F", "R");
+            push @pairs, qw(fwd rev);
         }
 
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
-            if (defined $ssu_sam{$read}{$pair}) {
-                if ($pair eq "U" | $pair eq "F") {
+            if (defined $sam_fixed_href->{$read}{$pair}) {
+                if ($pair eq 'fwd') {
                     $ssu_fwd_map ++;
-                } elsif ($pair eq "R") {
+                } elsif ($pair eq 'rev') {
                     $ssu_rev_map ++ ;
                 }
                 # Check whether has been flagged as mappign to SPAdes or Emirge or trusted contig
-                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"} | defined $ssu_sam{$read}{$pair}{'mapped2trusted'}) {
+                if (defined $sam_fixed_href->{$read}{$pair}{"mapped2spades"} | defined $sam_fixed_href->{$read}{$pair}{"mapped2emirge"} | defined $sam_fixed_href->{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
                 } else {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
-                    if (defined $ssu_sam{$read}{$pair}{'bitflag'}) {
-                        push @unassem_readcounters, $ssu_sam{$read}{$pair}{'readcounter'} unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
-                        if (defined $tophit_flag) {
-                            # If using top hit
-                            if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                                my $taxonlongstring = $1;
-                                push @unassem_taxa, $taxonlongstring unless $ssu_sam{$read}{$pair}{'bitflag'} & 0x4;
+                    foreach my $ref (keys %{$sam_fixed_href->{$read}{$pair}}) {
+                        if (ref($sam_fixed_href->{$read}{$pair}{$ref}) eq 'HASH' && defined $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'}) { # If this is a hashed SAM record
+                            unless ($sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x4) {
+                                push @unassem_readcounters, $read;
+                                # If using top hit
+                                if ($sam_fixed_href->{$read}{$pair}{$ref}->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                                    my $taxonlongstring = $1;
+                                    push @unassem_taxa, $taxonlongstring;
+                                }
                             }
                         }
+                        
                     }
                 }
             }
@@ -2170,7 +2173,8 @@ sub flag_unmapped_sam {
     open_or_die(\$fh_in, "<", $sam_in);
     while (my $line = <$fh_in>) {
         next if ($line =~ m/^@/); # Skip headers
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        my ($readfull, $bitflag, $ref, @discard) = split /\t/, $line;
+        my ($read, @discard2) = split /\s/, $readfull; # Split on first whitespace
         # Check whether fwd or rev
         my $pair;
         if ($bitflag & 0x1) { # If PE read
@@ -2178,29 +2182,29 @@ sub flag_unmapped_sam {
                 msg ("Error: bitflag in SAM file conflicts with SE mode flag");
             }
             if ($bitflag & 0x40) {
-                $pair = "F";
+                $pair = "fwd";
             } elsif ($bitflag & 0x80) {
-                $pair = "R";
+                $pair = "rev";
             }
         } else {
-            $pair = "U";
+            $pair = "fwd";
         }
         # Check whether read has mapped to reference
         unless ($bitflag & 0x4) { # negate condition because bitflag 0x4 means "segment unmapped"
-            if (defined $ssu_sam{$read}{$pair}) {
+            if (defined $sam_fixed_href->{$read}{$pair}) {
                 # Mark reads that map to SPAdes or EMIRGE or trusted
-                $ssu_sam{$read}{$pair}{$mappedname}++;
+                $sam_fixed_href->{$read}{$pair}{$mappedname}++;
                 # Add to read count for that reference sequence
                 my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
                 $ssufull_hash{$refshort}{"counts"}++;
                 # Count how many fwd and rev reads map to SPAdes
-                if ($pair eq "F" | $pair eq "U") {
+                if ($pair eq "fwd") {
                     $ssu_sam_mapstats{$mapped_fwd}++;
-                } elsif ($pair eq "R") {
+                } elsif ($pair eq "rev") {
                     $ssu_sam_mapstats{$mapped_rev}++;
                 }
             } else {
-                print STDERR "Cannot find read $read in original SAM file\n";
+                msg ("Warning: The $pair segment of read $read is not in initial mapping result");
             }
         }
     }
@@ -3107,8 +3111,6 @@ check_environment();
 
 my $timer = new Timer;
 
-my $sam_fixed_href;
-my $sam_fixed_aref;
 
 if ($use_sortmerna == 1 ) {
     # Run Sortmerna if explicitly called for
@@ -3139,6 +3141,9 @@ if ($use_sortmerna == 1 ) {
     #}
 
 }
+
+# Dereference
+#%ssu_sam = %$sam_fixed_href;
 
 # Get taxonomic summary from hashed SAM records
 parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
@@ -3219,7 +3224,7 @@ if ($html_flag) {
 }
 
 # Clean up temporary files
-#clean_up();
+clean_up();
 
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
