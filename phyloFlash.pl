@@ -341,7 +341,6 @@ my %outfiles;           # Hash to keep track of output files
 # variables for report generation
 my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
 my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
-my %ssu_sam;            # Readin sam file from first mapping vs SSU database    # To be replaced
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
 # Hashes to keep count of NTUs
@@ -1209,119 +1208,6 @@ sub get_total_reads_from_sortmerna_log {
     return ($readnr);
 }
 
-sub bbmap_fast_filter_parse {                                                   # To be replaced
-    # parsing bbmap.out for used read numbers, mapped reads,
-    # insert size median and standard deviation
-
-    # input: lib.bbmap.out
-    my ($infile,            # Input file
-        $SEmode,            # Flag for single-end mode
-        ) = @_;
-    # Variables used internally
-    my $ssu_pairs     = 0;
-    my $ssu_bad_pairs = 0;
-    my $ssu_f_reads   = 0;
-    my $ssu_r_reads   = 0;
-    my $forward_count = 0;
-    # Variables for output
-    my ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
-    # Read reported statistics from BBmap log file
-    my $fh;
-    open_or_die(\$fh, "<", $infile);
-    while (<$fh>) {
-        if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
-            $readnr = $1;
-            msg("single reads mapped: $readnr");
-        }
-        if (/^mated pairs:\s+\S+\s+([0-9]*).*$/) {
-            $ssu_pairs = $1;
-            msg("mapped SSU pairs: $ssu_pairs");
-        }
-        if (/^bad pairs:\s+\S+\s+([0-9]*).*$/) {
-            $ssu_bad_pairs = $1;
-            msg("mapped bad SSU pairs: $ssu_bad_pairs");
-        }
-        if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
-            $ins_me = $1;
-            msg("insert size median: $ins_me");
-        }
-        if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
-            $ins_std = $1;
-            msg("insert size std deviation: $ins_std");
-        }
-        if ($forward_count == 0) {
-            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-                $ssu_f_reads = $1;
-                msg("mapped forward SSU reads: $ssu_f_reads");
-                $forward_count++;
-                next;
-            }
-        }
-        if ($forward_count == 1) {
-            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-                $ssu_r_reads = $1;
-                msg("mapped reverse SSU reads: $ssu_r_reads");
-                last;
-            }
-        }
-    }
-    close($fh);
-
-    # calculating mapping ratio
-    $readnr_pairs = $readnr;
-        if ($SEmode == 0) {
-            $readnr_pairs /= 2;
-    }
-
-    # Total read pairs with at least one partner mapping
-    $SSU_total_pairs =
-        $ssu_f_reads + $ssu_r_reads
-        - $ssu_pairs - $ssu_bad_pairs;
-    if ($SEmode == 0) {
-        msg("mapped pairs output: $SSU_total_pairs")
-    };
-
-    $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
-    $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
-
-    # Ratios of mapped vs unmapped to report
-    my @mapratio_csv;
-    if ($SEmode == 1) { # TO DO: Add numerical values to text labels
-        my $unmapped = 1-$SSU_ratio;
-        push @mapratio_csv, "Unmapped,".$unmapped;
-        push @mapratio_csv, "Mapped,".$SSU_ratio;
-    } elsif ($SEmode == 0) {
-        # For PE reads, do not include Unmapped in piechart because it will be
-        # impossible to read the other slices anyway. Instead report mapping
-        # ratio in title.
-        my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
-        my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
-        my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
-        push @mapratio_csv, "Mapped pair,".$ssu_pairs*2;
-        push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs*2;
-        push @mapratio_csv, "Mapped single,".$mapped_half;
-    }
-
-    # CSV file to draw piechart
-    my $fh_csv;
-    open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
-    $outfiles{"mapratio_csv"}{"made"}++;
-    print $fh_csv join ("\n", @mapratio_csv);
-    close ($fh_csv);
-
-    msg("mapping rate: $SSU_ratio_pc%");
-
-    my $skip_assembly_flag;
-    if ($SSU_total_pairs * 2 * $readlength < 1800) {
-        msg("WARNING: mapping coverage lower than 1x,\n
-        reconstruction with SPADES and Emirge disabled.");
-        $skip_assembly_flag = 1;
-    }
-
-    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
-    return (\@output_array,$skip_assembly_flag);
-}
-
 sub fix_hash_bbmap_sam {
     # Read BBMap SAM file to two structures:
     #  - Array arranged by original order of entries in file
@@ -1512,109 +1398,6 @@ sub diversity_stats_from_taxonomy {
     }
     return ($chao, $oneton, $twoton, $moreton);
 }
-
-
-sub readsam {                                                                   # To be replaced
-    # Read SAM file into memory
-
-    # Input params
-    my $infile = $outfiles{"sam_map"}{"filename"};  # Input is SAM from first mapping step
-    my $href = \%ssu_sam;                           # Reference to hash to store SAM data
-    my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
-
-    # Internal vars
-    my @taxa_full;                                  # Arr of taxon names from first mapping - only used if $tophit_flag defined
-
-    msg ("reading mapping into memory");
-    my $fh;
-    open_or_die(\$fh, "<", "$infile");
-    my $readcounter=0; # Ersatz names for reads, because BBMap is messing up names (as of v37.99)
-    while (my $line = <$fh>) {
-        next if ($line =~ m/^@/); # Skip header lines
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
-        next if (!defined $bitflag); # Skip ill-formed alignment entries
-
-        if ($SEmode == 0) { # If paired end mode, use bitflag 0x40 to detect first read in pair
-            if ($bitflag & 0x40) {
-                # Update counter for each read when encountering first segment
-                # primary alignment of each read pair
-                $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
-            }
-        } else { # Single-end mode, bitflag 0x40 and 0x80 are not set
-            $readcounter ++ unless $bitflag & 0x100; # Ignore secondary alignments
-        }
-
-        next if ($bitflag & 0x4); # If not mapped, skip entry, do NOT record into hash
-
-        # Check if reads are PE or SE
-        my $pair;
-        if ($bitflag & 0x1) { # If PE read
-            if ($SEmode != 0) { # Sanity check
-                msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
-            }
-            if ($bitflag & 0x40) {
-                $pair="F";
-                ${$stats_href}{"ssu_fwd_map"}++ unless $bitflag & 0x100;
-            } elsif ($bitflag & 0x80) {
-                $pair="R";
-                ${$stats_href}{"ssu_rev_map"}++ unless $bitflag & 0x100;
-            }
-        } else {
-            $pair = "U";
-            ${$stats_href}{"ssu_fwd_map"}++ unless $bitflag & 0x100;
-        }
-        # Record primary alignment into hash (ignore secondary alignments)
-        # This will be used later during remapping stage to check unassembled
-        # reads
-        unless ($bitflag & 0x100) {
-            ${$href}{$read}{$pair}{"ref"} = $ref;
-            ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
-            ${$href}{$read}{$pair}{'readcounter'} = $readcounter;
-        }
-
-        # Hash taxa hits by read
-        if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
-            my $taxonlongstring = $1;
-
-            if (defined $tophit_flag) {
-                # "old" way - just take the top hit of each read as the taxon
-                # Therefore ignore secondary alignments
-                # Count full-length taxon for treemap
-                $taxa_full_href->{$taxonlongstring}++ unless $bitflag & 0x100;
-                # Save full taxonomy string
-                push @taxa_full, $taxonlongstring unless $bitflag & 0x100;
-            } else {
-                # Use consensus of ambiguous mapping hits to get the consensus taxon per read
-                my @taxonlongarr = split /;/, $taxonlongstring;
-                taxstring2hash(\%{$taxa_ambig_byread_hash{$readcounter}}, \@taxonlongarr);
-            }
-        } else {
-            msg ("Warning: malformed database entry $ref");
-        }
-    }
-    close($fh);
-
-    if (defined $tophit_flag) {
-        # Using only top alignment per read to get taxonomy
-        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
-    } else {
-        # Use consensus of all ambiguous alignments per read to get taxonomy
-
-        # List of all the readcounter IDs
-        my @allreadcounters = (keys %taxa_ambig_byread_hash);
-        ## Count taxonomy in tree from consensus taxstrings, truncated to taxonomic level requested
-        $taxa_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, $taxon_report_lvl);
-        ## Count taxonomy in tree from consensus taxstrings, to full taxonomic level (7)
-        $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
-    }
-
-    # Calculate Chao1 index from taxon counts
-    ($chao1, @xtons) = diversity_stats_from_taxonomy($taxa_summary_href);
-
-    msg("done...");
-}
-
-
 
 sub truncate_taxonstring {
     my ($in, $level) = @_;
@@ -3128,22 +2911,7 @@ if ($use_sortmerna == 1 ) {
                                                             \%ssu_sam_mapstats);
     # Get total reads and insert size stats from BBmap log file
     ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
-    
-    ## Parse statistics from BBmap initial mapping
-    #my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
-    #
-    ## Dereference stats
-    #($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
-    #if (defined $skipflag && $skipflag == 1) {
-    #    # If coverage too low, skip assembly
-    #    $skip_spades = 1;
-    #    $skip_emirge = 1;
-    #}
-
 }
-
-# Dereference
-#%ssu_sam = %$sam_fixed_href;
 
 # Get taxonomic summary from hashed SAM records
 parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
@@ -3157,9 +2925,6 @@ if (defined $skipflag && $skipflag == 1) {
     $skip_spades = 1;
     $skip_emirge = 1;
 }
-
-# Parse sam file
-#readsam();
 
 # Find positional coverage along prok and euk SSU rRNA models using nhmmer
 # from a subsample of reads
