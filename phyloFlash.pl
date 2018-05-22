@@ -2910,9 +2910,9 @@ sub write_report_html {
     }
 
     # Slurp in the SVG plots to embed in HTML file
-    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
-    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"});
-    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"});
+    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"}) if $outfiles{"idhistogram_svg"}{"made"};
+    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"}) if $outfiles{"mapratio_svg"}{"made"};
+    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"}) if $outfiles{"ntu_csv_svg"}{"made"};
 
     # Table of output files produced
     my @table_outfiles;
@@ -2952,7 +2952,7 @@ sub write_report_html {
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
         $flags{"READNR_PAIRS"} = $readnr_pairs;
-        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"});
+        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"}) if $outfiles{"inserthistogram_svg"}{"made"};
     }
 
     # Slurp in positional coverage histograms, if defined
