@@ -1,8 +1,7 @@
 ---
 layout: page
 title: FAQ
-permalink: /faq/
-order: 4
+order: 5
 ---
 
 # What is phyloFlash for?
@@ -47,7 +46,7 @@ Many other tools use genomic reference data to summarize the taxonomic compositi
 
 You can browse the results as a text file or HTML formatted report (with embedded graphics) to look at the results from one sample.
 
-To compare multiple samples you can [generate a heatmap](multiple-samples.md) of taxa vs. samples, which is especially useful with large numbers of samples.
+To compare multiple samples you can produce a heatmap or barplot, which are especially useful with large numbers of samples. [Several utilities](utilities.html) are available for working with phyloFlash output.
 
 Assembled and/or reconstructed full-length rRNA seqeuences can be used for downstream analyses, for phylogenetic analysis.
 
@@ -63,7 +62,7 @@ EMIRGE in particular can be tricky to install because of its own software depend
 
 # How is the taxonomic summary produced?
 
-The taxonomic affiliation of the SSU rRNA reads is taken from the reference sequence to which it maps in the SILVA database. From v3.2b1 onwards, the taxonomy reported is the last-common-ancestor consensus of the top hits, i.e. if a read has more than one best-scoring hit, it will report the lowest taxonomic level which they have in common. In previous versions, only the single best hit was retained, but this would result in overly-preecise taxonomic assignments especially for divergent sequences. To replicate the old behavior, use the `tophit` option.
+The taxonomic affiliation of the SSU rRNA reads is taken from the reference sequence to which it maps in the SILVA database. From v3.2b1 onwards, the taxonomy reported is the last-common-ancestor consensus of the top hits, i.e. if a read has more than one best-scoring hit, it will report the lowest taxonomic level which they have in common. In previous versions, only the single best hit was retained, but this would result in overly-preecise taxonomic assignments especially for divergent sequences. To replicate the old behavior, use the `--tophit` option.
 
 # How do I get help if something doesn't work?
 

@@ -1,7 +1,6 @@
 ---
 layout: page
 title: Installation
-permalink: /install/
 order: 1
 ---
 
@@ -92,7 +91,6 @@ A full description of options for the database setup can be seen with
 ```bash
 ./phyloFlash_makedb.pl --help
 ```
-
 
 ### 4.1. Downloading database automatically
 

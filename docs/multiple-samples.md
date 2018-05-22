@@ -1,11 +1,10 @@
 ---
 layout: page
-title: Comparing Multiple Samples
-permalink: /multiple-samples/
-order: 4
 ---
 
-**phyloFlash** runs from multiple libraries can be compared with a heatmap with the `phyloFlash_heatmap.R` script.
+## Heatmap
+
+**phyloFlash** runs from multiple libraries can be compared with a heatmap with the `phyloFlash_heatmap.R` script. New users are recommended not to use this script directly, but to use the wrapper `phyloFlash_compare.pl` (see [Utilities](utilities.html)). 
 
 The comparison is based on the counts of how many reads map onto each reference sequence, and the taxonomic affiliation of the reference taken from the SILVA taxonomy string. These are the "NTUs" found under the heading "Read mapping based detected higher taxa" in the standard **phyloFlash** output.
 

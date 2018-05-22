@@ -47,6 +47,9 @@ phyloFlash.pl -lib LIB -everything -read1 reads_F.fq.gz -read2 reads_R.fq.gz
 
 # Supply trusted contigs containing SSU rRNA sequences to screen vs reads
 phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -trusted contigs.fasta
+
+# Use SortMeRNA instead of BBmap for initial mapping (slower, but more sensitive)
+phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -sortmerna
 ```
 
 Use the `-help` option to display a brief help and the `-man` option to display the full help message.
@@ -60,11 +63,11 @@ Example phyloFlash report from the provided test data can be viewed [here](test.
 
 ## Contents
 
- - [Installation](install.md)
- - [Usage](usage.md)
- - [Comparing multiple samples](multiple-samples.md)
- - [Output report](output.md)
- - [FAQ](FAQ.md)
+ - [Installation](install.html)
+ - [Usage](usage.html)
+ - [Utilities](utilities.html)
+ - [Output report](output.html)
+ - [FAQ](FAQ.html)
 
 
 ## About

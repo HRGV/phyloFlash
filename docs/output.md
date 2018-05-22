@@ -1,7 +1,6 @@
 ---
 layout: page
 title: Output
-permalink: /output/
 order: 3
 ---
 
