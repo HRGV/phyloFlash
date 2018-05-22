@@ -752,7 +752,7 @@ NTU\treads
         print {$fh} "SSU assembly based taxa:\n";
         print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid ( sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "SPAdes");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -769,7 +769,7 @@ NTU\treads
         print {$fh} "SSU reconstruction based taxa:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "EMIRGE");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -786,7 +786,7 @@ NTU\treads
         print {$fh} "SSU from trusted contigs:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "trusted";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "trusted");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -885,7 +885,11 @@ sub write_csv {
             my @out;
             push @out, $seqid;
             foreach my $field (qw(counts cov dbHit taxon pcid alnlen evalue)) {
-                push @out, $ssufull_hash{$seqid}{$field};
+                if (defined $ssufull_hash{$seqid}{$field}) {
+                    push @out, $ssufull_hash{$seqid}{$field};
+                } else {
+                    push @out, 'NA';
+                }
             }
             print {$fh} join (",", csv_escape(@out)).$crlf;
         }
