@@ -61,8 +61,14 @@ If you don't need full-length sequences, you may want to turn off SPAdes (`-skip
 
 EMIRGE in particular can be tricky to install because of its own software dependencies, and you when you first try the pipeline you may want to skip EMIRGE if you don't already have it installed on your system.
 
+# How is the taxonomic summary produced?
+
+The taxonomic affiliation of the SSU rRNA reads is taken from the reference sequence to which it maps in the SILVA database. From v3.2b1 onwards, the taxonomy reported is the last-common-ancestor consensus of the top hits, i.e. if a read has more than one best-scoring hit, it will report the lowest taxonomic level which they have in common. In previous versions, only the single best hit was retained, but this would result in overly-preecise taxonomic assignments especially for divergent sequences. To replicate the old behavior, use the `tophit` option.
+
 # How do I get help if something doesn't work?
 
 First check if you have all the dependencies installed properly with `phyloFlash.pl -check_env`.
+
+See the built-in help messages and manuals for any script in the phyloFlash folder by using either the `--help` or `--man` options.
 
 To get in touch, please use the [phyloFlash Google group](https://groups.google.com/forum/#!forum/phyloflash), or the [issues tracker](https://github.com/HRGV/phyloFlash/issues) on GitHub to submit bug reports, and supply us with information that will help us diagnose the problem. We'll try to help if we can but please understand that phyloFlash is for academic, non-commercial use and we may not always be able to respond promptly.

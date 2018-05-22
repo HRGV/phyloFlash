@@ -83,7 +83,16 @@ The database has to be reformatted for use by phyloFlash. This is done with the 
 
 *NOTE: A .udb indexed database will be created with Vsearch if version v2.5.0+ is detected. However, only the file will only be readable by the user running the database setup script. If you wish to make it available for other users, please change the file permissions for the .udb file accordingly.*
 
-The final disk space required for the default SILVA SSU database is about 5 Gb.
+The final disk space required for the default SILVA SSU database is about 5 Gb. An additional 5 Gb is required for the `.udb` indexed database for Vsearch v2.5.0+. An additional 2.5 Gb is required for the SortMeRNA indexed database if requested.
+
+If you wish to use SortMeRNA in addition to or instead of BBmap for filtering rRNA reads, pass the option `--sortmerena` to `phyloFlash_makedb.pl`. This requires `sortmerna` and `indexdb_rna` to be in your path.
+
+A full description of options for the database setup can be seen with
+
+```bash
+./phyloFlash_makedb.pl --help
+```
+
 
 ### 4.1. Downloading database automatically
 
