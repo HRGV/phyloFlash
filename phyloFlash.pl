@@ -283,6 +283,7 @@ use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
 use File::Temp;
+use File::Path 'remove_tree';
 use Storable;
 use IPC::Cmd qw(can_run);
 use Cwd;
@@ -1479,7 +1480,7 @@ sub spades_parse {
     if (! -s "$libraryNAME.spades/scaffolds.fasta") {
         msg("no phylotypes assembled with SPAdes");
         $skip_spades = 1;
-        system ("rm ./$libraryNAME.spades -r");
+        remove_tree("$libraryNAME.spades");
     }
 
     # run barrnap once for each domain
@@ -2385,17 +2386,17 @@ sub clean_up {
 
         # Delete SPAdes and/or EMIRGE output folders
         if ($skip_spades == 0) {
-            system ("rm $libraryNAME.spades -r");
+            remove_tree ("$libraryNAME.spades");
         }
         if ($skip_emirge == 0) {
-            system ("rm $libraryNAME.emirge -r");
+            remove_tree("$libraryNAME.emirge");
         }
 
         # Remove files that are earmarked for destruction
         # (Change earmarking in PhyloFlash.pm)
         foreach my $key (keys %outfiles) {
             if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
-                system ("rm -r ".$outfiles{$key}{"filename"});
+                unlink $outfiles{$key}{"filename"} or msg ("WARNING: Could not delete file ".$outfiles{$key}{"filename"});
             }
         }
     }
@@ -2415,9 +2416,8 @@ sub do_zip {
         }
     }
     my $to_tar = join " ", @filelist;
-    my $todelete_str = join " ", @todelete;
     system ("tar -czf $tarfile $to_tar");
-    system ("rm -r $todelete_str");
+    unlink @todelete or msg ("WARNING: Could not delete files ".join(" ", @todelete));
     msg("Done...");
 }
 
@@ -2896,7 +2896,7 @@ check_environment();
 
 my $timer = new Timer;
 
-
+# Initial mapping vs. SILVA database with either BBmap or Sortmerna
 if ($use_sortmerna == 1 ) {
     # Run Sortmerna if explicitly called for
     ($sam_fixed_href, $sam_fixed_aref) = sortmerna_filter_sam();
