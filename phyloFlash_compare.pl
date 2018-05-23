@@ -82,6 +82,7 @@ my $tempdir_recalc; # Temp folder to put recalculated extracted files
 
 my $task_opt;
 my %task_hash;
+my $allzip;
 my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
@@ -127,6 +128,12 @@ parsed to search for the [LIBNAME].phyloFlash.NTUabundance.csv files
 within the archive, to extract the NTU classifications. This assumes that the
 archive filenames are named [LIBNAME].phyloFlash.tar.gz, and that the LIBNAME
 matches the contents of the archive.
+
+=item --allzip
+
+Use all phyloFlash tar.gz archives in the current folder (by matching filename
+*.phyloFlash.tar.gz) for a comparison run. Overrides anything passed to option
+I<--zip>.
 
 =item --use_SAM
 
@@ -306,6 +313,7 @@ pod2usage (-verbose=>0, -exit=>1) if (!@ARGV);
 
 GetOptions ("csv=s" => \$csvfiles_str,
             "zip=s" => \$tarfiles_str,
+            "allzip" => \$allzip,
             "task=s" => \$task_opt,
             "level=i" => \$taxlevel,
             "use_SAM" => \$useSAM,
@@ -373,6 +381,13 @@ if ($keeptmp) {
 if (defined $useSAM) {
     $tempdir_recalc = "$tempdir/recalc";
     mkdir($tempdir_recalc);
+}
+
+if (defined $allzip) {
+    # Find all phyloFlash.tar.gz archives in the current folder
+    # for lazy users...
+    my @ziplist = glob "*.phyloFlash.tar.gz";
+    $tarfiles_str = join ",", @ziplist;
 }
 
 

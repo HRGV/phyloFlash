@@ -52,7 +52,7 @@ use Getopt::Long;
 use Pod::Usage;
 use FindBin;
 use lib $FindBin::RealBin;
-use PhyloFlash qw(msg err @msg_log $VERSION);
+use PhyloFlash qw(msg err @msg_log $VERSION revcomp_DNA);
 use File::Temp;
 use File::Basename;
 use Archive::Tar;
@@ -488,13 +488,6 @@ sub get_barrnap_hit_seqs {
             $hit_href->{$contig}{$id}{'offset'} = $offset if defined $seq;
         }
     }
-}
-
-sub revcomp_DNA {
-    my ($seq) = @_;
-    my $rev = reverse $seq;
-    $rev =~ tr/ATCGatcgYRWSKMDVHByrwskmdvhb/TAGCtagcRYWSMKHBDVrywsmkhbdv/; # Include ambiguity codes
-    return $rev;
 }
 
 sub report_nodes_to_cluster {

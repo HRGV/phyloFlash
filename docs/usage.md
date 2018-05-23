@@ -1,7 +1,6 @@
 ---
 layout: page
 title: Usage
-permalink: /usage/
 order: 2
 ---
 
@@ -80,9 +79,11 @@ You can access help on the command line with the following options:
 
 `-emirge` Use EMIRGE to reconstruct full-length sequences from extracted reads. (Default: Off)
 
+`-sortmerna` Use SortMeRNA instead of BBmap to extract SSU rRNA reads. Insert size and %id to reference statistics will not be available. (Default: No)
+
 `-poscov` Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of the 16S and 18S rRNA genes from a subsample of reads, as an estimate of coverage evenness. (Default: Off)
 
-`-id N` Minimum % identity of reads to map against reference database. Must be between 63 and 98. Set to a lower value for very divergent taxa. Default: 70.
+`-id N` Minimum % identity of reads to map against reference database. Must be between 50 and 98. Set to a lower value for very divergent taxa. Default: 70.
 
 `-clusterid N` % identity threshold for reference sequence clustering step. Must be between 50 and 100. Default: 97.
 

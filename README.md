@@ -1,4 +1,4 @@
-phyloFlash v3.2 beta 1
+phyloFlash v3.3 beta 1
 ======================
 
 <img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
@@ -54,6 +54,9 @@ phyloFlash.pl -lib LIB -everything -read1 reads_F.fq.gz -read2 reads_R.fq.gz
 
 # Supply trusted contigs containing SSU rRNA sequences to screen vs reads
 phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -trusted contigs.fasta
+
+# Use SortMeRNA instead of BBmap for initial mapping (slower, but more sensitive)
+phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -sortmerna
 ```
 
 Use the `-help` option to display a brief help and the `-man` option to display the full help message.
@@ -90,6 +93,9 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
 Versions and changes
 --------------------
 
+* v3.3 beta 1
+  * Add support for using SortMeRNA instead of BBmap for initial mapping step
+  * Changes to how mapping data are hashed; process SAM file of initial mapping to fix known bugs with bitflag and read name reporting in BBmap and SortMeRNA
 * v3.2 beta 1
   * Report ambiguous hits during mapping step, use consensus of top hits to assign taxonomy instead of single best hit
   * Add utility `phyloFlash_compare.pl` to compare taxonomic composition of multiple libraries from phyloFlash output
