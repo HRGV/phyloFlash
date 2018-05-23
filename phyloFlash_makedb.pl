@@ -463,7 +463,7 @@ sub iuppac_replace {
 sub bbmap_db {
     my ($ref, $path, $overwrite) = @_;
     msg("creating bbmap reference");
-    if (!-d $path || $overwrite == 1) {
+    if (!-d "$path/ref" || $overwrite == 1) {
         run_prog("bbmap",
                  "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
                  . "threads=$cpus "
