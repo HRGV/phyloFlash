@@ -273,12 +273,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 =cut
 
-
 use FindBin;
 use lib $FindBin::RealBin;
-
 use PhyloFlash;
-
 use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
@@ -398,7 +395,6 @@ sub check_dbhome {
 sub find_dbhome {
     my @dirs;
     my @dbdirs;
-
     foreach (@dbhome_dirs) {
         push(@dirs, get_subdirs($_));
     }
@@ -411,7 +407,6 @@ sub find_dbhome {
         @dbdirs = version_sort(@dbdirs);
         return $dbdirs[0];
     }
-
     return "";
 }
 
@@ -443,7 +438,6 @@ sub process_required_tools {
         require_tools (sortmerna => "sortmerna",
                        indexdb_rna => "indexdb_rna");
     }
-
     # Check operating system to decide which nhmmer to use
     my $opsys = $^O;
     msg ("Current operating system $opsys");
@@ -515,8 +509,7 @@ sub parse_cmdline {
                'help|h' => sub { pod2usage(-verbose=>0); },
                'man' => sub { pod2usage(-exitval=>0, -verbose=>2); },
                'version' => sub { welcome(); exit; },
-           )
-        or pod2usage(2);
+               ) or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
 
     # Say hello
@@ -560,7 +553,7 @@ sub parse_cmdline {
           $readsr = $1;
         } else { $readsr = $readsr_full; }
 
-     } elsif ( $interleaved == 1 ){
+    } elsif ( $interleaved == 1 ){
     msg("Using interleaved read data");
 
     } else {
@@ -572,10 +565,10 @@ sub parse_cmdline {
     msg("Forward reads $readsf_full");
     if ($SEmode == 0)  {
         if (defined($readsr_full)) {
-        msg("Reverse reads $readsr_full");
-    } else{
-        msg("Reverse reads from interleaved read file $readsf_full");
-    }
+            msg("Reverse reads $readsr_full");
+        } else{
+            msg("Reverse reads from interleaved read file $readsf_full");
+        }
     } else {
         msg("Running in single ended mode");
     }
