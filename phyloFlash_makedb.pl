@@ -149,7 +149,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 =cut
 
-use strict;
 use FindBin;
 use lib $FindBin::RealBin;
 use PhyloFlash;
@@ -366,7 +365,6 @@ sub process_dependencies {
     }
 }
 
-
 # searching for LSU genes in the SSU RefNR using a modified b
 # barrnap version that only utilizes LSU hmm profiles
 # barrnap was changed to use a different db folder that
@@ -465,7 +463,7 @@ sub iuppac_replace {
 sub bbmap_db {
     my ($ref, $path, $overwrite) = @_;
     msg("creating bbmap reference");
-    if (!-d $path || $overwrite == 1) {
+    if (!-d "$path/ref" || $overwrite == 1) {
         run_prog("bbmap",
                  "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
                  . "threads=$cpus "
@@ -500,8 +498,6 @@ sub sortmerna_index {
     } else {
         msg ("WARNING: SortMeRNA indices for file prefix $prefix already exist, not overwriting");
     }
-    
-
 }
 
 sub hash_SILVA_acc_taxstrings_from_fasta {
@@ -528,7 +524,6 @@ sub hash_SILVA_acc_taxstrings_from_fasta {
         msg ("WARNING: File $prefix.acc2taxstring.hashimage already exists, not overwriting");
     }
 }
-
 
 #--------------------------------------------- final timing stats and goodbye
 sub finish {
