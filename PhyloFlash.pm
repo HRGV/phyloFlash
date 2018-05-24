@@ -1262,9 +1262,9 @@ sub initialize_outfiles_hash {
       "spades_log",
       {
         description => "Log file from SPAdes assembler",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.spades.out",
-        intable     => 0,
+        intable     => 1,
       },
       "full_len_class",
       {
@@ -1332,9 +1332,9 @@ sub initialize_outfiles_hash {
       "emirge_log",
       {
         description => "Log file from EMIRGE sequence reconstruction",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.emirge.out",
-        intable     => 0,
+        intable     => 1,
       },
       "assemratio_csv",
       {
@@ -1474,7 +1474,7 @@ sub initialize_outfiles_hash {
         description => "phyloFlash log file",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.log",
-        intable     => 0,
+        intable     => 1,
       },
       "phyloFlash_archive",
       {
