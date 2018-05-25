@@ -148,10 +148,17 @@ Default: 500000
 
 =item -id I<N>
 
-Minimum allowed identity for read mapping process in %. Must be within
+Minimum allowed identity for BBmap read mapping process in %. Must be within
 50..98. Set this to a lower value for very divergent taxa
 
 Default: 70
+
+=item -evalue_sortmerna I<N>
+
+E-value cutoff to use for SortMeRNA (only if I<-sortmerna> option chosen). In
+scientific exponent notation (see below)
+
+Default: 1e-05
 
 =item -clusterid I<N>
 
@@ -304,7 +311,8 @@ my $readsr      = undef;        # reverse read filename, stripped of directory n
 my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
-my $id          = 70;           # minimum %id for mapping
+my $id          = 70;           # minimum %id for mapping with BBmap
+my $evalue_sortmerna = 1e-05;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
@@ -492,6 +500,7 @@ sub parse_cmdline {
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
                'sortmerna!' => \$use_sortmerna,
+               'evalue_sortmerna=s' => \$evalue_sortmerna,
                'emirge!' => \$emirge,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
@@ -1000,7 +1009,7 @@ sub sortmerna_filter_sam {
                           "--log",
                           "--best 10",      # Take 10 best hits
                           "--min_lis 10",
-                          "-e 1.00e-05",    # E-value cutoff
+                          "-e $evalue_sortmerna",    # E-value cutoff
                           "-a $cpus",
                           "-v",             # Verbose (turn off?)
                           );
