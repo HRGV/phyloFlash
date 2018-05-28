@@ -2030,7 +2030,13 @@ sub emirge_run {
         } else {
             $ins_used = $ins_me;
         }
-
+        if ($ins_std == 0) {
+            # insert size std dev has to be nonzero or Emirge will refuse to run
+            # SortMeRNA doesn't report insert size, so we make a guess
+            $ins_std = $ins_used / 2;
+            msg ("Warning: No insert size reported by mapper. Using initial guess $ins_std");
+        }
+        
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
         if ($SSU_total_pairs <= $amplimit) {
