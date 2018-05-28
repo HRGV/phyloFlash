@@ -1862,7 +1862,7 @@ sub screen_remappings {
                 } elsif ($pair eq 'rev') {
                     $ssu_rev_map ++ ;
                 }
-                # Check whether has been flagged as mappign to SPAdes or Emirge or trusted contig
+                # Check whether has been flagged as mapping to SPAdes or Emirge or trusted contig
                 if (defined $sam_fixed_href->{$read}{$pair}{"mapped2spades"} | defined $sam_fixed_href->{$read}{$pair}{"mapped2emirge"} | defined $sam_fixed_href->{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
@@ -1870,7 +1870,7 @@ sub screen_remappings {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
                     foreach my $ref (keys %{$sam_fixed_href->{$read}{$pair}}) {
                         if (ref($sam_fixed_href->{$read}{$pair}{$ref}) eq 'HASH' && defined $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'}) { # If this is a hashed SAM record
-                            unless ($sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x4) {
+                            unless ($sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x4 || $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x100) { # Unless segment unmapped or is a secondary alignment
                                 push @unassem_readcounters, $read;
                                 # If using top hit
                                 if ($sam_fixed_href->{$read}{$pair}{$ref}->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
