@@ -1098,6 +1098,10 @@ sub parse_mapstats_from_sam_arr {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
         my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
+        # Strip read segment suffixes from name 
+        if ($splitname =~ m/^(.+)([:\/_])[12]/) {
+            $splitname = $1.$2;
+        }
         $qname_hash{$splitname} ++;
         if ($href->{'FLAG'} & 0x40) { # Fwd read
             $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
