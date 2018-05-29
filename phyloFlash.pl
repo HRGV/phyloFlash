@@ -839,6 +839,8 @@ sub write_csv {
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
+        "program command",$progcmd,
+        "database path",$DBHOME,
     ));
     my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
