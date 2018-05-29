@@ -603,7 +603,7 @@ sub parse_cmdline {
     if ($use_sortmerna == 1) {
         msg ("Sortmerna will be used instead of BBmap for the initial SSU rRNA read extraction");
         msg ("Sortmerna requires uncompressed input files - Ensure that you have enough disk space");
-        msg ("The following input parameters specific to BBMap will be ignored: --id, --tophit, --maxinsert");
+        msg ("The following input parameters specific to BBMap will be ignored: --id, --maxinsert");
     }
 
     # check surplus arguments
@@ -1009,12 +1009,20 @@ sub sortmerna_filter_sam {
                           "--sam",          # SAM alignment output
                           #"--blast 1",     # Blast-tabular alignment output
                           "--log",
-                          "--best 10",      # Take 10 best hits
+                          #"--best 10",      # Take 10 best hits
                           "--min_lis 10",
                           "-e $evalue_sortmerna",    # E-value cutoff
                           "-a $cpus",
                           "-v",             # Verbose (turn off?)
                           );
+    if (defined $tophit_flag) {
+        msg ("Reporting only single best hit per read");
+        push @sortmerna_args, "--best 1";
+    } else {
+        msg ("Reporting 10 best hits per read");
+        push @sortmerna_args, "--best 10";
+    }
+    
     msg ("Running sortmerna:");
     # Run Sortmerna
     run_prog("sortmerna",
