@@ -346,7 +346,7 @@ my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 my %outfiles;           # Hash to keep track of output files
 
 # variables for report generation
-my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
+my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as array of refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
 my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
 
@@ -1295,7 +1295,7 @@ sub fix_hash_bbmap_sam {
         }
         
         # Hash refs to each SAM alignment by QNAME, segment, and RNAME
-        $sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}} = $line_href;
+        push @{$sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}}}, $line_href;
         # Store array of SAM alignments in order encountered in file
         push @sam_arr, $line_href;
         
@@ -1871,16 +1871,19 @@ sub screen_remappings {
                 } else {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
                     foreach my $ref (keys %{$sam_fixed_href->{$read}{$pair}}) {
-                        if (ref($sam_fixed_href->{$read}{$pair}{$ref}) eq 'HASH' && defined $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'}) { # If this is a hashed SAM record
-                            unless ($sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x4 || $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x100) { # Unless segment unmapped or is a secondary alignment
-                                push @unassem_readcounters, $read;
-                                # If using top hit
-                                if ($sam_fixed_href->{$read}{$pair}{$ref}->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                                    my $taxonlongstring = $1;
-                                    push @unassem_taxa, $taxonlongstring;
+                        foreach my $href (@{$sam_fixed_href->{$read}{$pair}{$ref}}) {
+                            if (ref($href) eq 'HASH' && defined $href->{'FLAG'}) { # If this is a hashed SAM record
+                                unless ($href->{'FLAG'} & 0x4 || $href->{'FLAG'} & 0x100) { # Unless segment unmapped or is a secondary alignment
+                                    push @unassem_readcounters, $read;
+                                    # If using top hit
+                                    if ($href->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                                        my $taxonlongstring = $1;
+                                        push @unassem_taxa, $taxonlongstring;
+                                    }
                                 }
                             }
                         }
+
                         
                     }
                 }
