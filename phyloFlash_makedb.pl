@@ -15,7 +15,13 @@ phyloFlash_makedb.pl --remote
 
 ### use local copies
 
-phyloFlash makedb.pl --silva_file F<path/to/silva_db> --univec_file F<path/to/univec_db>
+phyloFlash_makedb.pl --silva_file F<path/to/silva_db> --univec_file F<path/to/univec_db>
+
+## Get help
+
+phyloFlash_makedb.pl --help
+
+phyloFlash_makedb.pl --man
 
 =head1 DESCRIPTION
 
@@ -109,6 +115,12 @@ Memory limit (in Gb) for indexing tools. At least 10 is recommended.
 
 Default: 10
 
+=item --log I<FILE>
+
+Write phyloFlash_makedb.pl log to a file.
+
+Default: None
+
 =item --check_env
 
 Check that required dependencies are available in your path. If specifying
@@ -175,6 +187,7 @@ my $keep = 0;           # Keep temp files
 my $sortmerna = 0;      # Index sortmerna tool
 my $emirge = 1;         # Index emirge
 my $memlimitGb = 10;    # In Gb
+my $makedb_log;
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
@@ -194,6 +207,7 @@ GetOptions("remote|r" => \$use_remote,
                                 exit; },
            "keep|k" => \$keep,
            "overwrite!" => \$overwrite,
+           "log=s" => \$makedb_log,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
            "version" => sub { welcome();
@@ -335,6 +349,9 @@ if ($sortmerna == 1) {
 
 finish();
 
+write_logfile($makedb_log) if defined $makedb_log;
+
+
 ## SUBS ########################################################################
 
 sub welcome {
@@ -399,6 +416,7 @@ sub find_LSU {
 sub make_vsearch_udb {
     my ($infile, $outfile, $overwrite) = @_;
     msg ("Indexing $infile to make UDB file $outfile with Vsearch");
+    my $log = "tmp.vsearch_make_udb.log";
     if (! -e $outfile || $overwrite == 1) {
         my @vsearch_params = ("--threads $cpus",
                               '--notrunclabels', # Keep full header including taxstring
@@ -406,7 +424,9 @@ sub make_vsearch_udb {
                               "--output $outfile",
                               );
         run_prog("vsearch",
-                 join (" ", @vsearch_params)
+                 join (" ", @vsearch_params),
+                 undef,
+                 $log
                  );
     } else {
         msg ("WARNING: File $outfile already exists. Not overwriting");
@@ -417,6 +437,7 @@ sub make_vsearch_udb {
 sub mask_repeats {
     my ($src, $dst, $overwrite) = @_;
     msg("masking low entropy regions in SSU RefNR");
+    my $log = "tmp.bbmask_mask_repeats.log";
     if (! -e $dst || $overwrite == 1) {
         run_prog("bbmask",
              "  overwrite=t "
@@ -425,7 +446,9 @@ sub mask_repeats {
              . "in=$src "
              . "out=$dst "
              . "minkr=4 maxkr=8 mr=t minlen=20 minke=4 maxke=8 "
-             . "fastawrap=0 ");
+             . "fastawrap=0 ",
+             undef,
+             $log);
     } else {
         msg ("File $dst exists, not overwriting");
     }
@@ -435,6 +458,7 @@ sub mask_repeats {
 sub univec_trim {
     my ($univec, $src, $dst,$overwrite) = @_;
     msg("removing UniVec contamination in SSU RefNR");
+    my $log = "tmp.bbduk_remove_univec.log";
     if (! -e $dst || $overwrite == 1 ) {
         run_prog("bbduk",
                  "ref=$univec "
@@ -445,30 +469,27 @@ sub univec_trim {
                  . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
                  . "in=$src "
                  . "out=$dst "
-                 . "stats=$dst.UniVec_contamination_stats.txt");
+                 . "stats=$dst.UniVec_contamination_stats.txt",
+                 undef,
+                 $log);
     } else {
         msg ("File $dst exists, not overwriting");
     }
-}
-
-sub iuppac_replace {
-    my ($src, $dst) = @_;
-    msg("replacing IUPAC coded ambiguous bases with randomly chosen bases");
-    run_prog("fixchars",
-             "<$src",
-             $dst);
 }
 
 #the NR99 file is fixed and a reference file is generated for bbmap
 sub bbmap_db {
     my ($ref, $path, $overwrite) = @_;
     msg("creating bbmap reference");
+    my $log = "tmp.bbmap_index.log";
     if (!-d "$path/ref" || $overwrite == 1) {
         run_prog("bbmap",
                  "  -Xmx".$memlimitGb."g "   # Original 4 Gb limit was not enough
                  . "threads=$cpus "
                  . "ref=$ref "
-                 . "path=$path ");
+                 . "path=$path ",
+                 undef,
+                 $log);
     } else {
         msg ("WARNING: Folder $path exists, not overwriting");
     }
@@ -478,8 +499,12 @@ sub bbmap_db {
 sub bowtie_index {
     my ($fasta) = @_;
     my $btidx = $fasta =~ s/\.fasta$/\.bt/r;
+    my $log = "tmp.bowtiebuild.log";
     msg("creating bowtie index (for emirge)");
-    run_prog("bowtiebuild", "$fasta $btidx -q");
+    run_prog("bowtiebuild",
+             "$fasta $btidx -q",
+             undef,
+             $log);
 }
 
 # Generate index for Sortmerna from the filtered fixed SSU clustered at 96% id
@@ -487,6 +512,7 @@ sub sortmerna_index {
     my ($fasta,$overwrite) = @_;
     my $memlimitMb = $memlimitGb * 1000;
     my $prefix = $fasta =~ s/\.fasta$//r;
+    my $log = "tmp.indexdb_rna.log";
     msg ("creating sortmerna index");
     if (! -e "$prefix.bursttrie_0.dat" || $overwrite == 1) {
         my @indexdb_args = ("--ref $fasta,$prefix",
@@ -494,6 +520,8 @@ sub sortmerna_index {
                             "-v");
         run_prog("indexdb_rna",
                  join (" ", @indexdb_args),
+                 undef,
+                 $log
                  )
     } else {
         msg ("WARNING: SortMeRNA indices for file prefix $prefix already exist, not overwriting");
@@ -533,4 +561,13 @@ sub finish {
     Please provide your location of
     the databases with -dbhome: /path/to/your/databases/
     or change script line XXX accordingly");#Fixme
+}
+
+sub write_logfile {
+    my $file = shift;
+    msg ("Saving log to file $file");
+    my $fh;
+    open_or_die(\$fh, ">>", $file);
+    print $fh join "\n", @PhyloFlash::msg_log;
+    close($fh);
 }
