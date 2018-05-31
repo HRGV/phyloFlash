@@ -349,6 +349,28 @@ my %outfiles;           # Hash to keep track of output files
 my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as array of refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
 my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
+# Fields for %ssu_sam_mapstats
+#   total_reads         Total read (pairs) input
+#   total_read_segments Total read segments input
+#   ssu_fwd_seg_map     Total fwd read segments mapped
+#   ssu_rev_seg_map     Total rev read segments mapped
+#   ssu_tot_map         Total read segments mapped
+#   ssu_tot_pair_map    Total read pairs mapped (one or both segments)
+#   ssu_tot_pair_ratio  Ratio of read (pairs) mapping to SSU (one or both segments
+#   ssu_tot_pair_ratio_pc   Above as percentage
+#   assem_tot_map       Total segments mapping to full length assembled
+#   ssu_unassem         Total segments not mapping to full length
+#   assem_ratio         Ratio assembled/unassmebled
+#   assem_ratio_pc      Above as percentage
+#   spades_fwd_map      Fwd read segments mapping to SPAdes
+#   spades_rev_map
+#   spades_tot_map
+#   emirge_fwd_map
+#   emirge_rev_map
+#   emirge_tot_map
+#   trusted_fwd_map
+#   trusted_rev_map
+#   trusted_tot_map
 
 # Hashes to keep count of NTUs
 my %taxa_ambig_byread_hash;     # Hash of all taxonomy assignments per read
@@ -827,8 +849,10 @@ sub write_csv {
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
-        "input reads",$readnr_pairs,
+        "input reads",$ssu_sam_mapstats{'total_reads'},
+        "input read segments",$ssu_sam_mapstats{'total_read_segments'},
         "mapped SSU reads",$SSU_total_pairs,
+        "mapped SSU read segments",$ssu_sam_mapstats{'ssu_tot_map'},
         "mapping ratio",$SSU_ratio_pc,
         "detected median insert size",$ins_me,
         "used insert size",$ins_used,
@@ -1087,6 +1111,7 @@ sub sortmerna_filter_sam {
 sub parse_mapstats_from_sam_arr {
     my ($aref,      # Array of hrefs to SAM mapping
         $readnr,    # Total reads (segments) input to mapper
+        $statshref, # Ref to hash of mapping statistics
         $SEmode     # Flag for single-end mode
         ) = @_;
     #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
@@ -1155,16 +1180,15 @@ sub parse_mapstats_from_sam_arr {
         msg("=> both segments mapping to different references: $ssu_bad_pairs");
         msg("Read segments where next segment unmapped: $mapped_half");
     } elsif ($SEmode == 1) {
-        $unmapped = 1-$SSU_ratio;
+        $unmapped = (1-$SSU_ratio)*$readnr;
     }
-
 
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
         
         push @mapratio_csv, "Unmapped,".$unmapped;
-        push @mapratio_csv, "Mapped,".$SSU_ratio;
+        push @mapratio_csv, "Mapped,".$SSU_ratio*$readnr;
     } elsif ($SEmode == 0) {
         # For PE reads, do not include Unmapped in piechart because it will be
         # impossible to read the other slices anyway. Instead report mapping
@@ -1175,6 +1199,16 @@ sub parse_mapstats_from_sam_arr {
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
+    # Update stats hash
+    $statshref->{'total_reads'} = $readnr_pairs;
+    $statshref->{'total_read_segments'} = $readnr;
+    $statshref->{'ssu_fwd_seg_map'} = $ssu_f_reads;
+    $statshref->{'ssu_rev_seg_map'} = $ssu_r_reads;
+    $statshref->{'ssu_tot_map'} = $ssu_f_reads + $ssu_r_reads;
+    $statshref->{'ssu_tot_pair_map'} = $SSU_total_pairs;
+    $statshref->{'ssu_tot_pair_ratio'} = $SSU_ratio;
+    $statshref->{'ssu_tot_pair_ratio_pc'} = $SSU_ratio_pc;
+    
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
@@ -1190,7 +1224,7 @@ sub parse_mapstats_from_sam_arr {
         $skip_assembly_flag = 1;
     }
 
-    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
+    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc); # TO DO: Use hash ssu_sam_mapstats to manage this instead
     return (\@output_array,$skip_assembly_flag);
 }
 
@@ -1871,12 +1905,7 @@ sub screen_remappings {
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
             if (defined $sam_fixed_href->{$read}{$pair}) {
-                if ($pair eq 'fwd') {
-                    $ssu_fwd_map ++;
-                } elsif ($pair eq 'rev') {
-                    $ssu_rev_map ++ ;
-                }
-                # Check whether has been flagged as mapping to SPAdes or Emirge or trusted contig
+                # Check whether read segment been flagged as mapping to SPAdes or Emirge or trusted contig
                 if (defined $sam_fixed_href->{$read}{$pair}{"mapped2spades"} | defined $sam_fixed_href->{$read}{$pair}{"mapped2emirge"} | defined $sam_fixed_href->{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
@@ -1910,13 +1939,12 @@ sub screen_remappings {
         $taxa_unassem_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@unassem_readcounters, $taxon_report_lvl);
     }
 
-    # Calculate ratio of reads assembled and store in hash
-    my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
-    my $total_unassembled = $ssu_tot_map - $total_assembled;
-    $ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
+    # Calculate ratio of reads segments assembled and store in hash
+    my $total_unassembled = $ssu_sam_mapstats{'ssu_tot_map'} - $total_assembled;
+    #$ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
     $ssu_sam_mapstats{"assem_tot_map"} = $total_assembled;      # Total mapping to full-length
     $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
-    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
+    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_sam_mapstats{'ssu_tot_map'};   # Ratio assembled/reconstructed
     $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
 
     # Calculate totals for each tool used
@@ -2948,7 +2976,7 @@ if ($use_sortmerna == 1 ) {
 parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
 
 # Get mapping statistics from hashed SAM records
-my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,$SEmode);
+my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,\%ssu_sam_mapstats,$SEmode);
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$mapping_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
