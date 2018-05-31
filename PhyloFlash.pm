@@ -586,6 +586,8 @@ sub fasta_copy_except {
         open_or_die(\$dfh, ">", $dest);
         my %acc_hash = map { $_ => 1 } @accs;
         my $skip = 0;
+        my $num_acc = scalar (keys %acc_hash);
+        msg ("Number of sequences to skip: $num_acc");
         while(my $row = <$sfh>) {
             if (substr($row, 0, 1) eq '>') {
                 my ($acc) = ($row =~ m/>([^ ]*) /);

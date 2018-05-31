@@ -276,6 +276,7 @@ if (! -e "$dbdir/SILVA_SSU.fasta" || $overwrite == 1 ) {
 my @lsu_in_ssh;
 if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
     @lsu_in_ssh = find_LSU("$dbdir/SILVA_SSU.noLSU.fasta");
+    msg ("Removing sequences with potential LSU contamination");
     fasta_copy_except("$dbdir/SILVA_SSU.fasta",
                       "$dbdir/SILVA_SSU.noLSU.fasta",
                       @lsu_in_ssh,
