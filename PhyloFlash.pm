@@ -1711,9 +1711,9 @@ sub initialize_outfiles_hash {
       "sam_remap_trusted",
       {
         description => "SAM file of read mapping vs trusted contigs",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.trusted.bbmap.sam",
-        intable     => 0,
+        intable     => 1,
       },
       "bbmap_remap_log_trusted",
       {

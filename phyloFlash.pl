@@ -2499,7 +2499,7 @@ sub run_plotscript_SVG {
     }
 
     # Piechart of proportion mapped
-    msg("Plotting piechart of mappign ratios");
+    msg("Plotting piechart of mapping ratios");
     my @map_args = ("-pie",
                     $outfiles{"mapratio_csv"}{"filename"},
                     #"-title=\"$SSU_ratio_pc % reads mapped\""
