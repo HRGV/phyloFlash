@@ -158,7 +158,7 @@ Default: 70
 E-value cutoff to use for SortMeRNA (only if I<-sortmerna> option chosen). In
 scientific exponent notation (see below)
 
-Default: 1e-05
+Default: 1e-09
 
 =item -clusterid I<N>
 
@@ -312,7 +312,7 @@ my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
 my $id          = 70;           # minimum %id for mapping with BBmap
-my $evalue_sortmerna = 1e-05;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
+my $evalue_sortmerna = 1e-09;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
