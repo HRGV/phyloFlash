@@ -865,7 +865,9 @@ sub calc_weight_tax_unifrac_pair {
     # The equivalent of the scaling factor D would be the total taxonomic rank depth
     # of the tax tree, e.g. 7 for species, 4 for order. The branch length between
     # each rank is implicitly = 1 in the calc_weight_tax_unifrac_pair() procedure
-    return $raw_unifrac / $taxlevel;
+    # The number D in Lozupone et al. 2007 reduces to 2d because d_j is the same
+    # for all j in a taxonomic tree, and sum_j^n (A_j/A_T) is unity.
+    return $raw_unifrac / (2 * $taxlevel);
 }
 
 

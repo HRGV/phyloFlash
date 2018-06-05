@@ -586,6 +586,8 @@ sub fasta_copy_except {
         open_or_die(\$dfh, ">", $dest);
         my %acc_hash = map { $_ => 1 } @accs;
         my $skip = 0;
+        my $num_acc = scalar (keys %acc_hash);
+        msg ("Number of sequences to skip: $num_acc");
         while(my $row = <$sfh>) {
             if (substr($row, 0, 1) eq '>') {
                 my ($acc) = ($row =~ m/>([^ ]*) /);
@@ -916,8 +918,10 @@ sub fix_rname_taxstr {
     foreach my $id (keys %$sam_href) {
         foreach my $segment (keys %{$sam_href->{$id}}) {
             foreach my $rname (keys %{$sam_href->{$id}{$segment}}) {
-                my $new_rname = join " ", ($sam_href->{$id}{$segment}{$rname}{'RNAME'}, $acc_href->{$sam_href->{$id}{$segment}{$rname}{'RNAME'}});
-                $sam_href->{$id}{$segment}{$rname}{'RNAME'} = $new_rname;
+                foreach my $href (@{$sam_href->{$id}{$segment}{$rname}}) {
+                    my $new_rname = join " ", ($href->{'RNAME'}, $acc_href->{$href->{'RNAME'}});
+                    $href->{'RNAME'} = $new_rname;
+                }
             }
         }
     }
@@ -933,9 +937,17 @@ sub samaref_to_lines {
         $fastq_href) = @_;
     my @lines;
     foreach my $href (@$aref) {
+        # Split read ID 
+        my $id_fwd = $href->{'QNAME'};
+        #my $id_rev = $href->{'QNAME'};
+        my $sep;
+        if ($id_fwd =~ m/^(.+)([:\/_])[12]$/) {
+            $id_fwd = $1.$2.'1';
+            #$id_rev = $1.$2.'2';
+        }
         # Splice in first segment dummy entry if this is rev with fwd read unmapped
         if ($href->{'FLAG'} & 0x80 && $href->{'FLAG'} & 0x8) {
-            my @splice = ($href->{'QNAME'}, # QNAME
+            my @splice = ($id_fwd, # QNAME
                           0x1 + 0x4 + 0x40, # Paired read, segment unmapped, first segment
                           '*', # RNAME
                           '0', # POS
@@ -981,9 +993,11 @@ sub fix_pairing_flags {
             # Flag 0x2 - both segments have alignments
             foreach my $segment (keys %{$sam_href->{$id}}) {
                 foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
-                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x2 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x2;
-                    # Record if flag 0x10 set for this segment
-                    $segment_revcomp{$segment} ++ if $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x10;
+                    foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                        $href->{'FLAG'} += 0x2 unless $href->{'FLAG'} & 0x2;
+                        # Record if flag 0x10 set for this segment
+                        $segment_revcomp{$segment} ++ if $href->{$ref}{'FLAG'} & 0x10;
+                    }
                 }
             }
             # Sweep through once more
@@ -991,7 +1005,9 @@ sub fix_pairing_flags {
             foreach my $segment (keys %{$sam_href->{$id}}) {
                 foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
                     if (defined $segment_revcomp{$other_segment{$segment}}) {
-                        $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x20 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x20;
+                        foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                            $href->{'FLAG'} += 0x20 unless $href->{'FLAG'} & 0x20;
+                        }
                     }
                 }
             }
@@ -1000,13 +1016,14 @@ sub fix_pairing_flags {
             # Flag 0x8 - next segment unmapped
             foreach my $segment (keys %{$sam_href->{$id}}) {
                 foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
-                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} -= 0x2 if $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x2;
-                    $sam_href->{$id}{$segment}{$ref}{'FLAG'} += 0x8 unless $sam_href->{$id}{$segment}{$ref}{'FLAG'} & 0x8;
+                    foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                        $href->{'FLAG'} -= 0x2 if $href->{'FLAG'} & 0x2;
+                        $href->{'FLAG'} += 0x8 unless $href->{'FLAG'} & 0x8;
+                    }
                 }
             }
         }
     }
-
     # No return value because it modifies hash in place
 }
 
@@ -1038,11 +1055,17 @@ sub read_sortmerna_sam {
 
         # Hash SAM record by line number
         push @samhref_arr, $href;
-        #$samhash_by_line {$counter} = $href;
 
-        # Split read ID on first whitespace [not necessary as sortmerna already does this]
-        #my ($id, @discard) = split / /, $href->{'QNAME'};
+        # Sortmerna splits readname on first whitespace
         my $id = $href->{'QNAME'};
+        # If readname has a hard suffix indicated fwd or reverse segment, rename
+        # to match forward read and hash by this key.
+        # This is because BBmap will later rename QNAME to match forward read
+        # and this is the key that is needed to search for reads that map to
+        # assembly
+        if ($id =~ m/^(.+)([:\/_])[12]$/) {
+            $id = $1.$2.'1';
+        }
 
         # Get sequence revcomp if bitflag 0x10 is set
         my $sequence_original;
@@ -1078,11 +1101,11 @@ sub read_sortmerna_sam {
 
         # Check whether it is primary or secondary alignment for this read
         # Assume that supplementary alignments not reported
-        if (defined $samhash_by_qname_segment_ref{$href->{'QNAME'}}{$segment}) {
+        if (defined $samhash_by_qname_segment_ref{$id}{$segment}) {
             # Flag 0x100 as secondary alignment if entry for this read already encountered
             $href->{'FLAG'} += 0x100 unless $href->{'FLAG'} & 0x100;
         }
-        $samhash_by_qname_segment_ref{$href->{'QNAME'}}{$segment}{$href->{'RNAME'}} = $href;
+        push @{$samhash_by_qname_segment_ref{$id}{$segment}{$href->{'RNAME'}}}, $href;
         $counter ++;
     }
     close($fh);
@@ -1129,38 +1152,44 @@ sub read_interleaved_fastq {
         chomp $line;
         my $modulo = $counter % 8;
         last if defined $limit && ( $counter / 8 ) > $limit;
-        if ($counter % 8 == 0 && $line =~ m/^@(.+)/) {
+        if ($modulo == 0 && $line =~ m/^@(.+)/) {
             # Header line of fwd read
             my $fullheader = $1;
             my ($id, @discard) = split / /, $fullheader; # Split on whitespace
+            # Strip any suffix indicating fwd or rev segment
+            if ($id =~ m/^(.+)([:\/_])[12]/) {
+                $id = $1.$2.'1';
+            }
             $currid = $id;
             if (defined $hash{$currid}) {
                 # If another sequence of this name already defined, warn
                 print STDERR "WARNING: Splitting Fastq header on whitespace yields non-unique seq ID: $currid\n";
             }
             $hash{$currid}{'fwd'}{'fullheader'} = $fullheader;
-        } elsif ($counter % 8 == 1) {
+        } elsif ($modulo == 1) {
             # Seq line of fwd read
             $hash{$currid}{'fwd'}{'seq'} = $line;
             $hash{$currid}{'byseq'}{$line} = 'fwd';
-        } elsif ($counter % 8 == 3) {
+        } elsif ($modulo == 3) {
             # Quality line of fwd read
             $hash{$currid}{'fwd'}{'qual'} = $line;
-        } elsif ($counter % 8 == 4 && $line =~ m/^@(.+)/) {
+        } elsif ($modulo == 4 && $line =~ m/^@(.+)/) {
             # Header line of rev read
             my $fullheader = $1;
             my ($id, @discard) = split / /, $fullheader; # Split on whitespace
-            if ($id ne $currid) {
-                print STDERR "WARNING: Fastq rev read header $id does not match fwd read $currid at line $counter\n";
-                print STDERR "Check if interleaved file correctly formatted\n";
+            # Strip any suffix indicating fwd or rev segment
+            if ($id =~ m/^(.+)([:\/_])[12]/) {
+                $id = $1.$2.'1';
             }
-
+            if ($id ne $currid) {
+                msg ("WARNING: Fastq rev read header $id does not match fwd read $currid at line $counter\nCould not recognize standard read segment suffix\nCheck if interleaved file correctly formatted");
+            }
             $hash{$currid}{'rev'}{'fullheader'} = $fullheader;
-        } elsif ($counter % 8 == 5) {
+        } elsif ($modulo == 5) {
             # Seq line of rev read
             $hash{$currid}{'rev'}{'seq'} = $line;
             $hash{$currid}{'byseq'}{$line} = 'rev';
-        } elsif ($counter % 8 == 7) {
+        } elsif ($modulo == 7) {
             # Qual line of rev read
             $hash{$currid}{'rev'}{'qual'} = $line;
         }
@@ -1262,9 +1291,9 @@ sub initialize_outfiles_hash {
       "spades_log",
       {
         description => "Log file from SPAdes assembler",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.spades.out",
-        intable     => 0,
+        intable     => 1,
       },
       "full_len_class",
       {
@@ -1332,9 +1361,9 @@ sub initialize_outfiles_hash {
       "emirge_log",
       {
         description => "Log file from EMIRGE sequence reconstruction",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.emirge.out",
-        intable     => 0,
+        intable     => 1,
       },
       "assemratio_csv",
       {
@@ -1474,7 +1503,7 @@ sub initialize_outfiles_hash {
         description => "phyloFlash log file",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.log",
-        intable     => 0,
+        intable     => 1,
       },
       "phyloFlash_archive",
       {
@@ -1682,9 +1711,9 @@ sub initialize_outfiles_hash {
       "sam_remap_trusted",
       {
         description => "SAM file of read mapping vs trusted contigs",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.trusted.bbmap.sam",
-        intable     => 0,
+        intable     => 1,
       },
       "bbmap_remap_log_trusted",
       {

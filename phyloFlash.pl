@@ -148,10 +148,17 @@ Default: 500000
 
 =item -id I<N>
 
-Minimum allowed identity for read mapping process in %. Must be within
+Minimum allowed identity for BBmap read mapping process in %. Must be within
 50..98. Set this to a lower value for very divergent taxa
 
 Default: 70
+
+=item -evalue_sortmerna I<N>
+
+E-value cutoff to use for SortMeRNA (only if I<-sortmerna> option chosen). In
+scientific exponent notation (see below)
+
+Default: 1e-09
 
 =item -clusterid I<N>
 
@@ -304,7 +311,8 @@ my $readsr      = undef;        # reverse read filename, stripped of directory n
 my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
-my $id          = 70;           # minimum %id for mapping
+my $id          = 70;           # minimum %id for mapping with BBmap
+my $evalue_sortmerna = 1e-09;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
@@ -338,9 +346,31 @@ my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 my %outfiles;           # Hash to keep track of output files
 
 # variables for report generation
-my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
+my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as array of refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
 my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
+# Fields for %ssu_sam_mapstats
+#   total_reads         Total read (pairs) input
+#   total_read_segments Total read segments input
+#   ssu_fwd_seg_map     Total fwd read segments mapped
+#   ssu_rev_seg_map     Total rev read segments mapped
+#   ssu_tot_map         Total read segments mapped
+#   ssu_tot_pair_map    Total read pairs mapped (one or both segments)
+#   ssu_tot_pair_ratio  Ratio of read (pairs) mapping to SSU (one or both segments
+#   ssu_tot_pair_ratio_pc   Above as percentage
+#   assem_tot_map       Total segments mapping to full length assembled
+#   ssu_unassem         Total segments not mapping to full length
+#   assem_ratio         Ratio assembled/unassmebled
+#   assem_ratio_pc      Above as percentage
+#   spades_fwd_map      Fwd read segments mapping to SPAdes
+#   spades_rev_map
+#   spades_tot_map
+#   emirge_fwd_map
+#   emirge_rev_map
+#   emirge_tot_map
+#   trusted_fwd_map
+#   trusted_rev_map
+#   trusted_tot_map
 
 # Hashes to keep count of NTUs
 my %taxa_ambig_byread_hash;     # Hash of all taxonomy assignments per read
@@ -492,6 +522,7 @@ sub parse_cmdline {
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
                'sortmerna!' => \$use_sortmerna,
+               'evalue_sortmerna=s' => \$evalue_sortmerna,
                'emirge!' => \$emirge,
                'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
@@ -594,7 +625,7 @@ sub parse_cmdline {
     if ($use_sortmerna == 1) {
         msg ("Sortmerna will be used instead of BBmap for the initial SSU rRNA read extraction");
         msg ("Sortmerna requires uncompressed input files - Ensure that you have enough disk space");
-        msg ("The following input parameters specific to BBMap will be ignored: --id, --tophit, --maxinsert");
+        msg ("The following input parameters specific to BBMap will be ignored: --id, --maxinsert");
     }
 
     # check surplus arguments
@@ -818,8 +849,10 @@ sub write_csv {
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
-        "input reads",$readnr_pairs,
+        "input reads",$ssu_sam_mapstats{'total_reads'},
+        "input read segments",$ssu_sam_mapstats{'total_read_segments'},
         "mapped SSU reads",$SSU_total_pairs,
+        "mapped SSU read segments",$ssu_sam_mapstats{'ssu_tot_map'},
         "mapping ratio",$SSU_ratio_pc,
         "detected median insert size",$ins_me,
         "used insert size",$ins_used,
@@ -830,6 +863,8 @@ sub write_csv {
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
         "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
+        "program command",$progcmd,
+        "database path",$DBHOME,
     ));
     my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
@@ -998,12 +1033,20 @@ sub sortmerna_filter_sam {
                           "--sam",          # SAM alignment output
                           #"--blast 1",     # Blast-tabular alignment output
                           "--log",
-                          "--best 10",      # Take 10 best hits
+                          #"--best 10",      # Take 10 best hits
                           "--min_lis 10",
-                          "-e 1.00e-05",    # E-value cutoff
+                          "-e $evalue_sortmerna",    # E-value cutoff
                           "-a $cpus",
                           "-v",             # Verbose (turn off?)
                           );
+    if (defined $tophit_flag) {
+        msg ("Reporting only single best hit per read");
+        push @sortmerna_args, "--best 1";
+    } else {
+        msg ("Reporting 10 best hits per read");
+        push @sortmerna_args, "--best 10";
+    }
+    
     msg ("Running sortmerna:");
     # Run Sortmerna
     run_prog("sortmerna",
@@ -1068,6 +1111,7 @@ sub sortmerna_filter_sam {
 sub parse_mapstats_from_sam_arr {
     my ($aref,      # Array of hrefs to SAM mapping
         $readnr,    # Total reads (segments) input to mapper
+        $statshref, # Ref to hash of mapping statistics
         $SEmode     # Flag for single-end mode
         ) = @_;
     #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
@@ -1087,6 +1131,10 @@ sub parse_mapstats_from_sam_arr {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
         my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
+        # Strip read segment suffixes from name 
+        if ($splitname =~ m/^(.+)([:\/_])[12]/) {
+            $splitname = $1.$2;
+        }
         $qname_hash{$splitname} ++;
         if ($href->{'FLAG'} & 0x40) { # Fwd read
             $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
@@ -1132,16 +1180,15 @@ sub parse_mapstats_from_sam_arr {
         msg("=> both segments mapping to different references: $ssu_bad_pairs");
         msg("Read segments where next segment unmapped: $mapped_half");
     } elsif ($SEmode == 1) {
-        $unmapped = 1-$SSU_ratio;
+        $unmapped = (1-$SSU_ratio)*$readnr;
     }
-
 
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
         
         push @mapratio_csv, "Unmapped,".$unmapped;
-        push @mapratio_csv, "Mapped,".$SSU_ratio;
+        push @mapratio_csv, "Mapped,".$SSU_ratio*$readnr;
     } elsif ($SEmode == 0) {
         # For PE reads, do not include Unmapped in piechart because it will be
         # impossible to read the other slices anyway. Instead report mapping
@@ -1152,6 +1199,16 @@ sub parse_mapstats_from_sam_arr {
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
+    # Update stats hash
+    $statshref->{'total_reads'} = $readnr_pairs;
+    $statshref->{'total_read_segments'} = $readnr;
+    $statshref->{'ssu_fwd_seg_map'} = $ssu_f_reads;
+    $statshref->{'ssu_rev_seg_map'} = $ssu_r_reads;
+    $statshref->{'ssu_tot_map'} = $ssu_f_reads + $ssu_r_reads;
+    $statshref->{'ssu_tot_pair_map'} = $SSU_total_pairs;
+    $statshref->{'ssu_tot_pair_ratio'} = $SSU_ratio;
+    $statshref->{'ssu_tot_pair_ratio_pc'} = $SSU_ratio_pc;
+    
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
@@ -1167,7 +1224,7 @@ sub parse_mapstats_from_sam_arr {
         $skip_assembly_flag = 1;
     }
 
-    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
+    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc); # TO DO: Use hash ssu_sam_mapstats to manage this instead
     return (\@output_array,$skip_assembly_flag);
 }
 
@@ -1284,7 +1341,7 @@ sub fix_hash_bbmap_sam {
         }
         
         # Hash refs to each SAM alignment by QNAME, segment, and RNAME
-        $sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}} = $line_href;
+        push @{$sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}}}, $line_href;
         # Store array of SAM alignments in order encountered in file
         push @sam_arr, $line_href;
         
@@ -1848,28 +1905,26 @@ sub screen_remappings {
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
             if (defined $sam_fixed_href->{$read}{$pair}) {
-                if ($pair eq 'fwd') {
-                    $ssu_fwd_map ++;
-                } elsif ($pair eq 'rev') {
-                    $ssu_rev_map ++ ;
-                }
-                # Check whether has been flagged as mappign to SPAdes or Emirge or trusted contig
+                # Check whether read segment been flagged as mapping to SPAdes or Emirge or trusted contig
                 if (defined $sam_fixed_href->{$read}{$pair}{"mapped2spades"} | defined $sam_fixed_href->{$read}{$pair}{"mapped2emirge"} | defined $sam_fixed_href->{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
                 } else {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
                     foreach my $ref (keys %{$sam_fixed_href->{$read}{$pair}}) {
-                        if (ref($sam_fixed_href->{$read}{$pair}{$ref}) eq 'HASH' && defined $sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'}) { # If this is a hashed SAM record
-                            unless ($sam_fixed_href->{$read}{$pair}{$ref}->{'FLAG'} & 0x4) {
-                                push @unassem_readcounters, $read;
-                                # If using top hit
-                                if ($sam_fixed_href->{$read}{$pair}{$ref}->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                                    my $taxonlongstring = $1;
-                                    push @unassem_taxa, $taxonlongstring;
+                        foreach my $href (@{$sam_fixed_href->{$read}{$pair}{$ref}}) {
+                            if (ref($href) eq 'HASH' && defined $href->{'FLAG'}) { # If this is a hashed SAM record
+                                unless ($href->{'FLAG'} & 0x4 || $href->{'FLAG'} & 0x100) { # Unless segment unmapped or is a secondary alignment
+                                    push @unassem_readcounters, $read;
+                                    # If using top hit
+                                    if ($href->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                                        my $taxonlongstring = $1;
+                                        push @unassem_taxa, $taxonlongstring;
+                                    }
                                 }
                             }
                         }
+
                         
                     }
                 }
@@ -1884,13 +1939,12 @@ sub screen_remappings {
         $taxa_unassem_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@unassem_readcounters, $taxon_report_lvl);
     }
 
-    # Calculate ratio of reads assembled and store in hash
-    my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
-    my $total_unassembled = $ssu_tot_map - $total_assembled;
-    $ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
+    # Calculate ratio of reads segments assembled and store in hash
+    my $total_unassembled = $ssu_sam_mapstats{'ssu_tot_map'} - $total_assembled;
+    #$ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
     $ssu_sam_mapstats{"assem_tot_map"} = $total_assembled;      # Total mapping to full-length
     $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
-    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
+    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_sam_mapstats{'ssu_tot_map'};   # Ratio assembled/reconstructed
     $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
 
     # Calculate totals for each tool used
@@ -2021,7 +2075,13 @@ sub emirge_run {
         } else {
             $ins_used = $ins_me;
         }
-
+        if ($ins_std == 0) {
+            # insert size std dev has to be nonzero or Emirge will refuse to run
+            # SortMeRNA doesn't report insert size, so we make a guess
+            $ins_std = $ins_used / 2;
+            msg ("Warning: No insert size reported by mapper. Using initial guess $ins_std");
+        }
+        
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
         if ($SSU_total_pairs <= $amplimit) {
@@ -2439,7 +2499,7 @@ sub run_plotscript_SVG {
     }
 
     # Piechart of proportion mapped
-    msg("Plotting piechart of mappign ratios");
+    msg("Plotting piechart of mapping ratios");
     my @map_args = ("-pie",
                     $outfiles{"mapratio_csv"}{"filename"},
                     #"-title=\"$SSU_ratio_pc % reads mapped\""
@@ -2916,7 +2976,7 @@ if ($use_sortmerna == 1 ) {
 parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
 
 # Get mapping statistics from hashed SAM records
-my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,$SEmode);
+my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,\%ssu_sam_mapstats,$SEmode);
 # Dereference stats
 ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$mapping_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
