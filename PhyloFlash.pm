@@ -6,6 +6,7 @@ use Exporter qw(import);
 use Time::Piece;
 use Text::Wrap;
 use Config;
+use Storable;
 
 $Text::Wrap::huge = "overflow";
 
@@ -27,9 +28,10 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = "3.1b2";
+our $VERSION     = "3.3b1";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
+  $VERSION
   get_cpus
   msg
   @msg_log
@@ -49,6 +51,13 @@ our @EXPORT      = qw(
   fasta_copy_except
   fasta_copy_iupac_randomize
   cluster
+  hash2taxstring_counts
+  hashtreeconsensus
+  taxstring2hash
+  consensus_taxon_counter
+  revcomp_DNA
+  fix_hash_sortmerna_sam
+  split_sam_line_to_hash
   initialize_outfiles_hash
 );
 
@@ -569,22 +578,28 @@ $source into FASTA file $dest.
 
 =cut
 sub fasta_copy_except {
-    my ($source, $dest, @accs) = @_;
+    my ($source, $dest, @accs, $overwrite) = @_;
     my $sfh;
     my $dfh;
-    open_or_die(\$sfh, "<", $source);
-    open_or_die(\$dfh, ">", $dest);
-
-    my %acc_hash = map { $_ => 1 } @accs;
-
-    my $skip = 0;
-    while(my $row = <$sfh>) {
-        if (substr($row, 0, 1) eq '>') {
-            my ($acc) = ($row =~ m/>([^ ]*) /);
-            $skip = exists $acc_hash{$acc};
+    if (! -e $dest || $overwrite == 1) { # Check whether file exists or overwrite allowed
+        open_or_die(\$sfh, "<", $source);
+        open_or_die(\$dfh, ">", $dest);
+        my %acc_hash = map { $_ => 1 } @accs;
+        my $skip = 0;
+        my $num_acc = scalar (keys %acc_hash);
+        msg ("Number of sequences to skip: $num_acc");
+        while(my $row = <$sfh>) {
+            if (substr($row, 0, 1) eq '>') {
+                my ($acc) = ($row =~ m/>([^ ]*) /);
+                $skip = exists $acc_hash{$acc};
+            }
+            print $dfh $row if (!$skip);
         }
-        print $dfh $row if (!$skip);
+    } else {
+        msg ("WARNING: File $dest already exists, will not overwrite");
     }
+    
+
 }
 
 =item cluster ($source, $dest, $id)
@@ -594,14 +609,18 @@ from $source into $dest at a cluster size of $id.
 
 =cut
 sub cluster {
-    my ($src, $dst, $id, $cpus) = @_;
+    my ($src, $dst, $id, $cpus, $overwrite) = @_;
     msg("clustering database");
-    run_prog("vsearch",
-             "  --cluster_fast $src "
-             . "--id $id "
-             . "--centroids $dst "
-             . "--notrunclabels "
-             . "--threads $cpus ");
+    if (! -e $dst || $overwrite == 1) {
+        run_prog("vsearch",
+                 "  --cluster_fast $src "
+                 . "--id $id "
+                 . "--centroids $dst "
+                 . "--notrunclabels "
+                 . "--threads $cpus ");
+    } else {
+        msg ("WARNING: File $dst already exists, not overwriting");
+    }
 }
 
 # hash of IUPAC characters coding for multiple possible bases
@@ -647,36 +666,37 @@ from the set of options (i.e. replaces B with C, T or G).
 
 =cut
 sub fasta_copy_iupac_randomize {
-    my ($infile, $outfile) = @_;
+    my ($infile, $outfile, $overwrite) = @_;
     my ($ifh, $ofh);
-    open_or_die(\$ifh, "<", $infile);
-    open_or_die(\$ofh, ">", $outfile);
-
-    # iterate over lines of FASTA file
-    while(my $row = <$ifh>) {
-        # pass through FASTA header
-        if (substr($row, 0, 1) eq ">") {
-            print $ofh $row;
-            next;
-        }
-
-        # remove alignment, uppercase, turn U into T
-        $row =~ tr/a-zA-Z.-/A-TTV-ZA-TTV-Z/d;
-
-        # split into ok / not-ok letter segments
-        for my $part ( split(/([^AGCT\n])/, $row) ) {
-            if (not $part =~ m/[AGCT\n]/) {
-                # segment in need of fix, iterate chars
-                for my $i ( 0 .. (length($part)-1) ) {
-                # get replacement character list
-                    my $rpl = $IUPAC_DECODE{substr($part, $i, 1)};
-                    substr($part, $i, 1) =
-                        substr($rpl, rand(length($rpl)), 1)
-                            if defined $rpl;
-                }
+    if (! -e $outfile || $overwrite == 1) {
+        open_or_die(\$ifh, "<", $infile);
+        open_or_die(\$ofh, ">", $outfile);
+        # iterate over lines of FASTA file
+        while(my $row = <$ifh>) {
+            # pass through FASTA header
+            if (substr($row, 0, 1) eq ">") {
+                print $ofh $row;
+                next;
             }
-            print $ofh $part;
+            # remove alignment, uppercase, turn U into T
+            $row =~ tr/a-zA-Z.-/A-TTV-ZA-TTV-Z/d;
+            # split into ok / not-ok letter segments
+            for my $part ( split(/([^AGCT\n])/, $row) ) {
+                if (not $part =~ m/[AGCT\n]/) {
+                    # segment in need of fix, iterate chars
+                    for my $i ( 0 .. (length($part)-1) ) {
+                    # get replacement character list
+                        my $rpl = $IUPAC_DECODE{substr($part, $i, 1)};
+                        substr($part, $i, 1) =
+                            substr($rpl, rand(length($rpl)), 1)
+                                if defined $rpl;
+                    }
+                }
+                print $ofh $part;
+            }
         }
+    } else {
+        msg ("WARNING: File $outfile already exists, not overwriting");
     }
 }
 
@@ -709,6 +729,475 @@ returns the runtime of the timer in minuts
         my $diff = $endtime - $self->{time};
         return sprintf "%.2f minutes", $diff->minutes;
     }
+}
+
+
+=item hash2taxstring_counts
+
+Collapse taxonomy tree into taxstrings and report counts. Taxa are encoded as
+hash refs; counts as hash values.
+
+=cut
+
+sub hash2taxstring_counts {
+    my ($href, $taxstring, $href2) = @_;
+    foreach my $key (keys %$href) {
+        if (ref ($href->{$key}) eq 'HASH') { # Recursion
+            hash2taxstring_counts (\%{$href->{$key}}, "$taxstring;$key", $href2);
+        } else { # End condition - have reached a count
+            $href2->{"$taxstring;$key"} = $href->{$key};
+        }
+    }
+}
+
+=item hashtreeconsensus
+
+Walk hash of taxonomy tree and report where it diverges from single branch.
+As a side effect, report taxstring of the congruent portion of the tree
+
+=cut
+
+sub hashtreeconsensus {
+    my ($href, # Reference to hash of tax tree
+        $aref  # Reference to array to store the congruent portion of tree
+        ) = @_;
+    my @keys = keys %$href;
+    if (scalar @keys == 1) {
+        push @$aref, $keys[0];
+        if (ref($href->{$keys[0]}) eq 'HASH') { # Recursion
+            hashtreeconsensus(\%{$href->{$keys[0]}}, $aref);
+        } else {
+            return '1'; # The tree is identical to the tips
+        }
+    } else {
+        my @diverge = keys %$href;
+        return \@diverge; # Return the level at which the tree diverges
+    }
+}
+
+=item taxstring2hash
+
+Convert taxonomy string to a nested hash structure recursively
+
+=cut
+
+sub taxstring2hash {
+    my ($href, # Reference to hash
+        $aref # Reference to taxonomy string as array
+        ) = @_;
+    my $taxon = shift @$aref;
+    if (@$aref) { # Recursion
+        taxstring2hash (\%{$href->{$taxon}}, $aref);
+    } else { # End condition - count number of occurrences of this taxon
+        $href->{$taxon} ++;
+    }
+}
+
+=item consensus_taxon_counter
+
+Take consensus portion of an array of taxon strings and hash into a taxonomy tree
+
+=cut
+
+sub consensus_taxon_counter {
+    my ($href_in,   # Hash ref for taxonomy trees keyed by read
+        $aref,      # Array ref of list of reads to summarize
+        $taxlevel,  # Taxonomic level for summarizing
+        ) = @_;
+
+    my %hashout;
+    my %taxhash;
+
+    foreach my $read (@$aref) {
+        next if (!defined $href_in->{$read}); # Skip if this read has no taxonomic assignment
+        # Get consensus taxstring for a given read
+        my @outarr;
+        my $return = hashtreeconsensus(\%{$href_in->{$read}}, \@outarr);
+        if (defined $return && @outarr) {
+            if (scalar @outarr > $taxlevel) {
+                # Trim to max taxonomic rank requested
+                @outarr = @outarr[0..$taxlevel-1];
+            } elsif (scalar @outarr < $taxlevel) {
+                # If taxonomic rank of consensus doesn't reach to requested rank,
+                # repeat the lowest taxonomic rank in brackets until requested
+                # rank, e.g. Bacteria;Proteobacteria;(Proteobacteria);(Proteobacteria); etc...
+                my $diff = $taxlevel - scalar (@outarr);
+                push @outarr, ("($outarr[$#outarr])") x $diff; # Parens before x operator make array
+            }
+
+            # Hash the consensus taxonomy into a taxonomic tree, with counts
+            # as end values for all reads
+            taxstring2hash(\%{$taxhash{'ROOT'}}, \@outarr);
+        }
+    }
+
+    my %taxcounts;
+    hash2taxstring_counts (\%taxhash, '', \%taxcounts);
+    foreach my $key (keys %taxcounts) { # Replace ugly ;ROOT; from taxstring to be displayed
+        my $display_taxstring = $key;
+        $display_taxstring =~ s/^;ROOT;//;
+        $hashout{$display_taxstring} = $taxcounts{$key};
+    }
+
+    return \%hashout;
+}
+
+=item revcomp_DNA ($seq)
+
+Return reverse complement of a DNA sequence
+
+=cut
+
+sub revcomp_DNA {
+    my ($seq) = @_;
+    my $rev = reverse $seq;
+    $rev =~ tr/ATCGatcgYRWSKMDVHByrwskmdvhb/TAGCtagcRYWSMKHBDVrywsmkhbdv/; # Include ambiguity codes
+    return $rev;
+}
+
+=item fix_hash_sortmerna_sam
+
+Fix SAM file produced by Sortmerna. Returns ref to array of fixed SAM file lines
+
+=cut
+
+sub fix_hash_sortmerna_sam {
+    # Fix SAM file produced by Sortmerna v2.1b
+    my ($fastq,
+        $sam_original,
+        $acc2tax,
+        $semode) = @_;
+
+    my $pe;
+    if ($semode == 0) {
+        $pe = 1;
+    } else {
+        $pe = 0;
+    }
+
+    # Read in Fastq file and hash read orientations and sequences
+    my $fastq_href = read_interleaved_fastq ($fastq);
+    #print Dumper $fastq_href;
+
+    # Read in SAM file and fix bit flags 0x1, 0x40, 0x80, 0x100
+    my ($sambyread_href, $sambyline_aref) = read_sortmerna_sam($sam_original, $fastq_href, $pe);
+
+    # Fix flags related to read pairs: 0x2, 0x4, 0x8, 0x20
+    fix_pairing_flags($sambyread_href, $fastq_href) if $pe == 1;
+    #print Dumper $sambyread_href;
+
+    # Add back the tax strings to RNAME field
+    if (defined $acc2tax) {
+        my $acc2tax_href = retrieve ($acc2tax);
+        fix_rname_taxstr($sambyread_href, $acc2tax_href);
+    }
+
+    # Flatten hash back to array and print to output
+    my $aref = samaref_to_lines($sambyline_aref, $fastq_href);
+    #foreach my $line (@$aref) {
+    #    print "$line\n";
+    #}
+
+    # Return ref to array containing the fixed SAM file including spliced
+    # dummy sequences for unmapped segments
+    # Return also sambyread_href and sambyline_aref
+    return ($sambyread_href,
+            $sambyline_aref,
+            $aref,
+            );
+}
+
+sub fix_rname_taxstr {
+    # Function used by fix_hash_sortmerna_sam
+
+    # Replace the accession number of RNAME with the original version
+    # retrieved from hash of acc vs taxstring
+    my ($sam_href,
+        $acc_href
+       ) = @_;
+    foreach my $id (keys %$sam_href) {
+        foreach my $segment (keys %{$sam_href->{$id}}) {
+            foreach my $rname (keys %{$sam_href->{$id}{$segment}}) {
+                foreach my $href (@{$sam_href->{$id}{$segment}{$rname}}) {
+                    my $new_rname = join " ", ($href->{'RNAME'}, $acc_href->{$href->{'RNAME'}});
+                    $href->{'RNAME'} = $new_rname;
+                }
+            }
+        }
+    }
+}
+
+sub samaref_to_lines {
+    # Function used by fix_hash_sortmerna_sam
+
+    # Reconstruct SAM lines, and also insert dummy entries for unmapped read fwd segments
+    # Input is an array of hash references and hash of Fastq sequences produced
+    # by read_interleaved_fastq()
+    my ($aref,
+        $fastq_href) = @_;
+    my @lines;
+    foreach my $href (@$aref) {
+        # Split read ID 
+        my $id_fwd = $href->{'QNAME'};
+        #my $id_rev = $href->{'QNAME'};
+        my $sep;
+        if ($id_fwd =~ m/^(.+)([:\/_])[12]$/) {
+            $id_fwd = $1.$2.'1';
+            #$id_rev = $1.$2.'2';
+        }
+        # Splice in first segment dummy entry if this is rev with fwd read unmapped
+        if ($href->{'FLAG'} & 0x80 && $href->{'FLAG'} & 0x8) {
+            my @splice = ($id_fwd, # QNAME
+                          0x1 + 0x4 + 0x40, # Paired read, segment unmapped, first segment
+                          '*', # RNAME
+                          '0', # POS
+                          '255', # MAPQ
+                          '*', # CIGAR
+                          '*', # RNEXT
+                          '0', # PNEXT
+                          '0', # TLEN
+                          $fastq_href->{$href->{'QNAME'}}{'fwd'}{'seq'}, # SEQ
+                          $fastq_href->{$href->{'QNAME'}}{'fwd'}{'qual'} # QUAL
+                          );
+            push @lines, join "\t", @splice unless $href->{'FLAG'} & 0x100;
+        }
+
+        # Otherwise continue
+        my @outarr;
+        my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+        foreach my $field (@fields) {
+            push @outarr, $href->{$field};
+        }
+        push @outarr, $href->{'OPTIONAL'} if defined $href->{'OPTIONAL'};
+        push @lines, join "\t", @outarr;
+    }
+    return \@lines;
+}
+
+sub fix_pairing_flags {
+    # Function used by fix_hash_sortmerna_sam
+
+    # Correct the following flags:
+    #  - 0x2
+    #  - 0x4
+    #  - 0x8
+    #  - 0x20
+    my ($sam_href,
+        $fastq_href
+        ) = @_;
+    foreach my $id (keys %$sam_href) {
+        if (defined $sam_href->{$id}{'fwd'} && $sam_href->{$id}{'rev'}) {
+            my %segment_revcomp;
+            my %other_segment = ( 'rev' => 'fwd',
+                                  'fwd' => 'rev' );
+            # Flag 0x2 - both segments have alignments
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                        $href->{'FLAG'} += 0x2 unless $href->{'FLAG'} & 0x2;
+                        # Record if flag 0x10 set for this segment
+                        $segment_revcomp{$segment} ++ if $href->{$ref}{'FLAG'} & 0x10;
+                    }
+                }
+            }
+            # Sweep through once more
+            # Flag 0x20 - next segment rev comp'ed
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    if (defined $segment_revcomp{$other_segment{$segment}}) {
+                        foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                            $href->{'FLAG'} += 0x20 unless $href->{'FLAG'} & 0x20;
+                        }
+                    }
+                }
+            }
+        } else {
+            # Unflag 0x2
+            # Flag 0x8 - next segment unmapped
+            foreach my $segment (keys %{$sam_href->{$id}}) {
+                foreach my $ref (keys %{$sam_href->{$id}{$segment}}) {
+                    foreach my $href (@{$sam_href->{$id}{$segment}{$ref}}) {
+                        $href->{'FLAG'} -= 0x2 if $href->{'FLAG'} & 0x2;
+                        $href->{'FLAG'} += 0x8 unless $href->{'FLAG'} & 0x8;
+                    }
+                }
+            }
+        }
+    }
+    # No return value because it modifies hash in place
+}
+
+sub read_sortmerna_sam {
+    # Function used by fix_hash_sortmerna_sam
+
+    # Read in SAM file,
+    #  - hash entries by read and by line number
+    #  - Correct the following bit flags:
+    #     0x1
+    #     0x40
+    #     0x80
+    #     0x100
+    my ($file,
+        $fastq_href,
+        $pe,
+        ) = @_;
+    #my %samhash_by_line;
+    my @samhref_arr; # Array of refs to hash of each SAM entry, in original order from file
+    my %samhash_by_qname_segment_ref; # Hash of refs to hash of each SAM entry, keyed by QNAME, Segment (fwd or rev) and RNAME fields
+    open(my $fh, "<", $file) or die ("$!");
+    my $counter = 0;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if ($line =~ m/^@/); # Skip header lines
+
+        # Split entry into fields
+        my $href = split_sam_line_to_hash($line);
+
+        # Hash SAM record by line number
+        push @samhref_arr, $href;
+
+        # Sortmerna splits readname on first whitespace
+        my $id = $href->{'QNAME'};
+        # If readname has a hard suffix indicated fwd or reverse segment, rename
+        # to match forward read and hash by this key.
+        # This is because BBmap will later rename QNAME to match forward read
+        # and this is the key that is needed to search for reads that map to
+        # assembly
+        if ($id =~ m/^(.+)([:\/_])[12]$/) {
+            $id = $1.$2.'1';
+        }
+
+        # Get sequence revcomp if bitflag 0x10 is set
+        my $sequence_original;
+        if ($href->{'FLAG'} & 0x16) {
+            $sequence_original = revcomp_DNA($href->{'SEQ'});
+        } else {
+            $sequence_original = $href->{'SEQ'};
+        }
+
+        # Check whether fwd or rev segment if PE read
+        my $segment;
+        if ($pe == 1) {
+            $segment = $fastq_href->{$id}{'byseq'}{$sequence_original};
+            # Flag 0x1 (PE read) unless already set
+            $href->{'FLAG'} += 0x1 unless ($href->{'FLAG'} & 0x1);
+            # Flag 0x40 or 0x80 (fwd or rev) unless already set
+            if ($segment eq 'fwd') {
+                $href->{'FLAG'} += 0x40 unless $href->{'FLAG'} & 0x40;
+            } elsif ($segment eq 'rev') {
+                $href->{'FLAG'} += 0x80 unless $href->{'FLAG'} & 0x80;
+            } else {
+                # Diagnostics if segment not found
+                print STDERR "Segment not found for this sequence under header $id\n";
+                print STDERR "$sequence_original\n\n";
+                #print Dumper $fastq_href->{$id};
+                #print Dumper $href;
+            }
+        } else {
+            $segment = 'fwd';
+            # Unflag as 0x1 if erroneously set
+            $href->{'FLAG'} -= 0x1 if ($href->{'FLAG'} & 0x1);
+        }
+
+        # Check whether it is primary or secondary alignment for this read
+        # Assume that supplementary alignments not reported
+        if (defined $samhash_by_qname_segment_ref{$id}{$segment}) {
+            # Flag 0x100 as secondary alignment if entry for this read already encountered
+            $href->{'FLAG'} += 0x100 unless $href->{'FLAG'} & 0x100;
+        }
+        push @{$samhash_by_qname_segment_ref{$id}{$segment}{$href->{'RNAME'}}}, $href;
+        $counter ++;
+    }
+    close($fh);
+
+    # Diagnostics
+    #print Dumper \%samhash_by_qname_segment_ref;
+    #print Dumper \@samhref_arr;
+
+    # Return both hashes
+    return (\%samhash_by_qname_segment_ref, \@samhref_arr);
+}
+
+sub split_sam_line_to_hash {
+    # Function used by fix_hash_sortmerna_sam
+
+    # According to SAM v1 specification 2018-04-27
+    my $line = shift;
+    my @split = split /\t/, $line;
+    my %hash;
+    # Mandatory fields (spec part 1.4)
+    my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+    foreach my $field (@fields) {
+        # Fields should occur in the correct order
+        $hash{$field} = shift @split;
+    }
+    if (@split) {
+        # If anything is left-  optional alignment section (spec part 1.5)
+        $hash{'OPTIONAL'} = join "\t", @split;
+    }
+    return \%hash;
+}
+
+sub read_interleaved_fastq {
+    # Function used by fix_hash_sortmerna_sam
+
+    # Assume that interleaved Fastq is properly paired, i.e. produced with
+    # "--paired_in" option to sortmerna
+    my ($file, $limit) = @_;
+    my $counter = 0;
+    my %hash;
+    my $currid;
+    open(my $fh, "<", $file) or die ("$!");
+    while (my $line = <$fh>){
+        chomp $line;
+        my $modulo = $counter % 8;
+        last if defined $limit && ( $counter / 8 ) > $limit;
+        if ($modulo == 0 && $line =~ m/^@(.+)/) {
+            # Header line of fwd read
+            my $fullheader = $1;
+            my ($id, @discard) = split / /, $fullheader; # Split on whitespace
+            # Strip any suffix indicating fwd or rev segment
+            if ($id =~ m/^(.+)([:\/_])[12]/) {
+                $id = $1.$2.'1';
+            }
+            $currid = $id;
+            if (defined $hash{$currid}) {
+                # If another sequence of this name already defined, warn
+                print STDERR "WARNING: Splitting Fastq header on whitespace yields non-unique seq ID: $currid\n";
+            }
+            $hash{$currid}{'fwd'}{'fullheader'} = $fullheader;
+        } elsif ($modulo == 1) {
+            # Seq line of fwd read
+            $hash{$currid}{'fwd'}{'seq'} = $line;
+            $hash{$currid}{'byseq'}{$line} = 'fwd';
+        } elsif ($modulo == 3) {
+            # Quality line of fwd read
+            $hash{$currid}{'fwd'}{'qual'} = $line;
+        } elsif ($modulo == 4 && $line =~ m/^@(.+)/) {
+            # Header line of rev read
+            my $fullheader = $1;
+            my ($id, @discard) = split / /, $fullheader; # Split on whitespace
+            # Strip any suffix indicating fwd or rev segment
+            if ($id =~ m/^(.+)([:\/_])[12]/) {
+                $id = $1.$2.'1';
+            }
+            if ($id ne $currid) {
+                msg ("WARNING: Fastq rev read header $id does not match fwd read $currid at line $counter\nCould not recognize standard read segment suffix\nCheck if interleaved file correctly formatted");
+            }
+            $hash{$currid}{'rev'}{'fullheader'} = $fullheader;
+        } elsif ($modulo == 5) {
+            # Seq line of rev read
+            $hash{$currid}{'rev'}{'seq'} = $line;
+            $hash{$currid}{'byseq'}{$line} = 'rev';
+        } elsif ($modulo == 7) {
+            # Qual line of rev read
+            $hash{$currid}{'rev'}{'qual'} = $line;
+        }
+        $counter ++;
+    }
+    close ($fh);
+
+    return \%hash;
 }
 
 =item initialize_outfiles_hash ($libraryNAME, $readsf)
@@ -802,9 +1291,9 @@ sub initialize_outfiles_hash {
       "spades_log",
       {
         description => "Log file from SPAdes assembler",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.spades.out",
-        intable     => 0,
+        intable     => 1,
       },
       "full_len_class",
       {
@@ -872,9 +1361,9 @@ sub initialize_outfiles_hash {
       "emirge_log",
       {
         description => "Log file from EMIRGE sequence reconstruction",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.emirge.out",
-        intable     => 0,
+        intable     => 1,
       },
       "assemratio_csv",
       {
@@ -899,9 +1388,16 @@ sub initialize_outfiles_hash {
       },
       "ntu_csv",
       {
-        description => "NTU abundances from initial mapping, in CSV format",
+        description => "NTU abundances (truncated to requested taxonomic level) from initial mapping, in CSV format",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.NTUabundance.csv",
+        intable     => 1,
+      },
+      "ntu_full_csv",
+      {
+        description => "NTU abundances (untruncated) from initial mapping, in CSV format",
+        discard     => 0,
+        filename    => "$libraryNAME.phyloFlash.NTUfull_abundance.csv",
         intable     => 1,
       },
       "ntu_csv_svg",
@@ -923,6 +1419,13 @@ sub initialize_outfiles_hash {
         description => "SAM file of initial read mapping to SSU rRNA database",
         discard     => 0,
         filename    => "$libraryNAME.$readsf.SSU.sam",
+        intable     => 1,
+      },
+      "bbmap_sam",
+      {
+        description => "Raw BBmap SAM file of initial read mapping to SSU rRNA database",
+        discard     => 0,
+        filename    => "$libraryNAME.bbmap.sam",
         intable     => 1,
       },
       "barrnap_log",
@@ -1000,7 +1503,7 @@ sub initialize_outfiles_hash {
         description => "phyloFlash log file",
         discard     => 0,
         filename    => "$libraryNAME.phyloFlash.log",
-        intable     => 0,
+        intable     => 1,
       },
       "phyloFlash_archive",
       {
@@ -1208,9 +1711,9 @@ sub initialize_outfiles_hash {
       "sam_remap_trusted",
       {
         description => "SAM file of read mapping vs trusted contigs",
-        discard     => 1,
+        discard     => 0,
         filename    => "$libraryNAME.trusted.bbmap.sam",
-        intable     => 0,
+        intable     => 1,
       },
       "bbmap_remap_log_trusted",
       {
@@ -1232,6 +1735,34 @@ sub initialize_outfiles_hash {
         discard     => 1,
         filename    => "$libraryNAME.trusted.bbmap.outu.rev.fastq",
         intable     => 0,
+      },
+      "reads_uncompressed",
+      {
+        description => "Uncompressed input reads for Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.$readsf.uncompressed.fastq",
+        intable     => 0,
+      },
+      "sortmerna_sam",
+      {
+        description => "Original SAM file produced by Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.sortmerna.sam",
+        intable     => 0,
+      },
+      "sortmerna_fastq",
+      {
+        description => "Original Fastq file produced by Sortmerna",
+        discard     => 1,
+        filename    => "$libraryNAME.sortmerna.fastq",
+        intable     => 0,
+      },
+      "sortmerna_log",
+      {
+        description => "Log file produced by Sortmerna",
+        discard     => 0,
+        filename    => "$libraryNAME.sortmerna.log",
+        intable     => 1,
       },
       #"",
       #{

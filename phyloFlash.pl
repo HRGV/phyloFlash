@@ -4,7 +4,7 @@ use warnings;
 =head1 NAME
 
 phyloFlash - A script to rapidly estimate the phylogenetic composition of
-an illumina (meta)genomic dataset and reconstruct SSU rRNA genes.
+an Illumina (meta)genomic dataset and reconstruct SSU rRNA genes
 
 =head1 SYNOPSIS
 
@@ -18,14 +18,16 @@ B<phyloFlash.pl> -check_env
 
 =head1 DESCRIPTION
 
-This tool rapidly approximates the phylogenetic composition of a
-(meta)genomic read set based on SSU mapping and reconstruction.
-Right now Illumina paired end or single HiSeq and MiSeq reads
-are supported.
+This tool rapidly approximates the phylogenetic composition of a (meta)genomic
+library by mapping reads to a reference SSU rRNA database, and reconstructing
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired- or
+single-end HiSeq and MiSeq reads.
 
-=head1 INPUT ARGUMENTS
+=head1 ARGUMENTS
 
-=over 15
+=head2 INPUT
+
+=over 8
 
 =item -lib I<NAME>
 
@@ -60,11 +62,15 @@ Show manual.
 
 Show detailed list of output and temporary files and exit.
 
+=item -version
+
+Report version
+
 =back
 
-=head1 LOCAL SETTINGS
+=head2 LOCAL SETTINGS
 
-=over 15
+=over 8
 
 =item -CPUs I<N>
 
@@ -77,6 +83,7 @@ Use CRLF as line terminator in CSV output (to become RFC4180 compliant).
 =item -decimalcomma
 
 Use decimal comma instead of decimal point to fix locale problems.
+
 Default: Off
 
 =item -dbhome F<DIR>
@@ -86,9 +93,34 @@ Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
 =back
 
-=head1 INPUT AND ANALYSIS OPTIONS
+=head2 ANALYSIS TOOLS
 
-=over 15
+=over 8
+
+=item -emirge
+
+Turn on EMIRGE reconstruction of SSU sequences
+
+Default: Off ("-noemirge")
+
+=item -skip_spades
+
+Turn off SPAdes assembly of SSU sequences
+
+Default: No (use SPAdes by default)
+
+=item -sortmerna
+
+Use Sortmerna instead of BBmap to extract SSU rRNA reads. Insert size and
+%id to reference statistics will not be available.
+
+Default: No
+
+=back
+
+=head2 INPUT AND ANALYSIS OPTIONS
+
+=over 8
 
 =item -interleaved
 
@@ -103,6 +135,7 @@ differs from 100 (the default). Must be within 50..500.
 
 Limits processing to the first I<N> reads in each input file. Use this
 for transcriptomes with a lot of rRNA reads (use values <1000000).
+
 Default: unlimited
 
 =item -amplimit I<N>
@@ -110,38 +143,51 @@ Default: unlimited
 Sets the limit of SSU read pairs to switch from emirge.py to
 emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py
 has been problematic to run (use values >100000).
+
 Default: 500000
 
 =item -id I<N>
 
-Minimum allowed identity for read mapping process in %. Must be within
-63..98. Set this to a lower value for very divergent taxa
+Minimum allowed identity for BBmap read mapping process in %. Must be within
+50..98. Set this to a lower value for very divergent taxa
+
 Default: 70
+
+=item -evalue_sortmerna I<N>
+
+E-value cutoff to use for SortMeRNA (only if I<-sortmerna> option chosen). In
+scientific exponent notation (see below)
+
+Default: 1e-09
 
 =item -clusterid I<N>
 
 Identity threshold for clustering with vsearch in %.
-Must be within 50..100. Default: 97
+Must be within 50..100.
+
+Default: 97
 
 =item -taxlevel I<N>
 
 Level in the taxonomy string to summarize read counts per taxon.
 Numeric and 1-based (i.e. "1" corresponds to "Domain").
+
 Default: 4 ("Order")
+
+=item -tophit
+
+Report taxonomic summary based on the best hit per read only. Otherwise, the
+consensus of all ambiguous mappings of a given read will be used to assign its
+taxonomy. (This was the default behavior before v3.2)
+
+Default: No (use consensus)
 
 =item -maxinsert I<N>
 
 Maximum insert size allowed for paired end read mapping. Must be within
-0..1200. Default: 1200
+0..1200.
 
-=item -emirge
-
-Turn on EMIRGE reconstruction of SSU sequences
-Default: Off ("-noemirge")
-
-=item -skip_spades
-
-Turn off SPAdes assembly of SSU sequences
+Default: 1200
 
 =item -sc
 
@@ -158,6 +204,7 @@ screened against these extracted "trusted" SSU sequences
 Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of
 the 16S and 18S rRNA genes from a subsample of reads, as an estimate of
 coverage evenness.
+
 Default: Off ("-noposcov")
 
 =item -everything
@@ -172,38 +219,42 @@ Like I<-everything> except without running EMIRGE.
 
 =back
 
-=head1 OUTPUT OPTIONS
+=head2 OUTPUT OPTIONS
 
-=over 15
+=over 8
 
 =item -html
 
 Generate output in HTML format.
-Default: On.
-(Turn off with "-nohtml")
+
+Default: On. (Turn off with "-nohtml")
 
 =item -treemap
 
-Draw interactive treemap of taxonomic classification in html-formatted
-report. This uses Google Visualization API, which requires an internet
-connection, requires that you agree to their terms of service (see
-https://developers.google.com/chart/terms), and is not open source,
-although it is free to use.
+Draw interactive treemap of taxonomic classification in html-formatted report.
+This uses Google Visualization API, which requires an internet connection,
+requires that you agree to their terms of service (see
+https://developers.google.com/chart/terms), and is not open source, although it
+is free to use.
+
 Default: Off ("-notreemap")
 
 =item -zip
 
 Compress output into a tar.gz archive file
+
 Default: Off ("-nozip")
 
 =item -keeptmp
 
 Keep temporary/intermediate files
+
 Default: No ("-nokeeptmp")
 
 =item -log
 
 Write status messages printed to STDERR also to a log file
+
 Default: Off ("-nolog")
 
 =back
@@ -214,7 +265,7 @@ Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
                     and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
                     with help from Brandon Seah <kbseah@mpi-bremen.de>
 
-LICENCE
+LICENSE
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -229,23 +280,24 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 =cut
 
-
 use FindBin;
 use lib $FindBin::RealBin;
-
 use PhyloFlash;
-
 use Pod::Usage;
 use Getopt::Long;
 use File::Basename;
+use File::Temp;
+use File::Path 'remove_tree';
+use Storable;
 use IPC::Cmd qw(can_run);
 use Cwd;
+#use Data::Dumper;
 
 # change these to match your installation
 my @dbhome_dirs = (".", $ENV{"HOME"}, $FindBin::RealBin);
 
 # constants
-my $version       = 'phyloFlash v3.1 beta 2';       # Current phyloFlash version
+my $version       = "phyloFlash v$VERSION";       # Current phyloFlash version
 my $progname      = $FindBin::Script;               # Current script name
 my $cwd           = getcwd;                         # Current working folder
 my $progcmd       = join " ", ($progname, @ARGV) ; # How the script was called
@@ -259,7 +311,8 @@ my $readsr      = undef;        # reverse read filename, stripped of directory n
 my $SEmode      = 0;            # single ended mode
 my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
-my $id          = 70;           # minimum %id for mapping
+my $id          = 70;           # minimum %id for mapping with BBmap
+my $evalue_sortmerna = 1e-09;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
 my $readlength  = 100;          # length of input reads
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
@@ -272,29 +325,55 @@ my $html_flag   = 1;            # generate HTML output? (default = 1, on)
 my $treemap_flag = 0;           # generate interactive treemap (default = 0, off)
 my $crlf        = 0;            # csv line terminator
 my $decimalcomma= 0;            # Decimal separator (default = .)
+my $use_sortmerna = 0;          # Flag - Use Sortmerna instead of BBmap? (Default = 0, no)
 my $skip_emirge = 1;            # Flag - skip Emirge step? (default = 1, yes)
 my $skip_spades = 0;            # Flag - skip SPAdes assembly? (default = 0, no)
 my $poscov_flag = 0;            # Flag - use Nhmmer to estimate positional coverage? (Default = 0, no)
 my $sc          = 0;            # Flag - single cell data? (default = 0, no)
 my $zip         = 0;            # Flag - Compress output into archive? (default = 0, no)
-my $check_env   = 0;            # Check environment (runs check_environment subroutine only)
 my $save_log    = 0;            # Save STDERR messages to log (Default = 0, no)
 my $keeptmp     = 0;            # Do not delete temporary files (Default = 0, do delete temporary files)
+my $tophit_flag;                # Use "old" way of taxonomic summary, by taking top bbmap hit (no ambiguities) (Default: undef, no)
 my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
 my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
+my $sortmerna_db = $emirge_db;
 
 my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
 
 my %outfiles;           # Hash to keep track of output files
 
 # variables for report generation
-my %ssu_sam;            # Readin sam file from first mapping vs SSU database
+my $sam_fixed_href;     # Ref to hash storing initial mapping data (stored as array of refs to hashes keyed by SAM column name), keyed by RNAME, read orientation, QNAME
+my $sam_fixed_aref;     # Ref to array storing initial mapping data (pointing to same refs as above) in original order of SAM input file
 my %ssu_sam_mapstats;   # Statistics of mapping vs SSU database, parsed from from SAM file
+# Fields for %ssu_sam_mapstats
+#   total_reads         Total read (pairs) input
+#   total_read_segments Total read segments input
+#   ssu_fwd_seg_map     Total fwd read segments mapped
+#   ssu_rev_seg_map     Total rev read segments mapped
+#   ssu_tot_map         Total read segments mapped
+#   ssu_tot_pair_map    Total read pairs mapped (one or both segments)
+#   ssu_tot_pair_ratio  Ratio of read (pairs) mapping to SSU (one or both segments
+#   ssu_tot_pair_ratio_pc   Above as percentage
+#   assem_tot_map       Total segments mapping to full length assembled
+#   ssu_unassem         Total segments not mapping to full length
+#   assem_ratio         Ratio assembled/unassmebled
+#   assem_ratio_pc      Above as percentage
+#   spades_fwd_map      Fwd read segments mapping to SPAdes
+#   spades_rev_map
+#   spades_tot_map
+#   emirge_fwd_map
+#   emirge_rev_map
+#   emirge_tot_map
+#   trusted_fwd_map
+#   trusted_rev_map
+#   trusted_tot_map
 
 # Hashes to keep count of NTUs
+my %taxa_ambig_byread_hash;     # Hash of all taxonomy assignments per read
 my $taxa_full_href;             # Summary of read counts for full-length taxonomy strings (for treemap) - hash ref
 my $taxa_summary_href;          # Summary of read counts at specific taxonomic level (hash ref)
 my $taxa_unassem_summary_href;  # Summary of read counts of UNASSEMBLED reads at specific taxonomic level (hash ref)
@@ -331,10 +410,12 @@ sub welcome {
 # (contains the necessary files for bbmap, emirge and vsearch)
 sub check_dbhome {
     my $dbhome = shift;
-    foreach ('ref/genome/1/summary.txt', $emirge_db.".fasta",
-         $vsearch_db.".fasta") {
-    return "${dbhome}/$_"
-        unless -r "${dbhome}/$_"
+    my @required_list = ('ref/genome/1/summary.txt',
+                         $emirge_db.".fasta",
+                         $vsearch_db.".fasta");
+    push @required_list, ("$sortmerna_db.bursttrie_0.dat","$sortmerna_db.acc2taxstring.hashimage") if ($use_sortmerna == 1);
+    foreach (@required_list) {
+        return "${dbhome}/$_" unless -r "${dbhome}/$_"
     }
     return "";
 }
@@ -344,7 +425,6 @@ sub check_dbhome {
 sub find_dbhome {
     my @dirs;
     my @dbdirs;
-
     foreach (@dbhome_dirs) {
         push(@dirs, get_subdirs($_));
     }
@@ -357,7 +437,6 @@ sub find_dbhome {
         @dbdirs = version_sort(@dbdirs);
         return $dbdirs[0];
     }
-
     return "";
 }
 
@@ -385,6 +464,10 @@ sub process_required_tools {
                       emirge_amp => "emirge_amplicon.py",
                       emirge_rename_fasta => "emirge_rename_fasta.py");
     }
+    if ($use_sortmerna == 1) {
+        require_tools (sortmerna => "sortmerna",
+                       indexdb_rna => "indexdb_rna");
+    }
     # Check operating system to decide which nhmmer to use
     my $opsys = $^O;
     msg ("Current operating system $opsys");
@@ -398,9 +481,26 @@ sub process_required_tools {
     }
 }
 
+sub verify_dbhome {
+    # verify database present
+    if (defined($DBHOME)) {
+        if (my $file = check_dbhome($DBHOME)) {
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+        }
+    } else {
+        $DBHOME = find_dbhome();
+        pod2usage("Failed to find suitable DBHOME. (Searched \""
+                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
+                  ."You can build a reference database using phyloflash_makedb.pl\n")
+            if ($DBHOME eq "");
+    }
+    msg("Using dbhome '$DBHOME'");
+}
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
+    pod2usage(-verbose=>0) if !@ARGV;
     my $emirge = 0;
     my $everything = 0 ;
     my $almosteverything = 0;
@@ -421,7 +521,10 @@ sub parse_cmdline {
                'treemap!' => \$treemap_flag,
                'crlf' => \$crlf,
                'decimalcomma' => \$decimalcomma,
+               'sortmerna!' => \$use_sortmerna,
+               'evalue_sortmerna=s' => \$evalue_sortmerna,
                'emirge!' => \$emirge,
+               'skip_emirge' => \$skip_emirge,
                'skip_spades' => \$skip_spades,
                'trusted=s' => \$trusted_contigs,
                'poscov!' => \$poscov_flag,
@@ -431,42 +534,29 @@ sub parse_cmdline {
                'keeptmp!' => \$keeptmp,
                'everything' => \$everything,
                'almosteverything' => \$almosteverything,
-               'check_env' => \$check_env,
+               'tophit!' => \$tophit_flag,
+               'check_env' => \&check_env_wrapper,
                'outfiles' => \&output_description,
-               'help|h' => sub { pod2usage(1) },
-               'man' => sub { pod2usage(-exitval=>0, -verbose=>2) },
-           )
-        or pod2usage(2);
+               'help|h' => sub { pod2usage(-verbose=>0); },
+               'man' => sub { pod2usage(-exitval=>0, -verbose=>2); },
+               'version' => sub { welcome(); exit; },
+               ) or pod2usage(2);
     $skip_emirge = 0 if $emirge == 1; # ain't gonna not be less careful with no double negatives
 
-    # verify tools present
-    if ($check_env == 1) {
-        process_required_tools();
-        check_environment(); # will die on failure
-    }
+    # Say hello
+    welcome();
 
-    # verify database present
-    if (defined($DBHOME)) {
-        if (my $file = check_dbhome($DBHOME)) {
-            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
-        }
-    } else {
-        $DBHOME = find_dbhome();
-        pod2usage("Failed to find suitable DBHOME. (Searched \""
-                  .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-                  ."You can build a reference database using phyloflash_makedb.pl\n")
-            if ($DBHOME eq "");
-    }
-    msg("Using dbhome '$DBHOME'");
+    # Verify DBHOME is a valid phyloFlash DB folder
+    verify_dbhome();
 
     # verify valid lib name
-    pod2usage("Please specify output file basename with -lib")
+    pod2usage("Please specify output file basename with -lib\n")
         if !defined($libraryNAME);
-    pod2usage("\nArgument to -lib may not be empty")
+    pod2usage("\nERROR: Argument to -lib may not be empty\n")
         if length($libraryNAME) == 0;
-    pod2usage("\nArgument to -lib may contain only alphanumeric characters,"
-              ."'_' and '-'.")
-        if not $libraryNAME =~ m/[a-zA-Z0-9_-]/ ;
+    pod2usage("\nERROR: Argument to -lib may contain only alphanumeric characters,"
+              ."'_' and '-'.\n")
+        if $libraryNAME =~ m/[^a-zA-Z0-9_-]/ ;
 
     msg("working on library $libraryNAME");
 
@@ -494,7 +584,7 @@ sub parse_cmdline {
           $readsr = $1;
         } else { $readsr = $readsr_full; }
 
-     } elsif ( $interleaved == 1 ){
+    } elsif ( $interleaved == 1 ){
     msg("Using interleaved read data");
 
     } else {
@@ -506,10 +596,10 @@ sub parse_cmdline {
     msg("Forward reads $readsf_full");
     if ($SEmode == 0)  {
         if (defined($readsr_full)) {
-        msg("Reverse reads $readsr_full");
-    } else{
-        msg("Reverse reads from interleaved read file $readsf_full");
-    }
+            msg("Reverse reads $readsr_full");
+        } else{
+            msg("Reverse reads from interleaved read file $readsf_full");
+        }
     } else {
         msg("Running in single ended mode");
     }
@@ -519,9 +609,9 @@ sub parse_cmdline {
         if ($readlength < 50 or $readlength > 500);
     pod2usage("\nMaxinsert must be within 0..1200")
         if ($maxinsert < 0 or $maxinsert > 1200);
-    pod2usage("\nReadmapping identity (-id) must be within 63..98")
-        if ($id < 63 or $id > 98);
-    pod2usage("\nClustering identidy (-clusterid) must be within 50..100")
+    pod2usage("\nReadmapping identity (-id) must be within 50..98")
+        if ($id < 50 or $id > 98);
+    pod2usage("\nClustering identity (-clusterid) must be within 50..100")
         if ($clusterid < 50 or $clusterid > 100);
 
     $crlf = $crlf ? "\r\n":"\n";
@@ -529,6 +619,13 @@ sub parse_cmdline {
     # check CPUS
     if ($cpus eq "all" or $cpus < 0) {
         $cpus = get_cpus();
+    }
+
+    # Warn user about Sortmerna requirements
+    if ($use_sortmerna == 1) {
+        msg ("Sortmerna will be used instead of BBmap for the initial SSU rRNA read extraction");
+        msg ("Sortmerna requires uncompressed input files - Ensure that you have enough disk space");
+        msg ("The following input parameters specific to BBMap will be ignored: --id, --maxinsert");
     }
 
     # check surplus arguments
@@ -543,7 +640,7 @@ sub parse_cmdline {
             $trusted_contigs = undef;
         }
     }
-    
+
     # populate hash to keep track of output files
     my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
     %outfiles = %$outfiles_href;
@@ -567,6 +664,15 @@ sub parse_cmdline {
             msg ("Running \"everything\" except EMIRGE- overrides other command line options");
         }
     }
+}
+
+sub check_env_wrapper {
+    # verify tools present
+    welcome();
+    process_required_tools();
+    check_environment(); # will die on failure
+    verify_dbhome();
+    exit();
 }
 
 sub output_description {
@@ -636,6 +742,7 @@ Mapping ratio:\t$SSU_ratio_pc%
     if (defined $ssu_sam_mapstats{"assem_ratio"}) {
         print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
     }
+    my $chao1_3dp = sprintf("%.3f",$chao1);
 
     print {$fh} qq~
 ---
@@ -647,7 +754,7 @@ Read mapping based higher taxa (NTUs) detection
 NTUs observed once:\t$xtons[0]
 NTUs observed twice:\t$xtons[1]
 NTUs observed three or more times:\t$xtons[2]
-NTU Chao1 richness estimate:\t$chao1
+NTU Chao1 richness estimate:\t$chao1_3dp
 
 List of NTUs in order of abundance (min. 3 reads mapped):
 NTU\treads
@@ -669,7 +776,7 @@ NTU\treads
         print {$fh} "SSU assembly based taxa:\n";
         print {$fh} "OTU\tread_cov\tcoverage\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid ( sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "SPAdes";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "SPAdes");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -686,7 +793,7 @@ NTU\treads
         print {$fh} "SSU reconstruction based taxa:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "EMIRGE";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "EMIRGE");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -696,14 +803,14 @@ NTU\treads
             print {$fh} join("\t", @out)."\n";
         }
     }
-    
+
     if (defined $outfiles{"trusted_fasta"}{"made"}) {
         ## Print the table of SSU extracted from trusted contigs to report file
         print {$fh} "---\n";
         print {$fh} "SSU from trusted contigs:\n";
         print {$fh} "OTU\tread_cov\tratio\tdbHit\ttaxonomy\t%id\talnlen\tevalue\n";
         foreach my $seqid (sort { $ssufull_hash{$b} <=> $ssufull_hash{$a} } keys %ssufull_hash) {
-            next unless $ssufull_hash{$seqid}{"source"} eq "trusted";
+            next unless (defined $ssufull_hash{$seqid}{"source"} && $ssufull_hash{$seqid}{"source"} eq "trusted");
             my @out;
             push @out, $seqid;
             my @fields = qw(counts cov dbHit taxon pcid alnlen evalue);
@@ -742,8 +849,10 @@ sub write_csv {
         "cwd",$cwd,
         "minimum mapping identity",$id,
         "single ended mode",$SEmode,
-        "input reads",$readnr_pairs,
+        "input reads",$ssu_sam_mapstats{'total_reads'},
+        "input read segments",$ssu_sam_mapstats{'total_read_segments'},
         "mapped SSU reads",$SSU_total_pairs,
+        "mapped SSU read segments",$ssu_sam_mapstats{'ssu_tot_map'},
         "mapping ratio",$SSU_ratio_pc,
         "detected median insert size",$ins_me,
         "used insert size",$ins_used,
@@ -753,7 +862,9 @@ sub write_csv {
         "NTUs observed once",$xtons[0],
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
-        "NTU Chao1 richness estimate",$chao1
+        "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
+        "program command",$progcmd,
+        "database path",$DBHOME,
     ));
     my $fh;
     open_or_die(\$fh, ">", $outfiles{"report_csv"}{"filename"});
@@ -764,6 +875,7 @@ sub write_csv {
     close($fh);
 
     # CSV file of taxonomic units (NTUs) from mapping vs SILVA database
+    # truncated to requested taxonomic level
     open_or_die(\$fh, ">", $outfiles{"ntu_csv"}{"filename"});
     $outfiles{"ntu_csv"}{"made"} = 1;
     # Sort results descending
@@ -773,6 +885,20 @@ sub write_csv {
         print {$fh} join(",",csv_escape(@out)).$crlf;
     }
     close($fh);
+
+    if (!defined $tophit_flag) {
+        #CSV file of taxonomic units (NTUs) from mapping vs SILVA database,
+        # not truncated to requested taxonomic level
+        open_or_die(\$fh, ">", $outfiles{"ntu_full_csv"}{"filename"});
+        $outfiles{"ntu_full_csv"}{"made"} = 1;
+        # Sort results descending
+        my @keys_full = sort {${$taxa_full_href}{$b} <=> ${$taxa_full_href}{$a}} keys %$taxa_full_href;
+        foreach my $key (@keys_full) {
+            my @out = ($key, ${$taxa_full_href}{$key});
+            print {$fh} join(",",csv_escape(@out)).$crlf;
+        }
+        close($fh);
+    }
 
     # If full-length seqeunces were assembled or reconstructed
     if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{"trusted_fasta"}{"made"}) {
@@ -787,7 +913,11 @@ sub write_csv {
             my @out;
             push @out, $seqid;
             foreach my $field (qw(counts cov dbHit taxon pcid alnlen evalue)) {
-                push @out, $ssufull_hash{$seqid}{$field};
+                if (defined $ssufull_hash{$seqid}{$field}) {
+                    push @out, $ssufull_hash{$seqid}{$field};
+                } else {
+                    push @out, 'NA';
+                }
             }
             print {$fh} join (",", csv_escape(@out)).$crlf;
         }
@@ -817,10 +947,10 @@ sub bbmap_fast_filter_sam_run {
     if ($readlimit != -1) {
         msg("Only using the first $readlimit reads");
     }
-    # Minimum mapping ID of 63%
+    # Minimum mapping ID of 50%
     my $minID= $id / 100;
-    if ($minID < 0.63) {
-        $minID = 0.63
+    if ($minID < 0.50) {
+        $minID = 0.50
     }
     # Set up input arguments for BBmap
     my @bbmap_args = ("fast=t",
@@ -830,9 +960,10 @@ sub bbmap_fast_filter_sam_run {
                       "po=f",
                       "outputunmapped=f",
                       "path=$DBHOME",
-                      "out=".$outfiles{"sam_map"}{"filename"}, 
+                      "out=".$outfiles{"bbmap_sam"}{"filename"},
                       "outm=".$outfiles{"reads_mapped_f"}{"filename"},
                       'noheader=t', # Do not print header lines of SAM file
+                      'ambiguous=all', # Report all ambiguous reads
                       "build=1",
                       "in=$readsf_full",
                       "bhist=".$outfiles{"basecompositionhist"}{"filename"},
@@ -862,105 +993,222 @@ sub bbmap_fast_filter_sam_run {
              $outfiles{"bbmap_log"}{"filename"}
              );
     # Record which files were created
-    foreach my $madekey (qw(sam_map reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
+    foreach my $madekey (qw(bbmap_sam reads_mapped_f basecompositionhist inserthistogram idhistogram hitstats bbmap_log)) {
         $outfiles{$madekey}{"made"}++;
     }
     msg("done...");
 }
 
-sub bbmap_fast_filter_parse {
-    # parsing bbmap.out for used read numbers, mapped reads,
-    # insert size median and standard deviation
+sub sortmerna_filter_sam {
+    msg ("Using Sortmerna to extract SSU rRNA reads instead of BBmap");
 
-    # input: lib.bbmap.out
-    my ($infile,            # Input file
-        $SEmode,            # Flag for single-end mode
-        ) = @_;
-    # Variables used internally
-    my $ssu_pairs     = 0;
-    my $ssu_bad_pairs = 0;
-    my $ssu_f_reads   = 0;
-    my $ssu_r_reads   = 0;
-    my $forward_count = 0;
-    # Variables for output
-    my ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
-    # Read reported statistics from BBmap log file
-    my $fh;
-    open_or_die(\$fh, "<", $infile);
-    while (<$fh>) {
-        if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
-            $readnr = $1;
-            msg("single reads mapped: $readnr");
-        }
-        if (/^mated pairs:\s+\S+\s+([0-9]*).*$/) {
-            $ssu_pairs = $1;
-            msg("mapped SSU pairs: $ssu_pairs");
-        }
-        if (/^bad pairs:\s+\S+\s+([0-9]*).*$/) {
-            $ssu_bad_pairs = $1;
-            msg("mapped bad SSU pairs: $ssu_bad_pairs");
-        }
-        if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
-            $ins_me = $1;
-            msg("insert size median: $ins_me");
-        }
-        if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
-            $ins_std = $1;
-            msg("insert size std deviation: $ins_std");
-        }
-        if ($forward_count == 0) {
-            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-                $ssu_f_reads = $1;
-                msg("mapped forward SSU reads: $ssu_f_reads");
-                $forward_count++;
-                next;
-            }
-        }
-        if ($forward_count == 1) {
-            if (/^mapped:\s+\S+\s+([0-9]*).*$/) {
-                $ssu_r_reads = $1;
-                msg("mapped reverse SSU reads: $ssu_r_reads");
-                last;
-            }
+    # Reformat Fastq file
+    msg ("Reformatting input files to uncompressed Fastq format for Sortmerna");
+    my @reformat_args = ("in=$readsf_full",
+                         "reads=$readlimit",
+                         "threads=$cpus",
+                         "out=".$outfiles{'reads_uncompressed'}{'filename'},
+                         );
+    if ($SEmode == 0) {
+        # Additionally for paired-end input
+        if ($interleaved == 1) {
+            push @reformat_args, ("interleaved=t");
+        } else {
+            push @reformat_args, ("in2=$readsr_full");
         }
     }
-    close($fh);
+    run_prog("reformat",
+             join (" ", @reformat_args),
+             );
 
+    # Record that file was made
+    $outfiles{'reads_uncompressed'}{'made'} ++;
+
+    # Sortmerna arguments
+    my @sortmerna_args = ("--ref $DBHOME/$sortmerna_db.fasta,$DBHOME/$sortmerna_db",
+                          "--reads ".$outfiles{'reads_uncompressed'}{'filename'},
+                          "--aligned $libraryNAME.sortmerna", # Output file prefix
+                          "--fastx",        # Report extracted reads in Fastq format
+                          "--paired_in",    # Report both segments in pair to Fastq format
+                          "--sam",          # SAM alignment output
+                          #"--blast 1",     # Blast-tabular alignment output
+                          "--log",
+                          #"--best 10",      # Take 10 best hits
+                          "--min_lis 10",
+                          "-e $evalue_sortmerna",    # E-value cutoff
+                          "-a $cpus",
+                          "-v",             # Verbose (turn off?)
+                          );
+    if (defined $tophit_flag) {
+        msg ("Reporting only single best hit per read");
+        push @sortmerna_args, "--best 1";
+    } else {
+        msg ("Reporting 10 best hits per read");
+        push @sortmerna_args, "--best 10";
+    }
+    
+    msg ("Running sortmerna:");
+    # Run Sortmerna
+    run_prog("sortmerna",
+             join (" ", @sortmerna_args),
+             );
+
+    # Record which files created
+    foreach my $madekey (qw (sortmerna_sam sortmerna_fastq sortmerna_log)) {
+        $outfiles{$madekey}{'made'} ++;
+    }
+
+    msg ("Fixing bitflags and RNAME in SAM file output of Sortmerna");
+    # Fix Sortmerna output file - bitflags and names of ref sequences
+    my ($fixed_sam_href,
+        $fixed_sam_aref,
+        $fixed_sam_lines_aref
+        ) = fix_hash_sortmerna_sam($outfiles{'sortmerna_fastq'}{'filename'},
+                                   $outfiles{'sortmerna_sam'}{'filename'},
+                                   "$DBHOME/$sortmerna_db.acc2taxstring.hashimage",
+                                   $SEmode
+                                   );
+    # Write file
+    if (defined $fixed_sam_lines_aref) {
+        my $sam_fh;
+        open_or_die(\$sam_fh,
+                    ">",
+                    $outfiles{"sam_map"}{"filename"});
+        foreach my $line (@$fixed_sam_lines_aref) {
+            print $sam_fh "$line\n";
+        }
+        close ($sam_fh);
+        $outfiles{"sam_map"}{"made"} ++ ;
+    }
+
+    # Reformat fwd and rev mapped Fastq reads from Sortmerna
+    if ($SEmode == 0) {
+        msg ("Reformatting interleaved mapped Fastq from sortmerna to split files");
+        # Split paired reads into fwd and rev files
+        my @split_paired_mapped_args = ("in=".$outfiles{'sortmerna_fastq'}{'filename'},
+                                        'interleaved=t', # Force interleaved input
+                                        "out=".$outfiles{"reads_mapped_f"}{"filename"},
+                                        "out2=".$outfiles{"reads_mapped_r"}{"filename"},
+                                        "threads=$cpus",
+                                        );
+        run_prog('reformat',
+                 join (" ", @split_paired_mapped_args),
+                 );
+        $outfiles{"reads_mapped_f"}{'made'} ++;
+        $outfiles{"reads_mapped_r"}{'made'} ++;
+    } else {
+        system (join " ", ('mv',
+                           $outfiles{'sortmerna_fastq'}{'filename'},
+                           $outfiles{'reads_mapped_f'}{'filename'}));
+        $outfiles{'sortmerna_fastq'}{'made'} = undef;
+        $outfiles{'reads_mapped_f'}{'made'} ++;
+    }
+
+    msg ("Done");
+    return ($fixed_sam_href, $fixed_sam_aref);
+}
+
+sub parse_mapstats_from_sam_arr {
+    my ($aref,      # Array of hrefs to SAM mapping
+        $readnr,    # Total reads (segments) input to mapper
+        $statshref, # Ref to hash of mapping statistics
+        $SEmode     # Flag for single-end mode
+        ) = @_;
+    #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
+    
+    # Variables used internally
+    my $ssu_pairs     = 0;  # Pairs with both segments mapping
+    my $ssu_bad_pairs = 0;  # Pairs where segments map to different references
+    my $ssu_f_reads   = 0;  # Forward segments mapping
+    my $ssu_r_reads   = 0;  # Reverse segments mapping
+    my $SSU_total_pairs = 0;# Total read pairs with at least one segment mapping
+    my $mapped_half = 0;    # Pairs where one segment maps but the other doesn't
+    my $unmapped_segment = 0; # Don't use this for summary
+    my $unmapped;
+    my %qname_hash;
+    
+    foreach my $href (@$aref) {
+        # Go through each SAM record and check bitflags to see if mapping or not
+        next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
+        my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
+        # Strip read segment suffixes from name 
+        if ($splitname =~ m/^(.+)([:\/_])[12]/) {
+            $splitname = $1.$2;
+        }
+        $qname_hash{$splitname} ++;
+        if ($href->{'FLAG'} & 0x40) { # Fwd read
+            $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
+        } elsif ($href->{'FLAG'} & 0x80) { # Rev read
+            $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
+        }
+        
+        if ($href->{'FLAG'} & 0x2) { # Each segment properly aligned
+            $ssu_pairs ++; # This will have to be divided by two later
+        } elsif ($href->{'FLAG'} & 0x8) { # Next segment unmapped
+            $mapped_half ++;
+        } elsif ($href->{'FLAG'} & 0x4) { # Unmapped segment
+            $unmapped_segment ++;
+        } else { # Both segments map but to different references (bbmap 'bad pairs')
+            $ssu_bad_pairs ++; # Will have to be divided by two later
+        }
+    }
+    
+    $SSU_total_pairs = scalar (keys %qname_hash); # Count total reads mapped from read names hash
+    # This is because unmapped reads are not necessarily reported
+    
+    # Report fwd and reverse reads mapping
+    msg ("Forward read segments mapping: $ssu_f_reads");
+    msg ("Reverse read segments mapping: $ssu_r_reads");
+    
     # calculating mapping ratio
     $readnr_pairs = $readnr;
-        if ($SEmode == 0) {
-            $readnr_pairs /= 2;
-    }
+    # If paired reads, divide segment-based counts by two into pair-based counts
 
-    # Total read pairs with at least one partner mapping
-    $SSU_total_pairs =
-        $ssu_f_reads + $ssu_r_reads
-        - $ssu_pairs - $ssu_bad_pairs;
-    if ($SEmode == 0) {
-        msg("mapped pairs output: $SSU_total_pairs")
-    };
-
+    $readnr_pairs /= 2 if $SEmode == 0;
+    
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
     $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
+    
+    if ($SEmode == 0) {
+        # If paired reads, divide segment-based counts by two into pair-based counts
+        $ssu_pairs /= 2;
+        $ssu_bad_pairs /= 2;
+        # Report summary stats
+        msg("Reporting mapping statistics for paired end input");
+        msg("Total read pairs with at least one segment mapping: $SSU_total_pairs");
+        msg("=> both segments mapping to same reference: $ssu_pairs");
+        msg("=> both segments mapping to different references: $ssu_bad_pairs");
+        msg("Read segments where next segment unmapped: $mapped_half");
+    } elsif ($SEmode == 1) {
+        $unmapped = (1-$SSU_ratio)*$readnr;
+    }
 
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
-        my $unmapped = 1-$SSU_ratio;
+        
         push @mapratio_csv, "Unmapped,".$unmapped;
-        push @mapratio_csv, "Mapped,".$SSU_ratio;
+        push @mapratio_csv, "Mapped,".$SSU_ratio*$readnr;
     } elsif ($SEmode == 0) {
         # For PE reads, do not include Unmapped in piechart because it will be
         # impossible to read the other slices anyway. Instead report mapping
         # ratio in title.
-        my $mapped_half = $ssu_f_reads + $ssu_r_reads - 2 * ($ssu_pairs + $ssu_bad_pairs);
-        my $mapped_pairs = $ssu_pairs + $ssu_bad_pairs;
-        my $unmapped_pairs = $readnr_pairs - $mapped_half - $mapped_pairs;
+
         push @mapratio_csv, "Mapped pair,".$ssu_pairs*2;
         push @mapratio_csv, "Mapped bad pair,".$ssu_bad_pairs*2;
         push @mapratio_csv, "Mapped single,".$mapped_half;
     }
 
+    # Update stats hash
+    $statshref->{'total_reads'} = $readnr_pairs;
+    $statshref->{'total_read_segments'} = $readnr;
+    $statshref->{'ssu_fwd_seg_map'} = $ssu_f_reads;
+    $statshref->{'ssu_rev_seg_map'} = $ssu_r_reads;
+    $statshref->{'ssu_tot_map'} = $ssu_f_reads + $ssu_r_reads;
+    $statshref->{'ssu_tot_pair_map'} = $SSU_total_pairs;
+    $statshref->{'ssu_tot_pair_ratio'} = $SSU_ratio;
+    $statshref->{'ssu_tot_pair_ratio_pc'} = $SSU_ratio_pc;
+    
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
@@ -972,92 +1220,240 @@ sub bbmap_fast_filter_parse {
 
     my $skip_assembly_flag;
     if ($SSU_total_pairs * 2 * $readlength < 1800) {
-        msg("WARNING: mapping coverage lower than 1x,\n
-        reconstruction with SPADES and Emirge disabled.");
+        msg("WARNING: mapping coverage lower than 1x,\nreconstruction with SPADES and Emirge disabled.");
         $skip_assembly_flag = 1;
     }
 
-    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc);
+    my @output_array = ($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc); # TO DO: Use hash ssu_sam_mapstats to manage this instead
     return (\@output_array,$skip_assembly_flag);
 }
 
-sub readsam {
-    # Read SAM file into memory
 
-    # Input params
-    my $infile = $outfiles{"sam_map"}{"filename"};  # Input is SAM from first mapping step
-    my $href = \%ssu_sam;                           # Reference to hash to store SAM data
-    my $stats_href = \%ssu_sam_mapstats;            # Reference to hash to store mapping statistics
-
-    # Internal vars
-    my @taxa_full;                                  # Arr of taxon names from first mapping
-
-    msg ("reading mapping into memory");
+sub get_total_reads_from_bbmap_log {
+    my ($infile) = @_;
     my $fh;
-    open_or_die(\$fh, "<", "$infile");
+    my $readnr;
+    open_or_die(\$fh, "<", $infile);
+    while (<$fh>) {
+        if (/^Reads\ Used\:\ +\t+([0-9]*).*$/) {
+            $readnr = $1;
+            msg("Total read segments processed: $readnr");
+        }
+        if (/^insert\ median:\ +\t+\ +([0-9]*).*$/) {
+            $ins_me = $1;
+            msg("insert size median: $ins_me");
+        }
+        if (/^insert\ std\ dev:\ +\t+\ +([0-9]*).*$/) {
+            $ins_std = $1;
+            msg("insert size std deviation: $ins_std");
+        }
+    }
+    return ($readnr,$ins_me,$ins_std);
+}
+
+sub get_total_reads_from_sortmerna_log {
+    my ($infile) = @_;
+    my $fh;
+    my $readnr;
+    open_or_die(\$fh, "<", $infile);
+    while (<$fh>) {
+        if (/^\s+Total reads = (\d+)$/) {
+            $readnr = $1;
+            msg("Total read segments processed: $readnr");
+        }
+    }
+    return ($readnr);
+}
+
+sub fix_hash_bbmap_sam {
+    # Read BBMap SAM file to two structures:
+    #  - Array arranged by original order of entries in file
+    #  - Hash keyed by the QNAME, read segment, and RNAME
+    # Each contain refs to hashes of the SAM entries
+    # This allows us to keep the same data referenced in different ways,
+    # and when we modify the data (e.g. fix bitflags) it is accessible from both
+    # e.g. there are some fixes which are dependent on the order in the file
+    #
+    # Also fix the following known issues in the input SAM file:
+    #  - rev read name is not properly represented for secondary alignments
+    #  - bitflag not correct for rev read secondary alignments
+
+    my ($infile,        # Raw SAM file from BBmap
+        $stats_href,    # Ref to hash storing stats from mapping
+        ) = @_;
+
+    # Hash refs to each SAM alignment by QNAME, segment, and RNAME
+    my %sam_hash;
+    # Store refs to each SAM alignment in an array, in order encountered in SAM file
+    my @sam_arr; 
+    
+    # Open sam file and hash each read entry
+    msg ("Reading SAM file $infile into memory");
+    my $fh;
+    open_or_die(\$fh, "<", $infile);
+    my $current_read; # Keep track of current read pair
+    my $current_orientation;
     while (my $line = <$fh>) {
-        next if ($line =~ m/^@/); # Skip header lines
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
-        # If not mapped, skip entry, do NOT record into hash
-        if ($bitflag & 0x4) {
-            next;
+        next if $line =~ m/^@/; # Skip headers
+        chomp $line;
+        my $line_href = split_sam_line_to_hash($line); # Hash fields accordingly
+        my @discard;
+        ($line_href->{'QNAME'},@discard) = split /\s/, $line_href->{'QNAME'}; # Split on first whitespace
+        # Update current read if this is the first read
+        if (! defined $current_read ) {
+            $current_read = $line_href->{'QNAME'}; 
+        }
+        if (! defined $current_orientation) {
+            $current_orientation = 'fwd';
+        }
+        
+        # Check if SE or PE mode, update current read field accordingly
+        if ($SEmode == 0) {
+            # PE input
+            if ($line_href->{'FLAG'} & 0x40) { # First segment in template
+                unless ($line_href->{'FLAG'} & 0x100) { # Ignore secondary alignments
+                    $current_read = $line_href->{'QNAME'};  # Update name; split on whitespace
+                    $current_orientation = 'fwd';           # Update orientation.
+                    $stats_href->{'ssu_fwd_map'}++;         # Update stats counter
+                }
+            } elsif ($line_href->{'FLAG'} & 0x80) { # Last segment in template
+                unless ($line_href->{'FLAG'} & 0x100) {
+                    $current_orientation = 'rev';           # Update orientation
+                    $stats_href->{'ssu_rev_map'}++;         # Update stats counter
+                }
+            }
         } else {
-            # Check if reads are PE or SE
-            my $pair;
-            if ($bitflag & 0x1) { # If PE read
-                if ($SEmode != 0) { # Sanity check
-                    msg ("ERROR: bitflag in SAM file conflicts with SE mode flag ");
-                }
-                if ($bitflag & 0x40) {
-                    $pair="F";
-                    ${$stats_href}{"ssu_fwd_map"}++;
-                } elsif ($bitflag & 0x80) {
-                    $pair="R";
-                    ${$stats_href}{"ssu_rev_map"}++;
-                }
-            } else {
-                $pair = "U";
-                ${$stats_href}{"ssu_fwd_map"}++;
+            # SE input
+            unless ($line_href->{'FLAG'} & 0x100) {
+                $current_read = $line_href->{'QNAME'};      # Ignore secondary alignments
+                $stats_href->{'ssu_fwd_map'}++;             # Update stats counter
             }
-            # Record into hash
-            ${$href}{$read}{$pair}{"ref"} = $ref;
-            ${$href}{$read}{$pair}{"bitflag"} = $bitflag;
+        }
+        
+        # Fix wrong assignment of secondary alignments of reverse read
+        if ($line_href->{'FLAG'} & 0x100) {
+            if ($current_orientation eq 'rev' && $line_href->{'FLAG'} & 0x40) {
+                # Fix bug in bbmap handling of BItflags (current as of v37.99)
+                $line_href->{'QNAME'} = $current_read;
+                $line_href->{'FLAG'} -= 64;     # Turn off flag 0x40
+                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80 
+            }
+        }
+        
+        # Hash refs to each SAM alignment by QNAME, segment, and RNAME
+        push @{$sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}}}, $line_href;
+        # Store array of SAM alignments in order encountered in file
+        push @sam_arr, $line_href;
+        
+    }
+    close ($fh);
+    
+    # Write copy of fixed SAM file
+    if (@sam_arr) {
+        msg ("Writing fixed SAM file to ".$outfiles{'sam_map'}{'filename'});
+        my $sam_fh;
+        open_or_die(\$sam_fh,
+                    ">",
+                    $outfiles{"sam_map"}{"filename"});
+        foreach my $href (@sam_arr) {
+            my @outarr;
+            my @fields = qw(QNAME FLAG RNAME POS MAPQ CIGAR RNEXT PNEXT TLEN SEQ QUAL);
+            foreach my $field (@fields) {
+                push @outarr, $href->{$field};
+            }
+            push @outarr, $href->{'OPTIONAL'} if defined $href->{'OPTIONAL'};
+            print $sam_fh join "\t", @outarr;
+            print $sam_fh "\n";
+        }
+        $outfiles{"sam_map"}{"made"}++;
+        close $sam_fh;
+        msg ("Done");
+    }
+    
+    return (\%sam_hash,
+            \@sam_arr);
+}
 
-            # Shorten taxonomy string and save into NTU table
-            if ($ref =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                my $taxonlongstring = $1;
-                $taxa_full_href->{$taxonlongstring}++; # Count full-length taxon for treemap
+sub parse_stats_taxonomy_from_sam_array {
+    # From array of fixed SAM records ...
+    # Parse out taxonomy summary to the following global vars
+    #  $taxa_ambig_byread_hash
+    #  $taxa_full_href
+    #  @taxa_full
+    #  $taxa_summary_href
+    #  $chao1
+    #  @xtons
+    
+    my ($aref) = @_;
+    
+    my @taxa_full;
+    
+    msg ("Summarizing taxonomy from mapping hits to SILVA database");
+    msg ("Using best hit only") if defined $tophit_flag;
+    foreach my $href (@$aref) {
+        # Hash taxa hits by read
+        if ($href->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) { # Match to SILVA header: Accession Taxstring
+            my $taxonlongstring = $1;
+            if (defined $tophit_flag) { # Global var $tophit_flag
+                # "old" way - just take the top hit of each read as the taxon
+                # Therefore ignore secondary alignments
+                # Count full-length taxon for treemap
+                $taxa_full_href->{$taxonlongstring}++ unless $href->{'FLAG'} & 0x100;
                 # Save full taxonomy string
-                push @taxa_full, $taxonlongstring;
+                push @taxa_full, $taxonlongstring unless $href->{'FLAG'} & 0x100;
             } else {
-                msg ("Warning: malformed database entry $ref");
+                # Use consensus of ambiguous mapping hits to get the consensus taxon per read
+                my @taxonlongarr = split /;/, $taxonlongstring;
+                taxstring2hash(\%{$taxa_ambig_byread_hash{$href->{'QNAME'}}}, \@taxonlongarr);
             }
+        } else {
+            msg ("Warning: malformed database entry for ".$href->{'RNAME'});
         }
     }
-    close($fh);
-
-    # Summarize taxonomy
-    $taxa_summary_href = summarize_taxonomy(\@taxa_full, $taxon_report_lvl); # Summarize
-
-    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
-    foreach my $taxon (keys %$taxa_summary_href) {
-        if ($taxa_summary_href->{$taxon} == 1) {        # 1-tons
-            $xtons[0]++;
-        } elsif ($taxa_summary_href->{$taxon} == 2) {   # 2-tons
-            $xtons[1]++;
-        } elsif ($taxa_summary_href->{$taxon} >= 3) {   # 3+-tons
-            $xtons[2]++;
-        }
-    }
-    if ($xtons[1] > 0) {
-        $chao1 =
-          $xtons[2] +                               # Is there an error here? Should be sum of all spp. observed
-          ($xtons[0] * $xtons[0]) / 2 / $xtons[1];
+    
+    if (defined $tophit_flag) {
+        # Using only top alignment per read to get taxonomy
+        $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
     } else {
-        $chao1 = 'n.d.';
+        # Use consensus of all ambiguous alignments per read to get taxonomy
+
+        # List of all the readcounter IDs
+        my @allreadcounters = (keys %taxa_ambig_byread_hash);
+        ## Count taxonomy in tree from consensus taxstrings, truncated to taxonomic level requested
+        $taxa_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, $taxon_report_lvl);
+        ## Count taxonomy in tree from consensus taxstrings, to full taxonomic level (7)
+        $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
     }
+
+    # Calculate Chao1 index from taxon counts
+    ($chao1, @xtons) = diversity_stats_from_taxonomy($taxa_summary_href);
 
     msg("done...");
+}
+
+sub diversity_stats_from_taxonomy {
+    # From hash of counts keyed by taxon (global var $taxa_summary_href)
+    # Count 1-tons, 2-tons, and 3+-tons and calculate Chao1 statistic
+    my ($href) = @_;
+    my ($chao);
+    my ($oneton, $twoton, $moreton) = (0,0,0);
+    foreach my $taxon (keys %$href) {
+        if ($href->{$taxon} == 1) {        # 1-tons
+            $oneton++;
+        } elsif ($href->{$taxon} == 2) {   # 2-tons
+            $twoton++;
+        } elsif ($href->{$taxon} >= 3) {   # 3+-tons
+            $moreton++;
+        }
+    }
+    if ($twoton > 0) {
+        $chao =
+          $moreton +                               # Is there an error here? Should be sum of all spp. observed
+          ($oneton * $oneton) / 2 / $twoton;
+    } else {
+        $chao = 'n.d.';
+    }
+    return ($chao, $oneton, $twoton, $moreton);
 }
 
 sub truncate_taxonstring {
@@ -1138,7 +1534,7 @@ sub spades_parse {
     if (! -s "$libraryNAME.spades/scaffolds.fasta") {
         msg("no phylotypes assembled with SPAdes");
         $skip_spades = 1;
-        system ("rm ./$libraryNAME.spades -r");
+        remove_tree("$libraryNAME.spades");
     }
 
     # run barrnap once for each domain
@@ -1209,7 +1605,7 @@ sub spades_parse {
         }
         close($fh);
         $outfiles{"gff_all"}{"made"}++;
-    
+
         # fastaFromBed will build a .fai index from the source .fasta
         # However, it does not notice if the .fasta changed. So we
         # delete the .fai if it is older than the .fasta.
@@ -1218,7 +1614,7 @@ sub spades_parse {
                            "$libraryNAME.spades/scaffolds.fasta.fai")) {
             unlink("$libraryNAME.spades/scaffolds.fasta.fai");
         }
-    
+
         # extract rrna fragments from spades scaffolds accoding to gff
         my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
                                  "-bed",$outfiles{"gff_all"}{"filename"},
@@ -1288,7 +1684,7 @@ sub fix_bedtools_header {
 sub trusted_contigs_parse {
     # Extract SSU rRNA sequences from "trusted contigs" Fasta file
     msg("Extracting SSU rRNA from trusted contigs $trusted_contigs...");
-    
+
     # run barrnap once for each domain
     # if single cell data - accept partial rRNAs down to 0.1
     # and use lower e-value setting
@@ -1358,7 +1754,7 @@ sub trusted_contigs_parse {
         }
         close($fh);
         $outfiles{"trusted_gff_all"}{"made"}++;
-    
+
         # fastaFromBed will build a .fai index from the source .fasta
         # However, it does not notice if the .fasta changed. So we
         # delete the .fai if it is older than the .fasta.
@@ -1367,7 +1763,7 @@ sub trusted_contigs_parse {
                            "$trusted_contigs.fai")) {
             unlink("$trusted_contigs.fai");
         }
-    
+
         # extract rrna fragments from trusted contigs accoding to gff
         my @fastaFromBed_args = ("-fi $trusted_contigs",
                                  "-bed",$outfiles{"trusted_gff_all"}{"filename"},
@@ -1455,14 +1851,14 @@ sub bbmap_remap {
             $outfiles{'reads_mapped_notrusted_r'}{'made'}++; # Record file as made
         }
     }
-    
+
     # Run BBmap
     run_prog("bbmap",
              join (" ", @remap_args),
              undef,
              $outlog,
              );
-    
+
     msg("done...");
 }
 
@@ -1472,7 +1868,7 @@ sub screen_remappings {
 
     msg ("Reading remappings to summarize taxonomy of unmapped reads"); # TK
 
-    # first SAM in %ssu_sam
+    # first SAM in %$sam_fixed_href
     my %sam_spades; # too good to be true
     my %sam_emirge;
     my %sam_trusted;
@@ -1490,43 +1886,46 @@ sub screen_remappings {
     }
 
     my @unassem_taxa;
+    my @unassem_readcounters; # Readcounter IDs for unassembled reads
     my $ssu_fwd_map = 0;
     my $ssu_rev_map = 0;
-    my $total_assembled = 0;    # Count total that map to a full-length SSU
+    my $total_assembled = 0;    # Count total read segments that map to a full-length SSU
 
     # Go through hash of initial mapping
     # Count total reads, total assembled/reconstructed, and total unassembled/reconstructed
-    foreach my $read (keys %ssu_sam) {
+    foreach my $read (keys %$sam_fixed_href) {
         # Iterate through all segments of read pairs
         my @pairs;
         if ($SEmode == 1) {
-            push @pairs, "U";
+            push @pairs, 'fwd';
         } else {
-            push @pairs, ("F", "R");
+            push @pairs, qw(fwd rev);
         }
 
         foreach my $pair (@pairs) {
             # Check if read segment exists and add to total reads
-            if (defined $ssu_sam{$read}{$pair}) {
-                if ($pair eq "U" | $pair eq "F") {
-                    $ssu_fwd_map ++;
-                } elsif ($pair eq "R") {
-                    $ssu_rev_map ++ ;
-                }
-                # Check whether has been flagged as mappign to SPAdes or Emirge or trusted contig
-                if (defined $ssu_sam{$read}{$pair}{"mapped2spades"} | defined $ssu_sam{$read}{$pair}{"mapped2emirge"} | defined $ssu_sam{$read}{$pair}{'mapped2trusted'}) {
+            if (defined $sam_fixed_href->{$read}{$pair}) {
+                # Check whether read segment been flagged as mapping to SPAdes or Emirge or trusted contig
+                if (defined $sam_fixed_href->{$read}{$pair}{"mapped2spades"} | defined $sam_fixed_href->{$read}{$pair}{"mapped2emirge"} | defined $sam_fixed_href->{$read}{$pair}{'mapped2trusted'}) {
                     # Add to total of read segments mapping to a full-length seq
                     $total_assembled ++;
                 } else {
                     # If not mapping to full-length seq, check if it has mapped to a SILVA ref sequence
-                    if (defined $ssu_sam{$read}{$pair}{"ref"} ) {
-                        if ($ssu_sam{$read}{$pair}{"ref"} =~ m/\w+\.\d+\.\d+\s(.+)/) {
-                            # Record the taxon to which it has mapped
-                            my $taxonlongstring = $1;
-                            push @unassem_taxa, $taxonlongstring;
-                        } else {
-                            msg ("Warning: Malformed database entry: ".$ssu_sam{$read}{$pair}{"ref"});
+                    foreach my $ref (keys %{$sam_fixed_href->{$read}{$pair}}) {
+                        foreach my $href (@{$sam_fixed_href->{$read}{$pair}{$ref}}) {
+                            if (ref($href) eq 'HASH' && defined $href->{'FLAG'}) { # If this is a hashed SAM record
+                                unless ($href->{'FLAG'} & 0x4 || $href->{'FLAG'} & 0x100) { # Unless segment unmapped or is a secondary alignment
+                                    push @unassem_readcounters, $read;
+                                    # If using top hit
+                                    if ($href->{'RNAME'} =~ m/\w+\.\d+\.\d+\s(.+)/) {
+                                        my $taxonlongstring = $1;
+                                        push @unassem_taxa, $taxonlongstring;
+                                    }
+                                }
+                            }
                         }
+
+                        
                     }
                 }
             }
@@ -1534,15 +1933,18 @@ sub screen_remappings {
     }
 
     # Summarize counts per NTU of unassembled reads
-    $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
+    if (defined $tophit_flag) {
+        $taxa_unassem_summary_href = summarize_taxonomy(\@unassem_taxa, $taxon_report_lvl);
+    } else {
+        $taxa_unassem_summary_href = consensus_taxon_counter(\%taxa_ambig_byread_hash, \@unassem_readcounters, $taxon_report_lvl);
+    }
 
-    # Calculate ratio of reads assembled and store in hash
-    my $ssu_tot_map = $ssu_fwd_map + $ssu_rev_map;
-    my $total_unassembled = $ssu_tot_map - $total_assembled;
-    $ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
+    # Calculate ratio of reads segments assembled and store in hash
+    my $total_unassembled = $ssu_sam_mapstats{'ssu_tot_map'} - $total_assembled;
+    #$ssu_sam_mapstats{"ssu_tot_map"} = $ssu_tot_map;            # Total reads mapped
     $ssu_sam_mapstats{"assem_tot_map"} = $total_assembled;      # Total mapping to full-length
     $ssu_sam_mapstats{"ssu_unassem"} = $total_unassembled;      # Total not mapping to a full-length
-    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_tot_map;   # Ratio assembled/reconstructed
+    $ssu_sam_mapstats{"assem_ratio"} = $total_assembled/$ssu_sam_mapstats{'ssu_tot_map'};   # Ratio assembled/reconstructed
     $ssu_sam_mapstats{"assem_ratio_pc"} = sprintf ("%.3f", $ssu_sam_mapstats{"assem_ratio"} * 100); # As a percentage to 3 dp
 
     # Calculate totals for each tool used
@@ -1567,7 +1969,7 @@ sub screen_remappings {
         }
         $ssu_sam_mapstats{'trusted_tot_map'} = $trusted_tot_map;
     }
-    
+
     # Write CSV of reads assembled for piechart
     my @assemratio_csv;
     push @assemratio_csv, "Unassembled,".$total_unassembled;
@@ -1608,7 +2010,8 @@ sub flag_unmapped_sam {
     open_or_die(\$fh_in, "<", $sam_in);
     while (my $line = <$fh_in>) {
         next if ($line =~ m/^@/); # Skip headers
-        my ($read, $bitflag, $ref, @discard) = split /\t/, $line;
+        my ($readfull, $bitflag, $ref, @discard) = split /\t/, $line;
+        my ($read, @discard2) = split /\s/, $readfull; # Split on first whitespace
         # Check whether fwd or rev
         my $pair;
         if ($bitflag & 0x1) { # If PE read
@@ -1616,29 +2019,29 @@ sub flag_unmapped_sam {
                 msg ("Error: bitflag in SAM file conflicts with SE mode flag");
             }
             if ($bitflag & 0x40) {
-                $pair = "F";
+                $pair = "fwd";
             } elsif ($bitflag & 0x80) {
-                $pair = "R";
+                $pair = "rev";
             }
         } else {
-            $pair = "U";
+            $pair = "fwd";
         }
         # Check whether read has mapped to reference
         unless ($bitflag & 0x4) { # negate condition because bitflag 0x4 means "segment unmapped"
-            if (defined $ssu_sam{$read}{$pair}) {
+            if (defined $sam_fixed_href->{$read}{$pair}) {
                 # Mark reads that map to SPAdes or EMIRGE or trusted
-                $ssu_sam{$read}{$pair}{$mappedname}++;
+                $sam_fixed_href->{$read}{$pair}{$mappedname}++;
                 # Add to read count for that reference sequence
                 my ($refshort) = $ref =~ /($libraryNAME\.PF\w+)_[\d\.]+/;
                 $ssufull_hash{$refshort}{"counts"}++;
                 # Count how many fwd and rev reads map to SPAdes
-                if ($pair eq "F" | $pair eq "U") {
+                if ($pair eq "fwd") {
                     $ssu_sam_mapstats{$mapped_fwd}++;
-                } elsif ($pair eq "R") {
+                } elsif ($pair eq "rev") {
                     $ssu_sam_mapstats{$mapped_rev}++;
                 }
             } else {
-                print STDERR "Cannot find read $read in original SAM file\n";
+                msg ("Warning: The $pair segment of read $read is not in initial mapping result");
             }
         }
     }
@@ -1672,7 +2075,13 @@ sub emirge_run {
         } else {
             $ins_used = $ins_me;
         }
-
+        if ($ins_std == 0) {
+            # insert size std dev has to be nonzero or Emirge will refuse to run
+            # SortMeRNA doesn't report insert size, so we make a guess
+            $ins_std = $ins_used / 2;
+            msg ("Warning: No insert size reported by mapper. Using initial guess $ins_std");
+        }
+        
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
         if ($SSU_total_pairs <= $amplimit) {
@@ -1699,7 +2108,7 @@ sub emirge_run {
 
         run_prog("awk",
                  "\'{print (NR%4 == 1) ? \"\@\" ++i  : (NR%4 == 3) ? \"+\" :\$0}\' "
-		 .$outfiles{"reads_mapped_cat"}{"filename"},
+                 .$outfiles{"reads_mapped_cat"}{"filename"},
                  $outfiles{"reads_mapped_cat_rename"}{"filename"});
         $outfiles{"reads_mapped_cat_rename"}{"made"}++;
 
@@ -1875,7 +2284,7 @@ sub mafft_run {
            push @input_fasta, $outfiles{$ff}{"filename"};
         }
     }
-    # Cat all to one file for alignment 
+    # Cat all to one file for alignment
     run_prog("cat",
              join(" ", @input_fasta),
              $outfiles{"ssu_coll_fasta"}{"filename"});
@@ -1909,11 +2318,15 @@ sub nhmmer_model_pos {
     # File containing HMM models for archaea, bacteria, and eukaryotes SSU
     my $hmm = "$FindBin::RealBin/barrnap-HGV/db/ssu/ssu_ABE.hmm";
     my $sam = $outfiles{"sam_map"}{"filename"}; # SAM file of mapping
+    my $readsf = $outfiles{'reads_mapped_f'}{'filename'};
+    my $readsr = $outfiles{'reads_mapped_r'}{'filename'};
     my $subsample = $outfiles{"readsf_subsample"}{"filename"};
     my $samplelimit = 10000; # Take sample of max this number of reads
 
     # Subsample reads with reformat.sh
-    my @reformat_args = ("in=$sam",
+    my @reformat_args = ("in=$readsf",
+                         "in2=$readsr",
+                         #"path=$DBHOME",
                          "out=$subsample",
                          "srt=$samplelimit",
                          "ow=t", # Overwrite existing files
@@ -1985,22 +2398,38 @@ sub nhmmer_model_pos {
             $prok_pos{$hash{$readname}{"pos"}}++;
         }
     }
+
+    # Total up number of hits per model. If fewer than 50 hits, do not draw
+    # histogram
+    my ($prok_total, $euk_total) = (0,0);
+    foreach my $pos (keys %prok_pos) { $prok_total += $prok_pos{$pos}; }
+    foreach my $pos (keys %euk_pos) { $euk_total += $euk_pos{$pos}; }
+
     # Write result to prokaryote histogram
-    my $fh_prok;
-    open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
-    foreach my $key (sort {$a <=> $b} keys %prok_pos) {
-        print $fh_prok $key."\t". $prok_pos{$key}."\n";
+    if ($prok_total >= 50) {
+        my $fh_prok;
+        open_or_die (\$fh_prok, ">", $outfiles{"nhmmer_prok_histogram"}{"filename"});
+        foreach my $key (sort {$a <=> $b} keys %prok_pos) {
+                print $fh_prok $key."\t". $prok_pos{$key}."\n";
+        }
+        close($fh_prok);
+        $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+    } else {
+        msg ("Fewer than 50 maps to prokaryotic SSU HMM model, skip plotting histogram...");
     }
-    close($fh_prok);
-    $outfiles{"nhmmer_prok_histogram"}{"made"}++;
+
     # Write results for eukaryote histogram
-    my $fh_euk;
-    open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
-    foreach my $key (sort {$a <=> $b} keys %euk_pos) {
-        print $fh_euk $key."\t". $euk_pos{$key}."\n";
+    if ($euk_total >= 50) {
+        my $fh_euk;
+        open_or_die (\$fh_euk, ">", $outfiles{"nhmmer_euk_histogram"}{"filename"});
+        foreach my $key (sort {$a <=> $b} keys %euk_pos) {
+            print $fh_euk $key."\t". $euk_pos{$key}."\n";
+        }
+        close($fh_euk);
+        $outfiles{"nhmmer_euk_histogram"}{"made"}++;
+    } else {
+        msg ("Fewer than 50 maps to eukaryotic SSU HMM model, skip plotting histogram...");
     }
-    close($fh_euk);
-    $outfiles{"nhmmer_euk_histogram"}{"made"}++;
 
     msg ("done");
 }
@@ -2014,56 +2443,63 @@ sub clean_up {
 
         # Delete SPAdes and/or EMIRGE output folders
         if ($skip_spades == 0) {
-            system ("rm $libraryNAME.spades -r");
+            remove_tree ("$libraryNAME.spades");
         }
         if ($skip_emirge == 0) {
-            system ("rm $libraryNAME.emirge -r");
+            remove_tree("$libraryNAME.emirge");
         }
 
         # Remove files that are earmarked for destruction
         # (Change earmarking in PhyloFlash.pm)
         foreach my $key (keys %outfiles) {
             if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} == 1) {
-                system ("rm -r ".$outfiles{$key}{"filename"});
+                unlink $outfiles{$key}{"filename"} or msg ("WARNING: Could not delete file ".$outfiles{$key}{"filename"});
             }
         }
     }
+}
 
+sub do_zip {
     # Compress output into tar.gz archive if requested
-    if ($zip == 1) {
-        my @filelist;
-        my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
-        msg ("Compressing results into tar.gz archive $tarfile");
-        foreach my $key (keys %outfiles) {
-            if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
-                push @filelist, $outfiles{$key}{"filename"};
-            }
+    my @filelist;
+    my @todelete;
+    my $tarfile = $outfiles{"phyloFlash_archive"}{"filename"};
+    msg ("Compressing results into tar.gz archive $tarfile");
+    foreach my $key (keys %outfiles) {
+        if (defined $outfiles{$key}{"made"} && $outfiles{$key}{"discard"} ==0) {
+            push @filelist, $outfiles{$key}{"filename"};
+            push @todelete, $outfiles{$key}{'filename'} unless ($key eq 'report_html' || $key eq 'phyloFlash_log');
+            # Retain report and log file after zip
         }
-        my $to_tar = join " ", @filelist;
-        system ("tar -czf $tarfile $to_tar");
-        system ("rm -r $to_tar");
     }
-
+    my $to_tar = join " ", @filelist;
+    system ("tar -czf $tarfile $to_tar");
+    unlink @todelete or msg ("WARNING: Could not delete files ".join(" ", @todelete));
     msg("Done...");
 }
 
 sub run_plotscript_SVG {
     msg ("generating graphics for report in SVG format");
     # Plot mapping ID histogram
-    my @idhist_args = ( "--hist",
-                        $outfiles{"idhistogram"}{"filename"},
-                        " --title=\"Mapping identity (%)\" ",
-                      );
-    if ($decimalcomma == 1) {
-        push @idhist_args, "--decimalcomma";
+    if (defined $outfiles{"idhistogram"}{"made"}) {
+        # If using BBmap, this file is generated
+        msg ("Plotting mapping ID histogram");
+        my @idhist_args = ( "--hist",
+                            $outfiles{"idhistogram"}{"filename"},
+                            " --title=\"Mapping identity (%)\" ",
+                          );
+        if ($decimalcomma == 1) {
+            push @idhist_args, "--decimalcomma";
+        }
+        run_prog("plotscript_SVG",
+             join (" ", @idhist_args),
+             $outfiles{"plotscript_out"}{"filename"},
+             "&1");
+        $outfiles{"idhistogram_svg"}{"made"}++;
     }
-    run_prog("plotscript_SVG",
-         join (" ", @idhist_args),
-         $outfiles{"plotscript_out"}{"filename"},
-         "&1");
-    $outfiles{"idhistogram_svg"}{"made"}++;
 
     # Piechart of proportion mapped
+    msg("Plotting piechart of mapping ratios");
     my @map_args = ("-pie",
                     $outfiles{"mapratio_csv"}{"filename"},
                     #"-title=\"$SSU_ratio_pc % reads mapped\""
@@ -2082,6 +2518,7 @@ sub run_plotscript_SVG {
 
     # Piechart of proportion assembled, if SPAdes or EMIRGE or trusted contigs output
     if (defined $outfiles{"assemratio_csv"}{"made"}) {
+        msg ("Plotting piechart of assembled reads ratio");
         my $assem_ratio_pc = $ssu_sam_mapstats{"assem_ratio_pc"};
         my @pie_args = ("--pie",
                         $outfiles{"assemratio_csv"}{"filename"},
@@ -2094,8 +2531,9 @@ sub run_plotscript_SVG {
         $outfiles{"assemratio_svg"}{"made"}++;
     }
 
-    # Plot insert size histogram unless running in SE mode
-    if ($SEmode != 1) { # If not running in SE mode ...
+    # Plot insert size histogram unless running in SE mode or using sortmerna
+    if ($SEmode != 1 && defined $outfiles{"inserthistogram"}{"made"}) { # If not running in SE mode ...
+        msg ("Plotting histogram of insert sizes");
         my @inshist_args = ("--hist ",
                             $outfiles{"inserthistogram"}{"filename"},
                             " --title=\"Insert size (bp)\" ",
@@ -2113,6 +2551,7 @@ sub run_plotscript_SVG {
 
     # Plot positional coverage plots for 18S and 16S rRNA genes unless skipped
     if ($poscov_flag == 1) {
+        msg ("Plotting positional coverage across SSU rRNA hmm models");
         # Eukaryotic gene model
         my @args_euk = ("-hist",
                         $outfiles{"nhmmer_euk_histogram"}{"filename"},
@@ -2121,11 +2560,16 @@ sub run_plotscript_SVG {
                         "-title=\"Coverage on 18S model\"",
                         "-color=\"blue\"",
                         );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_euk),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_euk_histogram"}{"filename"}) {
+            # Check that Nhmmer has output a nonzero-sized file (if no reads
+            # found, it will still produce output)
+            run_prog("plotscript_SVG",
+                     join (" ", @args_euk),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_euk_histogram_svg"}{"made"}++;
+        }
+
         # Prokaryotic gene model
         my @args_prok = ("-hist",
                          $outfiles{"nhmmer_prok_histogram"}{"filename"},
@@ -2134,15 +2578,18 @@ sub run_plotscript_SVG {
                          "-title=\"Coverage on 16S model\"",
                          "-color=\"blue\"",
                          );
-        run_prog("plotscript_SVG",
-                 join (" ", @args_prok),
-                 $outfiles{"plotscript_out"}{"filename"},
-                 "&1");
-        $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        if (-s $outfiles{"nhmmer_prok_histogram"}{"filename"}) {
+            run_prog("plotscript_SVG",
+                     join (" ", @args_prok),
+                     $outfiles{"plotscript_out"}{"filename"},
+                     "&1");
+            $outfiles{"nhmmer_prok_histogram_svg"}{"made"}++;
+        }
     }
 
     # Plot tree if spades/emirge unless no alignment was output
     if (defined $outfiles{"ssu_coll_tree"}{"made"}) {
+        msg ("Plotting tree of assembled + reference SSU sequences");
         my @treeplot_args = ("-tree",
                              $outfiles{"ssu_coll_tree"}{"filename"},
                              );
@@ -2164,6 +2611,7 @@ sub run_plotscript_SVG {
     }
 
     # Generate barplot of taxonomy at level XX
+    msg "Plotting barplot of taxonomic summary";
     my @barplot_args = ("-bar",
                         $outfiles{"ntu_csv"}{"filename"},
                         "-title=\"Taxonomic summary from reads mapped\"",
@@ -2264,7 +2712,7 @@ sub write_report_html {
         "XTONS0" => $xtons[0],
         "XTONS1" => $xtons[1],
         "XTONS2" => $xtons[2],
-        "CHAO1" => $chao1,
+        "CHAO1" => sprintf ("%.3f", $chao1), # Round to 3 decimal places
     );
 
     # Define suppress flags (which turn off writing of report)
@@ -2304,9 +2752,9 @@ sub write_report_html {
     }
 
     # Slurp in the SVG plots to embed in HTML file
-    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"});
-    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"});
-    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"});
+    $flags{"IDHISTOGRAM"} = slurpfile($outfiles{"idhistogram_svg"}{"filename"}) if $outfiles{"idhistogram_svg"}{"made"};
+    $flags{"MAPRATIOPIE"} = slurpfile($outfiles{"mapratio_svg"}{"filename"}) if $outfiles{"mapratio_svg"}{"made"};
+    $flags{"TAXONSUMMARYBAR"} = slurpfile($outfiles{"ntu_csv_svg"}{"filename"}) if $outfiles{"ntu_csv_svg"}{"made"};
 
     # Table of output files produced
     my @table_outfiles;
@@ -2346,13 +2794,13 @@ sub write_report_html {
         $flags{"INS_STD"} = $ins_std;
         $flags{"READSR_FULL"} = $readsr_full;
         $flags{"READNR_PAIRS"} = $readnr_pairs;
-        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"});
+        $flags{"INSERTHISTOGRAM"} = slurpfile($outfiles{"inserthistogram_svg"}{"filename"}) if $outfiles{"inserthistogram_svg"}{"made"};
     }
 
     # Slurp in positional coverage histograms, if defined
     if ($poscov_flag == 1) {
-        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"});
-        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"});
+        $flags{"POSCOVHIST_PROK"} = slurpfile($outfiles{"nhmmer_prok_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_prok_histogram_svg"}{"made"};
+        $flags{"POSCOVHIST_EUK"} = slurpfile($outfiles{"nhmmer_euk_histogram_svg"}{"filename"}) if $outfiles{"nhmmer_euk_histogram_svg"}{"made"};
     }
 
     # Params defined only for assembled (SPAdes) reads
@@ -2438,16 +2886,16 @@ sub write_report_html {
         }
         $flags{"TRUSTED_SSU_TABLE"} = join "", @table_trusted_seq;
     }
-    
+
     # Params defined if either SPAdes or EMIRGE are run
     if (defined $outfiles{'spades_fasta'}{'made'} || defined $outfiles{'emirge_fasta'}{'made'} || defined $outfiles{'trusted_fasta'}{'made'}) {
         # Assembly ratios
         $flags{"ASSEM_RATIO"} = $mapstats_href->{"assem_ratio_pc"};
         $flags{"ASSEMBLYRATIOPIE"} = slurpfile($outfiles{"assemratio_svg"}{"filename"}) if (-f $outfiles{"assemratio_svg"}{"filename"});
-        
+
         # Sequence tree
         $flags{"SEQUENCES_TREE"} = slurpfile($outfiles{"ssu_coll_tree_svg"}{"filename"}) if (-f $outfiles{"ssu_coll_tree_svg"}{"filename"});
-        
+
         # Table of unassembled SSU reads affiliations
         my @taxsort = sort {${$taxa_unassem_summary_href}{$b} <=> ${$taxa_unassem_summary_href}{$a}} keys %$taxa_unassem_summary_href;
         my @table_unassem_lines;
@@ -2488,38 +2936,54 @@ sub write_report_html {
 }
 
 sub write_logfile {
-    # This should always be run last
+    # This should always be run last (except do_zip)
     msg("Saving log to file");
     my $fh;
     open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
+    $outfiles{'phyloFlash_log'}{'made'} ++;
     print $fh join "\n", @PhyloFlash::msg_log;
     close($fh);
 }
 
 ######################### MAIN ###########################
-welcome();
+
 parse_cmdline();
 process_required_tools();
 check_environment();
 
 my $timer = new Timer;
 
-# Run BBmap against the SILVA database
-bbmap_fast_filter_sam_run();
+# Initial mapping vs. SILVA database with either BBmap or Sortmerna
+if ($use_sortmerna == 1 ) {
+    # Run Sortmerna if explicitly called for
+    ($sam_fixed_href, $sam_fixed_aref) = sortmerna_filter_sam();
+    # Get total reads processed from Sortmerna log file
+    $readnr = get_total_reads_from_sortmerna_log($outfiles{'sortmerna_log'}{'filename'});
+    # Set insert size summary stats to 0 because not reported by sortmerna
+    ($ins_me, $ins_std) = (0,0); 
 
-# Parse statistics from BBmap initial mapping
-my ($bbmap_stats_aref, $skipflag) = bbmap_fast_filter_parse($outfiles{"bbmap_log"}{"filename"}, $SEmode);
+} else {
+    # Run BBmap against the SILVA database
+    bbmap_fast_filter_sam_run();
+    # Fix bitflags and read names in SAM file if necessary
+    ($sam_fixed_href, $sam_fixed_aref) = fix_hash_bbmap_sam($outfiles{'bbmap_sam'}{'filename'},
+                                                            \%ssu_sam_mapstats);
+    # Get total reads and insert size stats from BBmap log file
+    ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
+}
 
+# Get taxonomic summary from hashed SAM records
+parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
+
+# Get mapping statistics from hashed SAM records
+my ($mapping_stats_aref, $skipflag) = parse_mapstats_from_sam_arr($sam_fixed_aref,$readnr,\%ssu_sam_mapstats,$SEmode);
 # Dereference stats
-($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$bbmap_stats_aref;
+($readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc) = @$mapping_stats_aref;
 if (defined $skipflag && $skipflag == 1) {
     # If coverage too low, skip assembly
     $skip_spades = 1;
     $skip_emirge = 1;
 }
-
-# Parse sam file
-readsam();
 
 # Find positional coverage along prok and euk SSU rRNA models using nhmmer
 # from a subsample of reads
@@ -2561,12 +3025,12 @@ $runtime = $timer->minutes; # Log run time - This should go behind print_report(
 
 # Capture output parameters for reports
 my @report_inputs = (
-    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,
-    $readsf_full, $readsr_full, $readnr, $readnr_pairs,
-    $ins_me,$ins_std,$ins_used,
-    $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,
-    $skip_spades, $skip_emirge, $treemap_flag, # flags
-    $taxon_report_lvl,
+    $version, $progcmd, $cwd, $DBHOME, $libraryNAME, $id, $SEmode,              # input parameters
+    $readsf_full, $readsr_full, $readnr, $readnr_pairs,                         # Read input stats
+    $ins_me,$ins_std,$ins_used,                                                 # Insert size stats
+    $SSU_ratio, $SSU_ratio_pc, $SSU_total_pairs,                                # Mapping stats
+    $skip_spades, $skip_emirge, $treemap_flag,                                  # Option flags used
+    $taxon_report_lvl,                                                          # Taxonomic summary
     \%ssu_sam_mapstats,\%outfiles,\@xtons,$chao1,
     $taxa_summary_href, $taxa_unassem_summary_href,
     #\@ssuassem_results_sorted, \@ssurecon_results_sorted,
@@ -2586,10 +3050,10 @@ if ($html_flag) {
 # Clean up temporary files
 clean_up();
 
-
 msg("Walltime used: $runtime with $cpus CPU cores");
 msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
 
 write_logfile() if ($save_log == 1);
+do_zip() if ($zip == 1) ;
