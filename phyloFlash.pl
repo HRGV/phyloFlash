@@ -2935,15 +2935,7 @@ sub write_report_html {
     close($fh_in);
 }
 
-sub write_logfile {
-    # This should always be run last (except do_zip)
-    msg("Saving log to file");
-    my $fh;
-    open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
-    $outfiles{'phyloFlash_log'}{'made'} ++;
-    print $fh join "\n", @PhyloFlash::msg_log;
-    close($fh);
-}
+
 
 ######################### MAIN ###########################
 
@@ -3055,5 +3047,9 @@ msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
 
-write_logfile() if ($save_log == 1);
+if ($save_log == 1) {
+    write_logfile($outfiles{"phyloFlash_log"}{"filename"});
+    $outfiles{'phyloFlash_log'}{'made'} ++;
+}
+
 do_zip() if ($zip == 1) ;
