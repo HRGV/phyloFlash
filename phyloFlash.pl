@@ -2598,10 +2598,18 @@ sub run_plotscript_SVG {
             push @treeplot_args, ("-assemcov",
                                   $outfiles{"full_len_class"}{"filename"},
                                   "-treefasta",
-                                  $outfiles{"ssu_coll_fasta"}{"filename"},
-                                  "-unassemcount",
-                                  $ssu_sam_mapstats{"ssu_unassem"},
+                                  $outfiles{"ssu_coll_fasta"}{"filename"}
                                   );
+            # Check that unassembled count is more than zero. Can be less than
+            # zero in certain cases
+            if ($ssu_sam_mapstats{"ssu_unassem"} >= 0) {
+                push @treeplot_args, ("-unassemcount",
+                                      $ssu_sam_mapstats{"ssu_unassem"});
+            } else {
+                push @treeplot_args, ("-unassemcount",
+                                      '0');
+            }
+            
         }
         run_prog("plotscript_SVG",
                  join(" ",@treeplot_args),
