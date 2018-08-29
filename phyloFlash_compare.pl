@@ -342,7 +342,7 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 
 if (!defined $task_opt) {
     pod2usage ("ERROR: Please specify tasks [barplot, heatmap, matrix] to option --task");
-    pod2usage(-verbose=>1,-exit=>1);
+    pod2usage(-verbose=>0,-exit=>1);
 }
 if ($taxlevel > 7) {
     msg ("Taxonomic level is > 7, this is unlikely to provide a meaningful result");
@@ -355,10 +355,12 @@ if ($outfmt ne 'pdf' && $outfmt ne 'png') {
     msg ("WARNING: Invalid output format $outfmt specified. Should be either \"pdf\" or \"png\". Using \"pdf\"...");
     $outfmt = 'pdf';
 }
-if ($useSAM && !defined $tarfiles_str) {
-    msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --use_SAM option was supplied");
-    pod2usage(-verbose=>1);
-    exit;
+if ($useSAM) {
+    if (!defined $tarfiles_str && !defined $allzip) {
+        msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --use_SAM option was supplied");
+        pod2usage(-verbose=>0);
+        exit;
+    }
 }
 
 
