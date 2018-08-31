@@ -90,6 +90,21 @@ options <- list(
     default="Set3",
     help="Palette name for taxon colors. One of the qualitative palettes from the
                   ColorBrewer2 set: Accent, Dark2, Paired, Pastel1, Pastel2, Set1, Set2, or Set3."
+  ),
+  make_option(
+    c("-s","--subset"),
+    type="character",
+    action="store",
+    default=NA,
+    help="Display only subset from this taxon (e.g. show only Bacteria). Supply
+                  full taxon string prefix, excluding trailing semicolon."
+  ),
+  make_option(
+    c("-r","--rawval"),
+    type="logical",
+    action="store_true",
+    default=FALSE,
+    help="Plot raw counts rather than proportions"
   )
 );
 
@@ -113,12 +128,24 @@ d <- read.csv(conf$options$file[1], sep=",", header=F)
 names(d) <- c('taxon','sample','counts')
 topshow <- conf$options$toptaxa[1]
 
+if (!is.na(conf$options$subset[1])) {
+  d <- d[grep(paste(c("^",conf$options$subset[1]),sep="",collapse=""),
+              d$taxon,
+              perl=TRUE,
+              value=FALSE),]
+}
+
 # Convert raw read counts to proportions per sample
-dd <- ddply(d,'sample', function(x) { sumcounts <- sum(x$counts)
-                                      data.frame(taxon = x$taxon,
-                                        counts = x$counts,
-                                        prop = x$counts/sumcounts)
-                                    })
+if (conf$options$rawval[1]) {
+  dd <- d
+  dd$prop <- d$counts
+} else {
+  dd <- ddply(d,'sample', function(x) { sumcounts <- sum(x$counts)
+                                        data.frame(taxon = x$taxon,
+                                          counts = x$counts,
+                                          prop = x$counts/sumcounts)
+                                      })
+}
 
 dd.totals <- ddply(dd,'taxon',function(x) { totalprop <- sum(x$prop)
                                             data.frame(totalprop=totalprop)
@@ -141,7 +168,12 @@ dd.rename$rename <- factor(dd.rename$rename,levels=taxonnames.renamed[0:topshow+
 dd.palette <- makepalette (n=topshow,brewer.name=conf$options$palette[1],othercolor='grey')
 
 # Draw plot
-dd.rename.barplot <- ggplot(dd.rename, aes(sample,prop)) + geom_bar(aes(fill=rename),stat='identity') + scale_fill_manual(values=dd.palette) + labs(x="Library",y="Proportion of SSU rRNA reads", fill="Taxon")
+dd.rename.barplot <- (ggplot(dd.rename, aes(sample,prop))
+                      + geom_bar(aes(fill=rename),stat='identity')
+                      + scale_fill_manual(values=dd.palette)
+                      + labs(x="Library",y="Proportion of SSU rRNA reads", fill="Taxon")
+                      + theme(axis.text.x = element_text(angle=90, hjust=1))
+                      )
 
 # Write file
 outname <- conf$options$out[1]
