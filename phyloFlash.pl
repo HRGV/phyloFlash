@@ -491,7 +491,7 @@ sub verify_dbhome {
         $DBHOME = find_dbhome();
         pod2usage("Failed to find suitable DBHOME. (Searched \""
                   .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-                  ."You can build a reference database using phyloflash_makedb.pl\n")
+                  ."You can build a reference database using phyloFlash_makedb.pl\n")
             if ($DBHOME eq "");
     }
     msg("Using dbhome '$DBHOME'");
