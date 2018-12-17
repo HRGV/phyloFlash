@@ -1,7 +1,11 @@
+<img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
+
 phyloFlash v3.3 beta 1
 ======================
 
-<img src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo" />
+[![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
+[![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
+[![](https://img.shields.io/conda/dn/Bioconda/phyloflash.svg)](https://anaconda.org/bioconda/phyloflash/files)
 
 by Harald Gruber-Vodicka, Elmar A. Pruesse, and Brandon Seah.
 
