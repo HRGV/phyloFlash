@@ -87,6 +87,8 @@ my $useSAM;
 my $taxlevel = 4;
 my $barplot_display = 5;
 my $barplot_palette = 'Set3';
+my $barplot_subset;
+my $barplot_rawval;
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
 my $keeptmp;
@@ -216,6 +218,20 @@ Default: "Set3"
 
 =back
 
+=item --barplot_subset I<STRING>
+
+Display only the subset from this taxon, e.g. "Bacteria". Should be a taxon
+string excluding trailing semicolon, e.g. "Bacteria;Proteobacteria".
+
+Default: None (show all)
+
+=item --barplot_rawval
+
+Logical: Display counts rather than proportions in barplot, i.e. bars will not be
+rescaled to 100% for each sample.
+
+Default: False
+
 =head2 ARGUMENTS FOR HEATMAP
 
 More options are available by using the R script I<phyloFlash_heatmap.R> directly,
@@ -319,6 +335,8 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "use_SAM" => \$useSAM,
             "displaytaxa=i" => \$barplot_display,
             "barplot_palette=s" => \$barplot_palette,
+            "barplot_subset=s" => \$barplot_subset,
+            "barplot_rawval" => \$barplot_rawval,
             "cluster-samples=s" => \$heatmap_clustersamples,
             "cluster-taxa=s" => \$heatmap_clustertaxa,
             "long-taxnames" => \$heatmap_longtaxnames,
@@ -342,7 +360,7 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 
 if (!defined $task_opt) {
     pod2usage ("ERROR: Please specify tasks [barplot, heatmap, matrix] to option --task");
-    pod2usage(-verbose=>1,-exit=>1);
+    pod2usage(-verbose=>0,-exit=>1);
 }
 if ($taxlevel > 7) {
     msg ("Taxonomic level is > 7, this is unlikely to provide a meaningful result");
@@ -355,10 +373,12 @@ if ($outfmt ne 'pdf' && $outfmt ne 'png') {
     msg ("WARNING: Invalid output format $outfmt specified. Should be either \"pdf\" or \"png\". Using \"pdf\"...");
     $outfmt = 'pdf';
 }
-if ($useSAM && !defined $tarfiles_str) {
-    msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --use_SAM option was supplied");
-    pod2usage(-verbose=>1);
-    exit;
+if ($useSAM) {
+    if (!defined $tarfiles_str && !defined $allzip) {
+        msg ("ERROR: No phyloFlash tar.gz archives were supplied even though --use_SAM option was supplied");
+        pod2usage(-verbose=>0);
+        exit;
+    }
 }
 
 
@@ -527,6 +547,14 @@ if (defined $task_hash{'barplot'} ) {
                         "-o $outfile_name",
                         "-p $barplot_palette",
                         );
+    if (defined $barplot_subset) { # Subset taxa
+        push @barplot_args, "--subset=\"$barplot_subset\"";
+    }
+    if (defined $barplot_rawval) {
+        push @barplot_args, "--rawval";
+    }
+    
+    
     my $barplot_cmd = join " ", ('Rscript', $barplot_script, @barplot_args);
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);

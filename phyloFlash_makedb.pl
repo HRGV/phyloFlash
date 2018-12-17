@@ -564,11 +564,3 @@ sub finish {
     or change script line XXX accordingly");#Fixme
 }
 
-sub write_logfile {
-    my $file = shift;
-    msg ("Saving log to file $file");
-    my $fh;
-    open_or_die(\$fh, ">>", $file);
-    print $fh join "\n", @PhyloFlash::msg_log;
-    close($fh);
-}

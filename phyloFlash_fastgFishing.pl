@@ -8,11 +8,11 @@ phyloFlash_fastgFishing.pl - Bin genomes from Fastg graph by SSU sequence
 
 ### Megahit assembly
 
-phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --out [PREFIX]
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --out [PREFIX] --assembler megahit
 
 ### SPAdes assembly
 
-phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out [PREFIX]
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out [PREFIX] --assembler spades
 
 ### Help
 

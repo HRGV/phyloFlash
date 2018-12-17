@@ -28,17 +28,17 @@ phyloFlash.pl -lib run01 -read1 reads_FR.fq.gz -interleaved
 
 Longer read lengths:
 ```bash
-phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -readlength 150
+phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -readlength 150
 ```
 
 Limit number of processors used to 8:
 ```bash
-phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -CPUs 8
+phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -CPUs 8
 ```
 
 Compress all the output files into a tar.gz archive:
 ```
-phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -zip
+phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -zip
 ```
 
 ## 2. Full description of program options

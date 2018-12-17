@@ -35,6 +35,7 @@ our @EXPORT      = qw(
   get_cpus
   msg
   @msg_log
+  write_logfile
   err
   version_sort
   file_is_newer
@@ -100,6 +101,20 @@ sub msg {
     print STDERR $line."\n";
 }
 
+=item write_logfile ($file)
+
+Saves message log to file
+
+=cut
+sub write_logfile {
+    my $file = shift;
+    msg ("Saving log to file $file");
+    my $fh;
+    open_or_die(\$fh, ">>", $file);
+    print $fh join "\n", @PhyloFlash::msg_log;
+    close($fh);
+}
+
 =item err($msg)
 
 Logs an error message to STDERR and dies
@@ -109,6 +124,7 @@ sub err {
     my @msg = (@_,"Aborting.");
     $msg[0] = "FATAL: ".$msg[0];
     msg(@msg);
+    write_logfile("phyloFlash_log_on_error");
     exit(3);
 }
 
