@@ -261,9 +261,9 @@ Default: Off ("-nolog")
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
-                    with help from Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2014-2018 by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+                           and Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENSE
 

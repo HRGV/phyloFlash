@@ -925,9 +925,9 @@ sub welcome {
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2018- Brandon Seah <kbseah@mpi-bremen.de> with
-                    Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+Copyright (C) 2018-     by Brandon Seah <kbseah@mpi-bremen.de>
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
 
 LICENCE
 

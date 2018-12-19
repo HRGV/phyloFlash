@@ -1795,8 +1795,9 @@ sub initialize_outfiles_hash {
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2015 Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-                   Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+Copyright (C) 2015-2018 by Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENCE
 This program is free software: you can redistribute it and/or modify
