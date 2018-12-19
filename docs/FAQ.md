@@ -10,9 +10,9 @@ Quick overview of taxonomic composition and library quality in metagenomic and m
 
 # What input data can be analyzed?
 
-Metagenomic and metatranscriptomic short-read sequencing, e.g. Illumina. Raw reads are okay, without quality trimming or filtering.
+Metagenomic and metatranscriptomic short-read paired-end sequencing, e.g. Illumina. Raw reads are okay, without quality trimming or filtering.
 
-Transcriptomes typically have a much higher proportion of rRNA reads than genomes. Limit the number of mapped reads to < 1 million with `-readlimit 1000000`.
+Transcriptomes typically have a much higher proportion of rRNA reads than genomes, even if libraries have been prepared with poly-A selection or rRNA depletion. Limit the number of mapped reads to < 1 million with `-readlimit 1000000`.
 
 **NOT** suitable for:
  - Sanger or PacBio libraries

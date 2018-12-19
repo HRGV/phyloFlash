@@ -18,16 +18,38 @@ This manual explains how to install and use phyloFlash. Navigate from the menu b
 
 ## Quick-start
 
+### Download via Conda
+
+[Conda](https://conda.io/docs/) is a package manager that will also install dependencies that are required if you don't have them already.
+
+phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) channel on Conda.
+
 ```bash
-# Download phyloFlash
-wget https://github.com/HRGV/phyloFlash/archive/vXXX.tar.gz
-tar -xzf vXXX.tar.gz
+conda config --add channels bioconda # If you haven't set up Bioconda already
+conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
+conda install phyloflash
+```
 
-# Check for dependencies
-cd phyloFlash-XXX
+### Download from GitHub
+
+If you prefer not to use Conda, or are interested in a specific version that is not distributed there, you can download releases from the [releases](https://github.com/HRGV/phyloFlash/releases) page on GitHub.
+
+If you clone the repository directly off GitHub you might end up with a version that is still under development.
+
+```bash
+# Download latest release
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b1.tar.gz
+tar -xzf pf3.3b1.tar.gz
+
+# Check for dependencies and install them if necessary
+cd phyloFlash-pf3.3b1
 ./phyloFlash.pl -check_env
+```
 
-# Install reference database
+### Set up database and run
+
+```bash
+# Install reference database (takes some time)
 ./phyloFlash_makedb.pl --remote
 
 # Run with test data and 16 processors (default is to use all processors available)
@@ -60,7 +82,6 @@ Use the `-zip` switch to compress output files into tar.gz archive, and `-log` t
 
 Example phyloFlash report from the provided test data can be viewed [here](test.phyloFlash.html).
 
-
 ## Contents
 
  - [Installation](install.html)
@@ -68,7 +89,6 @@ Example phyloFlash report from the provided test data can be viewed [here](test.
  - [Utilities](utilities.html)
  - [Output report](output.html)
  - [FAQ](FAQ.html)
-
 
 ## About
 
@@ -83,6 +103,6 @@ You can find the source code for phyloFlash at GitHub:
 
 If you use phyloFlash for a publication, please cite as
 
-Gruber-Vodicka HR, Pruesse E, Seah B. 2017. phyloFlash. Online:https://github.com/HRGV/phyloFlash
+Gruber-Vodicka HR, Pruesse E, Seah B. 2018. phyloFlash. Online:https://github.com/HRGV/phyloFlash
 
 and also remember to cite the dependencies used, which are listed in each phyloFlash report file.

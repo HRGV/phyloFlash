@@ -1,7 +1,6 @@
 <img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
 
-phyloFlash v3.3 beta 1
-======================
+# phyloFlash v3.3 beta 1
 
 [![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
 [![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
@@ -13,32 +12,40 @@ by Harald Gruber-Vodicka, Elmar A. Pruesse, and Brandon Seah.
 
 ***NOTE*** Version 3 changed some input options and also how mapping-based taxa (NTUs) are handled. Please download the last release of v2.0 ([tar.gz archive](https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz)) for the old implementation. No changes have been made to the database setup, so databases prepared for v2.0 can still be used for v3.0.
 
-Quick-start
------------
+## Quick-start
 
-Download releases from the [releases](https://github.com/HRGV/phyloFlash/releases) page. If you clone the repository directly off GitHub you might end up with a version that is still under development.
+### Download via Conda
+
+[Conda](https://conda.io/docs/) is a package manager that will also install dependencies that are required if you don't have them already.
+
+phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) channel on Conda.
 
 ```bash
-# Download phyloFlash
-wget https://github.com/HRGV/phyloFlash/archive/pf3.0b1.tar.gz
-tar -xzf pf3.0b1.tar.gz
+conda config --add channels bioconda # If you haven't set up Bioconda already
+conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
+conda install phyloflash
+```
 
-# Check for dependencies
-cd phyloFlash-pf3.0b1
+### Download from GitHub
+
+If you prefer not to use Conda, or are interested in a specific version that is not distributed there, you can download releases from the [releases](https://github.com/HRGV/phyloFlash/releases) page on GitHub.
+
+If you clone the repository directly off GitHub you might end up with a version that is still under development.
+
+```bash
+# Download latest release
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b1.tar.gz
+tar -xzf pf3.3b1.tar.gz
+
+# Check for dependencies and install them if necessary
+cd phyloFlash-pf3.3b1
 ./phyloFlash.pl -check_env
+```
 
-# Get missing dependencies - the easiest way is to install conda/bioconda - https://conda.io/miniconda.html
-# First add bioconda to the conda channels and then grab what you need
-conda config --add channels bioconda
- 
-conda install emirge
-conda install bbmap
-conda install vsearch
-conda install spades
-conda install mafft
-conda install bedtools
+### Set up database and run
 
-# Install reference database
+```bash
+# Install reference database (takes some time)
 ./phyloFlash_makedb.pl --remote
 
 # Run with test data and 16 processors (default is to use all processors available)
@@ -69,8 +76,7 @@ Use the `-sc` switch for MDA datasets (single cell) or other hard to assemble re
 
 Use the `-zip` switch to compress output files into tar.gz archive, and `-log` to save run messages to a log file
 
-Output
-------
+## Output
 
 phyloFlash screens metagenomic or metatranscriptomic reads for SSU rRNA sequences by mapping against the SILVA SSU Ref database.
 
@@ -80,8 +86,7 @@ phyloFlash reports a taxonomic summary of the reads from the initial mapping, th
 
 Plain text and HTML-formatted reports are produced, reporting summary statistics from each run. The HTML report includes an interactive graphical summary.
 
-Going further
--------------
+## Going further
 
 The phyloFlash suite also includes other tools for SSU rRNA-centric metagenome analyses. Run the commands without arguments to see help messages.
 
@@ -89,13 +94,11 @@ The phyloFlash suite also includes other tools for SSU rRNA-centric metagenome a
  * `phyloFlash_compare.pl` - Compare the taxonomic composition of multiple samples from their phyloFlash results. This produces a barplot, heatmap, or distance matrix based on the NTU abundances in two or more samples.
  * `phyloFlash_fastgFishing.pl` - Given a metagenomic assembly graph in [Fastg](http://fastg.sourceforge.net/) format, identify SSU rRNA sequences and extract contigs connected to them. Optionally compare to phyloFlash results from the same library.
 
-Manual
-------
+## Manual
 
 For further information **please refer to the [Manual](https://hrgv.github.io/phyloFlash)**.
 
-Versions and changes
---------------------
+## Versions and changes
 
 * v3.3 beta 1
   * Add support for using SortMeRNA instead of BBmap for initial mapping step
@@ -118,8 +121,7 @@ Versions and changes
   * No change to heatmap script for comparing multiple samples
 * v2.0 complete rewrite
 
-Contact
--------
+## Contact
 
 Please report any problems to the [phyloFlash Google group](https://groups.google.com/forum/#!forum/phyloflash) or with the GitHub issue tracker.
 
@@ -127,7 +129,6 @@ Please report any problems to the [phyloFlash Google group](https://groups.googl
 
 We also welcome any feedback on the software and its documentation, especially suggestions for improvement!
 
-Acknowledgements
-----------------
+## Acknowledgements
 
 We thank colleagues and phyloFlash users who have contributed to phyloFlash development by testing the software, reporting bugs, and suggesting new features. 
