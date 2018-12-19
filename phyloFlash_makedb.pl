@@ -282,6 +282,7 @@ if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
                       @lsu_in_ssh,
                       $overwrite);
     unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
+    unlink glob "$dbdir/tmp.barrnap_hits.*" unless ($keep==1);
 } else {
     msg ("LSU-filtered file found, not overwriting");
 }
