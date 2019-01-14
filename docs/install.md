@@ -29,7 +29,11 @@ To use **phyloFlash** you will need a GNU/Linux system with Perl, R and Python i
 phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) channel on Conda.
 
 ```bash
-conda config --add channels bioconda # If you haven't set up Bioconda already
+# If you haven't set up Bioconda already
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+# Install packages
 conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
 conda install phyloflash
 ```
@@ -75,7 +79,7 @@ phyloFlash relies on the following software:
  - [Barrnap](https://github.com/tseemann/barrnap) (customized version is provided with phyloFlash)
  - Optional: [SortMeRNA](https://github.com/biocore/sortmerna) v2.1b, if you want to use it as alternative to BBmap
 
-These tools need to be in your `$PATH` environment variable, so that phyloFlash can find them. 
+These tools need to be in your `$PATH` environment variable, so that phyloFlash can find them.
 
 In addition, you will need [R](https://www.r-project.org/) and the following R packages for plotting if you use the `phyloFlash_compare.pl` script for comparing multiple samples:
 

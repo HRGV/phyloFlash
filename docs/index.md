@@ -25,7 +25,11 @@ This manual explains how to install and use phyloFlash. Navigate from the menu b
 phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) channel on Conda.
 
 ```bash
-conda config --add channels bioconda # If you haven't set up Bioconda already
+# If you haven't set up Bioconda already
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+# Install packages
 conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
 conda install phyloflash
 ```
