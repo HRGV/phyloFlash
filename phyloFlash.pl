@@ -261,9 +261,9 @@ Default: Off ("-nolog")
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
-                    with help from Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2014-2018 by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+                           and Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENSE
 
@@ -2970,6 +2970,11 @@ if ($use_sortmerna == 1 ) {
                                                             \%ssu_sam_mapstats);
     # Get total reads and insert size stats from BBmap log file
     ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
+}
+
+if ($readnr == 0) {
+    # Exit if no reads mapped
+    err ("ERROR: No reads were detected! Possible reasons: Coverage in library too low; option -readlimit too low; input is not a (meta)genome/transcriptome dataset.");
 }
 
 # Get taxonomic summary from hashed SAM records

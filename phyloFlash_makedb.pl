@@ -143,9 +143,9 @@ Report version
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                       Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-                       Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2014-2018 by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                           Brandon Seah <kbseah@mpi-bremen.de>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -282,6 +282,7 @@ if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
                       @lsu_in_ssh,
                       $overwrite);
     unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
+    unlink glob "$dbdir/tmp.barrnap_hits.*" unless ($keep==1);
 } else {
     msg ("LSU-filtered file found, not overwriting");
 }

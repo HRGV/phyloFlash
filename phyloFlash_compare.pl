@@ -216,8 +216,6 @@ palettes: Accent, Dark2, Paired, Pastel1, Pastel2, Set1, Set2, or Set3.
 
 Default: "Set3"
 
-=back
-
 =item --barplot_subset I<STRING>
 
 Display only the subset from this taxon, e.g. "Bacteria". Should be a taxon
@@ -231,6 +229,8 @@ Logical: Display counts rather than proportions in barplot, i.e. bars will not b
 rescaled to 100% for each sample.
 
 Default: False
+
+=back
 
 =head2 ARGUMENTS FOR HEATMAP
 
@@ -347,7 +347,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "log" => \$keeplog,
             "help|h" => sub { pod2usage(-verbose=>1); },
             "man" => sub { pod2usage(-verbose=>2); },
-            "version|v" => sub { welcome(); exit; }, 
+            "version|v" => sub { welcome(); exit; },
             ) or pod2usage(-verbose=>0, -exit=>1);
 
 # Paths to R scripts
@@ -394,7 +394,7 @@ parse_task_options($task_opt,\%task_hash);
 if ($keeptmp) {
     $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", DIR => ".");
 } else {
-    # Delete temp folders 
+    # Delete temp folders
     $tempdir = tempdir (TEMPLATE=>"phyloFlash_compare_XXXXXX", CLEANUP=>1);
 }
 
@@ -422,7 +422,7 @@ if (defined $csvfiles_str) {
         msg ("ERROR: Cannot perform a comparison with fewer than two input samples. Exiting...");
         exit;
     }
-    
+
     msg ("Reading taxonomy from $num_csv NTU abundance tables in CSV format");
     foreach my $csv (@$csvfiles_aref) {
         if ($csv =~ m/^(.+)\.phyloFlash.NTU.*\.csv/) {
@@ -450,11 +450,11 @@ if (defined $csvfiles_str) {
             my $ntufilename = "$samplename.phyloFlash.NTUabundance.csv";
             my $pFreportcsvname = "$samplename.phyloFlash.report.csv";
             my $ntufull_filename = "$samplename.phyloFlash.NTUfull_abundance.csv";
-            
+
             if (defined $useSAM) {
                 my $sam_aref = get_phyloFlash_sam_from_archive($tarhandle);
                 msg ("Found SAM file in archive $tar; recalculating NTU abundances");
-                
+
                 # Parse taxonomy from SAM file hits
                 my %taxa_ambig_byread_hash;
                 my $taxa_full_href;
@@ -474,7 +474,7 @@ if (defined $csvfiles_str) {
                 # Summarize the NTU counts to full taxonomy level 7
                 my @allreadcounters = (keys %taxa_ambig_byread_hash);
                 $taxa_full_href= consensus_taxon_counter(\%taxa_ambig_byread_hash, \@allreadcounters, 7);
-                
+
                 # Write to temporary file in case keeptmp option is used
                 msg ("Writing recalculated NTU abundance for $samplename to $tempdir_recalc/$ntufull_filename");
                 open(my $fh, ">", "$tempdir_recalc/$ntufull_filename") or die ("$!");
@@ -483,10 +483,10 @@ if (defined $csvfiles_str) {
                     print $fh "\n";
                 }
                 close($fh);
-                
+
                 # Read into ntuhash
                 ntu_csv_file_to_hash("$tempdir_recalc/$ntufull_filename", $samplename, $taxlevel, \%ntuhash);
-                
+
             } else {
                 # Check that NTU abundance table is in archive
                 if ($tarhandle->contains_file($ntufull_filename)) {
@@ -553,8 +553,8 @@ if (defined $task_hash{'barplot'} ) {
     if (defined $barplot_rawval) {
         push @barplot_args, "--rawval";
     }
-    
-    
+
+
     my $barplot_cmd = join " ", ('Rscript', $barplot_script, @barplot_args);
     msg ("Plotting barplot: $barplot_cmd");
     system ($barplot_cmd);
@@ -563,14 +563,14 @@ if (defined $task_hash{'barplot'} ) {
 
 if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
     ## Matrix of taxonomic weighted Unifrac-like distances #####################
-    
+
     # This distance matrix is also produced if used by heatmap option 'custom'
     # For each sample, re-parse the taxon strings and counts and put them in a
     # tree structure with counts per sample stored on each taxon node
-    
+
     my %taxon_tree_with_counts;
     my @outarr;
-    
+
     foreach my $sample (keys %ntubysamplehash) {
         my $countername = "_COUNT_$sample";
         encode_persample_counts_on_tree(\%taxon_tree_with_counts,
@@ -597,24 +597,24 @@ if (defined $task_hash{'matrix'} || $heatmap_clustersamples eq 'custom') {
     open (my $fhmatrix, ">", "$out_prefix.matrix.tsv") or die ("Cannot open file $out_prefix.matrix.tsv for writing");
     print $fhmatrix join "\n", @outarr;
     close ($fhmatrix);
-    
+
     msg ("Matrix of Unifrac-like abundance-weighted taxonomic distances written to file $out_prefix.matrix.tsv");
 }
 
 if (defined $task_hash{'heatmap'}) {
     ## Heatmap of samples vs. taxa #############################################
     msg ("Plotting heatmap using script: $heatmap_script");
-    
+
     # Write CSV files containing refactored taxonomy and abundances
     my $tempdir_refactor = "$tempdir/refactor";
     mkdir ($tempdir_refactor);
     msg ("Writing tables for refactored taxonomic abundances to folder $tempdir_refactor");
     csv_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
     metadata_from_refactored_NTU_hash(\%ntubysamplehash,$tempdir_refactor);
-    
+
     # Define input CSV files for heatmap R script
     my $heatmap_csv_input = "$tempdir_refactor/*.csv";
-    
+
     # Define name of output plot file
     my $outfile_name = "$out_prefix.heatmap.$outfmt";
 
@@ -623,15 +623,15 @@ if (defined $task_hash{'heatmap'}) {
                         "--cluster-samples=$heatmap_clustersamples",
                         "--cluster-taxa=$heatmap_clustertaxa",
                         "--min-ntu-count=$heatmap_minntucount");
-    
+
     # If using custom distance matrix...
     if ($heatmap_clustersamples eq 'custom') {
         push @heatmap_args, "--custom-distance-matrix-sample=$out_prefix.matrix.tsv";
     }
-    
+
     # Push input file names/path last
     push @heatmap_args, $heatmap_csv_input;
-    
+
     my $heatmap_cmd = join " ", ($heatmap_script, @heatmap_args);
     msg ("Plotting heatmap: $heatmap_cmd");
     my $heatmap_return = system ($heatmap_cmd);
@@ -673,7 +673,7 @@ sub csv_from_refactored_NTU_hash {
     my ($href,              # Ref to hash of abundances keyed by sample (primary key) and taxon (secondary key)
         $output_folder,     # Folder to write output CSV files
         ) = @_;
-    
+
     foreach my $sample (keys %$href) {
         my $out_filename ="$sample.phyloFlash.NTUabundance.csv";
         open(my $fh , ">", "$output_folder/$out_filename") or die ("$!");
@@ -689,7 +689,7 @@ sub metadata_from_refactored_NTU_hash {
     my ($href,              # Ref to hash of abundances keyed by sample (primary key) and taxon (secondary key)
         $output_folder,     # Folder to write output CSV files
         ) = @_;
-    
+
     foreach my $sample (keys %$href) {
         my $out_filename ="$sample.phyloFlash.report.csv";
         my $chao1 = chao1_from_hash(\%{$href->{$sample}});
@@ -716,7 +716,7 @@ sub chao1_from_hash {
             $xtons[2] ++;
         }
     }
-    
+
     # Formula copied from phyloFlash.pl - may need to be revised
     if ($xtons[1] > 0) {
         $chao1 =
@@ -725,7 +725,7 @@ sub chao1_from_hash {
     } else {
         $chao1 = 'n.d.';
     }
-    
+
     return $chao1;
 }
 
@@ -925,9 +925,9 @@ sub welcome {
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2018- Brandon Seah <kbseah@mpi-bremen.de> with
-                    Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+Copyright (C) 2018-     by Brandon Seah <kbseah@mpi-bremen.de>
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
 
 LICENCE
 
