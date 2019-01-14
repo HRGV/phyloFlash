@@ -108,7 +108,7 @@ If you wish to use SortMeRNA in addition to or instead of BBmap for filtering rR
 A full description of options for the database setup can be seen with
 
 ```bash
-./phyloFlash_makedb.pl --help
+phyloFlash_makedb.pl --help
 ```
 
 ### 4.1. Downloading database automatically
@@ -116,7 +116,7 @@ A full description of options for the database setup can be seen with
 To create a suitable database, just run
 
 ```bash
-./phyloFlash_makedb.pl --remote
+phyloFlash_makedb.pl --remote
 ```
 
 in the directory where you unpacked phyloFlash. The script will download the most current source databases and prepare the files required by `phyloFlash.pl`.
@@ -130,7 +130,7 @@ If you are behind a proxy and cannot download the database via the script, you c
 If you already have a local copy of the SILVA SSU NR99 database (in Fasta format), and the NCBI Univec database, you can supply the paths:
 
 ```bash
-./phyloFlash_makedb.pl --univec_file /path/to/Univec --silva_file /path/to/SILVA_128_SSURef_Nr99_tax_silva_trunc.fasta.gz
+phyloFlash_makedb.pl --univec_file /path/to/Univec --silva_file /path/to/SILVA_128_SSURef_Nr99_tax_silva_trunc.fasta.gz
 ```
 By default, `phyloFlash.pl` will look in the folder where it is installed for the subfolder with the highest SILVA version number. You can change this by passing the `-dbhome <dir>` switch to phyloFlash.pl or by modifying the `DBHOME` variable in `phyloFlash.pl`.
 

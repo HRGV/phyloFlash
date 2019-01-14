@@ -48,9 +48,11 @@ cd phyloFlash-pf3.3b1
 
 ### Set up database and run
 
+This assumes that the phyloFlash scripts are already in your path.
+
 ```bash
 # Install reference database (takes some time)
-./phyloFlash_makedb.pl --remote
+phyloFlash_makedb.pl --remote
 
 # Run with test data and 16 processors (default is to use all processors available)
 phyloFlash.pl -lib TEST -CPUs 16 -read1 test_files/test_F.fq.gz -read2 test_files/test_R.fq.gz
@@ -66,6 +68,9 @@ phyloFlash.pl -lib LIB -zip -log -read1 reads_F.fq.gz -read2 reads_R.fq.gz
 
 # Run both SPAdes and EMIRGE and produce all optional outputs
 phyloFlash.pl -lib LIB -everything -read1 reads_F.fq.gz -read2 reads_R.fq.gz
+
+# Run SPAdes (skip EMIRGE) and produce all optional outputs (recommended)
+phyloFlash.pl -lib LIB -almosteverything -read1 reads_F.fq.gz -read2 reads_R.fq.gz
 
 # Supply trusted contigs containing SSU rRNA sequences to screen vs reads
 phyloFlash.pl -lib LIB -read1 reads_F.fq.gz -read2 reads_R.fq.gz -trusted contigs.fasta
