@@ -2972,6 +2972,11 @@ if ($use_sortmerna == 1 ) {
     ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
 }
 
+if ($readnr == 0) {
+    # Exit if no reads mapped
+    err ("ERROR: No reads were detected! Possible reasons: Coverage in library too low; option -readlimit too low; input is not a (meta)genome/transcriptome dataset.");
+}
+
 # Get taxonomic summary from hashed SAM records
 parse_stats_taxonomy_from_sam_array($sam_fixed_aref);
 
