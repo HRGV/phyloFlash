@@ -16,6 +16,8 @@ This manual explains how to install and use phyloFlash. Navigate from the menu b
  - Assemble/reconstruct full-length SSU rRNA sequences suitable for phylogenetic analysis
  - Quick comparison of multiple samples by their taxonomic composition using a heatmap
 
+You may read more about the pipeline design and application in our [preprint](https://doi.org/10.1101/521922).
+
 ## Quick-start
 
 ### Download via Conda
@@ -110,8 +112,8 @@ You can find the source code for phyloFlash at GitHub:
 
 ## Citation
 
-If you use phyloFlash for a publication, please cite as
+If you use phyloFlash for a publication, please cite our preprint on BioRxiv:
 
-Gruber-Vodicka HR, Pruesse E, Seah B. 2018. phyloFlash. Online:https://github.com/HRGV/phyloFlash
+Harald R Gruber-Vodicka, Brandon KB Seah, Elmar Pruesse. phyloFlash — Rapid SSU rRNA profiling and targeted assembly from metagenomes. [bioRxiv 521922](https://doi.org/10.1101/521922); doi: https://doi.org/10.1101/521922
 
 and also remember to cite the dependencies used, which are listed in each phyloFlash report file.
