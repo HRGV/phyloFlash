@@ -12,6 +12,8 @@ by Harald Gruber-Vodicka, Elmar A. Pruesse, and Brandon Seah.
 
 ***NOTE*** Version 3 changed some input options and also how mapping-based taxa (NTUs) are handled. Please download the last release of v2.0 ([tar.gz archive](https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz)) for the old implementation. No changes have been made to the database setup, so databases prepared for v2.0 can still be used for v3.0.
 
+Read [our preprint](https://doi.org/10.1101/521922) on phyloFlash.
+
 ## Quick-start
 
 ### Download via Conda
