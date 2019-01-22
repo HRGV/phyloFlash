@@ -93,6 +93,10 @@ Default: Off
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
+If not specified, phyloFlash will check for an environment variable
+I<$PHYLOFLASH_DBHOME>, then look in the current dir, the home dir, and
+the dir where the phyloFlash.pl script is located, for a suitable database dir.
+
 =back
 
 =head2 ANALYSIS TOOLS
@@ -487,7 +491,14 @@ sub verify_dbhome {
     # verify database present
     if (defined($DBHOME)) {
         if (my $file = check_dbhome($DBHOME)) {
-            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"");
+        }
+    } elsif (defined $ENV{"PHYLOFLASH_DBHOME"}) {
+        # dbhome defined as environment variable
+        if (my $file = check_dbhome($ENV{"PHYLOFLASH_DBHOME"})) {
+            pod2usage("\nBroken dbhome directory $ENV{'PHYLOFLASH_DBHOME'}: missing file \"$file\"");
+        } else {
+            $DBHOME = $ENV{"PHYLOFLASH_DBHOME"};
         }
     } else {
         $DBHOME = find_dbhome();
