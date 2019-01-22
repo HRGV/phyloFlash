@@ -171,6 +171,7 @@ use Digest::MD5;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
 use Cwd;
 use Storable;
+use File::Spec;
 
 # URLS
 my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
@@ -557,11 +558,14 @@ sub hash_SILVA_acc_taxstrings_from_fasta {
 
 #--------------------------------------------- final timing stats and goodbye
 sub finish {
+  my $dbdir_abs = File::Spec->rel2abs($dbdir); # Convert to absolute path
   msg("Walltime used: ".$timer->minutes);;
   msg("The databases for Silva release $silva_release are ready for phyloFlash
 
-    Please provide your location of
-    the databases with -dbhome: /path/to/your/databases/
-    or change script line XXX accordingly");#Fixme
-}
+    When running phyloFlash, please provide the location of
+    the databases with the following option:
+      -dbhome $dbdir_abs
 
+    or add the following line to your .bashrc or .bash_profile:
+      export PHYLOFLASH_DBHOME=$dbdir_abs");
+}
