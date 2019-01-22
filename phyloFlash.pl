@@ -20,8 +20,10 @@ B<phyloFlash.pl> -check_env
 
 This tool rapidly approximates the phylogenetic composition of a (meta)genomic
 library by mapping reads to a reference SSU rRNA database, and reconstructing
-full-length SSU rRNA sequences. The pipeline is intended for Illumina paired- or
-single-end HiSeq and MiSeq reads.
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired-end
+HiSeq and MiSeq reads.
+
+For more information, see the manual at L<http://hrgv.github.io/phyloFlash/>
 
 =head1 ARGUMENTS
 
@@ -234,8 +236,8 @@ Default: On. (Turn off with "-nohtml")
 Draw interactive treemap of taxonomic classification in html-formatted report.
 This uses Google Visualization API, which requires an internet connection,
 requires that you agree to their terms of service (see
-https://developers.google.com/chart/terms), and is not open source, although it
-is free to use.
+L<https://developers.google.com/chart/terms>), and is not open source, although
+it is free to use.
 
 Default: Off ("-notreemap")
 
@@ -1046,7 +1048,7 @@ sub sortmerna_filter_sam {
         msg ("Reporting 10 best hits per read");
         push @sortmerna_args, "--best 10";
     }
-    
+
     msg ("Running sortmerna:");
     # Run Sortmerna
     run_prog("sortmerna",
@@ -1115,7 +1117,7 @@ sub parse_mapstats_from_sam_arr {
         $SEmode     # Flag for single-end mode
         ) = @_;
     #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
-    
+
     # Variables used internally
     my $ssu_pairs     = 0;  # Pairs with both segments mapping
     my $ssu_bad_pairs = 0;  # Pairs where segments map to different references
@@ -1126,12 +1128,12 @@ sub parse_mapstats_from_sam_arr {
     my $unmapped_segment = 0; # Don't use this for summary
     my $unmapped;
     my %qname_hash;
-    
+
     foreach my $href (@$aref) {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
         my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
-        # Strip read segment suffixes from name 
+        # Strip read segment suffixes from name
         if ($splitname =~ m/^(.+)([:\/_])[12]/) {
             $splitname = $1.$2;
         }
@@ -1141,7 +1143,7 @@ sub parse_mapstats_from_sam_arr {
         } elsif ($href->{'FLAG'} & 0x80) { # Rev read
             $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
         }
-        
+
         if ($href->{'FLAG'} & 0x2) { # Each segment properly aligned
             $ssu_pairs ++; # This will have to be divided by two later
         } elsif ($href->{'FLAG'} & 0x8) { # Next segment unmapped
@@ -1152,23 +1154,23 @@ sub parse_mapstats_from_sam_arr {
             $ssu_bad_pairs ++; # Will have to be divided by two later
         }
     }
-    
+
     $SSU_total_pairs = scalar (keys %qname_hash); # Count total reads mapped from read names hash
     # This is because unmapped reads are not necessarily reported
-    
+
     # Report fwd and reverse reads mapping
     msg ("Forward read segments mapping: $ssu_f_reads");
     msg ("Reverse read segments mapping: $ssu_r_reads");
-    
+
     # calculating mapping ratio
     $readnr_pairs = $readnr;
     # If paired reads, divide segment-based counts by two into pair-based counts
 
     $readnr_pairs /= 2 if $SEmode == 0;
-    
+
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
     $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
-    
+
     if ($SEmode == 0) {
         # If paired reads, divide segment-based counts by two into pair-based counts
         $ssu_pairs /= 2;
@@ -1186,7 +1188,7 @@ sub parse_mapstats_from_sam_arr {
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
-        
+
         push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio*$readnr;
     } elsif ($SEmode == 0) {
@@ -1208,7 +1210,7 @@ sub parse_mapstats_from_sam_arr {
     $statshref->{'ssu_tot_pair_map'} = $SSU_total_pairs;
     $statshref->{'ssu_tot_pair_ratio'} = $SSU_ratio;
     $statshref->{'ssu_tot_pair_ratio_pc'} = $SSU_ratio_pc;
-    
+
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
@@ -1285,8 +1287,8 @@ sub fix_hash_bbmap_sam {
     # Hash refs to each SAM alignment by QNAME, segment, and RNAME
     my %sam_hash;
     # Store refs to each SAM alignment in an array, in order encountered in SAM file
-    my @sam_arr; 
-    
+    my @sam_arr;
+
     # Open sam file and hash each read entry
     msg ("Reading SAM file $infile into memory");
     my $fh;
@@ -1301,12 +1303,12 @@ sub fix_hash_bbmap_sam {
         ($line_href->{'QNAME'},@discard) = split /\s/, $line_href->{'QNAME'}; # Split on first whitespace
         # Update current read if this is the first read
         if (! defined $current_read ) {
-            $current_read = $line_href->{'QNAME'}; 
+            $current_read = $line_href->{'QNAME'};
         }
         if (! defined $current_orientation) {
             $current_orientation = 'fwd';
         }
-        
+
         # Check if SE or PE mode, update current read field accordingly
         if ($SEmode == 0) {
             # PE input
@@ -1329,25 +1331,25 @@ sub fix_hash_bbmap_sam {
                 $stats_href->{'ssu_fwd_map'}++;             # Update stats counter
             }
         }
-        
+
         # Fix wrong assignment of secondary alignments of reverse read
         if ($line_href->{'FLAG'} & 0x100) {
             if ($current_orientation eq 'rev' && $line_href->{'FLAG'} & 0x40) {
                 # Fix bug in bbmap handling of BItflags (current as of v37.99)
                 $line_href->{'QNAME'} = $current_read;
                 $line_href->{'FLAG'} -= 64;     # Turn off flag 0x40
-                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80 
+                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80
             }
         }
-        
+
         # Hash refs to each SAM alignment by QNAME, segment, and RNAME
         push @{$sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}}}, $line_href;
         # Store array of SAM alignments in order encountered in file
         push @sam_arr, $line_href;
-        
+
     }
     close ($fh);
-    
+
     # Write copy of fixed SAM file
     if (@sam_arr) {
         msg ("Writing fixed SAM file to ".$outfiles{'sam_map'}{'filename'});
@@ -1369,7 +1371,7 @@ sub fix_hash_bbmap_sam {
         close $sam_fh;
         msg ("Done");
     }
-    
+
     return (\%sam_hash,
             \@sam_arr);
 }
@@ -1383,11 +1385,11 @@ sub parse_stats_taxonomy_from_sam_array {
     #  $taxa_summary_href
     #  $chao1
     #  @xtons
-    
+
     my ($aref) = @_;
-    
+
     my @taxa_full;
-    
+
     msg ("Summarizing taxonomy from mapping hits to SILVA database");
     msg ("Using best hit only") if defined $tophit_flag;
     foreach my $href (@$aref) {
@@ -1410,7 +1412,7 @@ sub parse_stats_taxonomy_from_sam_array {
             msg ("Warning: malformed database entry for ".$href->{'RNAME'});
         }
     }
-    
+
     if (defined $tophit_flag) {
         # Using only top alignment per read to get taxonomy
         $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
@@ -1925,7 +1927,7 @@ sub screen_remappings {
                             }
                         }
 
-                        
+
                     }
                 }
             }
@@ -2081,7 +2083,7 @@ sub emirge_run {
             $ins_std = $ins_used / 2;
             msg ("Warning: No insert size reported by mapper. Using initial guess $ins_std");
         }
-        
+
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
         if ($SSU_total_pairs <= $amplimit) {
@@ -2609,7 +2611,7 @@ sub run_plotscript_SVG {
                 push @treeplot_args, ("-unassemcount",
                                       '0');
             }
-            
+
         }
         run_prog("plotscript_SVG",
                  join(" ",@treeplot_args),
@@ -2960,7 +2962,7 @@ if ($use_sortmerna == 1 ) {
     # Get total reads processed from Sortmerna log file
     $readnr = get_total_reads_from_sortmerna_log($outfiles{'sortmerna_log'}{'filename'});
     # Set insert size summary stats to 0 because not reported by sortmerna
-    ($ins_me, $ins_std) = (0,0); 
+    ($ins_me, $ins_std) = (0,0);
 
 } else {
     # Run BBmap against the SILVA database
