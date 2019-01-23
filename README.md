@@ -143,3 +143,11 @@ We also welcome any feedback on the software and its documentation, especially s
 ## Acknowledgements
 
 We thank colleagues and phyloFlash users who have contributed to phyloFlash development by testing the software, reporting bugs, and suggesting new features.
+
+## Citation
+
+If you use phyloFlash for a publication, please cite our preprint on BioRxiv:
+
+Harald R Gruber-Vodicka, Brandon KB Seah, Elmar Pruesse. phyloFlash — Rapid SSU rRNA profiling and targeted assembly from metagenomes. [bioRxiv 521922](https://doi.org/10.1101/521922); doi: https://doi.org/10.1101/521922
+
+and also remember to cite the dependencies used, which are listed in each phyloFlash report file.

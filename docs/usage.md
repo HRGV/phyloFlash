@@ -21,12 +21,17 @@ To screen paired-end 100 bp read files named `reads_F.fq.gz` and `reads_R.fq.gz`
 phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz
 ```
 
+Use the recommended pipeline settings:
+```bash
+phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz -almosteverything
+```
+
 Interleaved reads:
 ```bash
 phyloFlash.pl -lib run01 -read1 reads_FR.fq.gz -interleaved
 ```
 
-Longer read lengths:
+Longer read lengths (e.g. 150 bp):
 ```bash
 phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -readlength 150
 ```
@@ -36,10 +41,6 @@ Limit number of processors used to 8:
 phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -CPUs 8
 ```
 
-Compress all the output files into a tar.gz archive:
-```
-phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -zip
-```
 
 ## 2. Full description of program options
 
@@ -93,7 +94,7 @@ You can access help on the command line with the following options:
 
 `-sc` Use if data are from single-cell MDA libraries, option is passed to the SPAdes assembler. (Default: Off)
 
-`-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. (Default: Look in phyloFLash folder for highest SILVA version number)
+`-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. If not specified, phyloFlash will check for an environment variable `$PHYLOFLASH_DBHOME`, then look in the current directory, the home directory, and the directory where the `phyloFlash.pl` script is located, for a suitable database directory containing the necessary files. If there is more than one database folder, it will pick the one with the highest SILVA version number.
 
 `-trusted FILENAME` User-supplied Fasta file of trusted contigs containing SSU rRNA sequences. The SSU sequences will be extracted with Barrnap, and the input read files will be screened against these extracted "trusted" SSU sequences
 
