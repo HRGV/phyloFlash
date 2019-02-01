@@ -33,10 +33,16 @@ phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) cha
 conda config --add channels defaults
 conda config --add channels bioconda
 conda config --add channels conda-forge
-# Install packages
+# Try the following step if "solving environment" does not terminate
+conda config --set channel_priority strict
+# Install packages to current environment
 conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
 conda install phyloflash
+# Alternatively, create a new environment called "pf" with phyloFlash
+conda create -n pf sortmerna=2.1b phyloflash
 ```
+
+In some cases, `conda install` can hang on the "Solving environment" step. This appears to be because of ambiguities in dependency specifications in packages on different channels (see this [issue](https://github.com/conda/conda/issues/8197) on GitHub). Setting the `channel_priority` to `strict` asks Conda to always pick the higher-priority channel first when installing packages. This requires conda version to be 4.6 and above.
 
 ### 2.2 Download from GitHub
 

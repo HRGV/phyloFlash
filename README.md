@@ -27,7 +27,9 @@ phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/) cha
 conda config --add channels defaults
 conda config --add channels bioconda
 conda config --add channels conda-forge
-# Install packages
+# Try the following step if "solving environment" does not terminate
+conda config --set channel_priority strict
+# Install packages to current environment
 conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
 conda install phyloflash
 ```
