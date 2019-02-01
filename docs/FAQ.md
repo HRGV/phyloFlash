@@ -31,6 +31,18 @@ The extracted SSU rRNA reads will be mapped back to the full-length sequences to
 
 You'll also get output parameters that will help you evaluate quality of your sequences (see below)
 
+# Conda gets stuck on "Solving environment" when I try to install phyloFlash - help!
+
+In some cases, `conda install` or `conda create` can hang on the "Solving environment" step. This appears to be because of ambiguities in dependency specifications in packages on different channels (see this [issue](https://github.com/conda/conda/issues/8197) on GitHub). Setting the `channel_priority` to `strict` asks Conda to always pick the higher-priority channel first when installing packages. This requires conda version to be 4.6 and above.
+
+Run the following command before installing phyloFlash with Conda. It will modify the `.condarc` configuration file of the current user by default (usually `~/.condarc`).
+
+```bash
+conda config --set channel_priority strict
+```
+
+Add either the `--system` or `--env` flags to modify the system or environment config respectively. See `conda config --help` and `conda config --describe` for more information.
+
 # How does phyloFlash show library quality?
 
  - Insert size histogram - should be more or less unimodal. Multiple peaks may be caused by contamination from other sequencing libraries.
@@ -63,6 +75,33 @@ EMIRGE in particular can be tricky to install because of its own software depend
 # How is the taxonomic summary produced?
 
 The taxonomic affiliation of the SSU rRNA reads is taken from the reference sequence to which it maps in the SILVA database. From v3.2b1 onwards, the taxonomy reported is the last-common-ancestor consensus of the top hits, i.e. if a read has more than one best-scoring hit, it will report the lowest taxonomic level which they have in common. In previous versions, only the single best hit was retained, but this would result in overly-preecise taxonomic assignments especially for divergent sequences. To replicate the old behavior, use the `--tophit` option.
+
+# How can I use phyloFlash in a Snakemake pipeline?
+
+[Snakemake](https://snakemake.readthedocs.io/en/stable/) is a workflow engine for bioinformatics, which allows users to document workflows and automatically detect dependencies that have to be updated. The concept is similar to [GNU Make](https://www.gnu.org/software/make/).
+
+Steps in a Snakemake pipeline are called "rules", and each rule definition specifies an input file pattern, an output file pattern, and the command that produces the output from the input. The input/output file patterns can be defined e.g. by a list or regular expressions, so this allows plenty of flexibility.
+
+There are a few possible stumbling blocks when incorporating phyloFlash into a Snakemake pipeline:
+ * Snakemake takes files as input/output arguments, whereas the `-lib` option of phyloFlash is just the file prefix.
+ * phyloFlash produces output in the current working folder, whereas a user might want to put all output from a given rule into a single folder. However phyloFlash will not accept a path prefix (with `/` character) in the `-lib` option.
+
+Here is an example Snakemake rule for phyloFlash, assuming that you have a [configuration file](https://snakemake.readthedocs.io/en/stable/snakefiles/configuration.html) listing all the sample names under `samples` and the path to phyloFlash database under `phyloFlash_db`.
+
+```python
+rule phyloFlash:
+    input:
+        "reads/{sample}.fastq.gz"
+    output:
+        expand("phyloFlash/{sample}.phyloFlash.tar.gz",sample=config['samples'])
+    threads: 16
+    log: "logs/{sample}_phyloFlash.log"
+    conda: "envs/phyloflash.yml" # Specify a Conda environment containing phyloFlash
+    params:
+        dbhome=config['phyloFlash_db']
+    shell:
+        "phyloFlash.pl -lib {wildcards.sample} -dbhome {params.dbhome} -read1 {input} -interleaved -CPUs {threads} -almosteverything; mv {wildcards.sample}.phyloFlash.* phyloFlash/"
+```
 
 # How do I get help if something doesn't work?
 
