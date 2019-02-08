@@ -6,7 +6,7 @@ order: 4
 
 In addition to the main `phyloFlash.pl` tool, the phyloFlash folder contains a number of other tools for working with phyloFlash and analyzing the results.
 
-To see usage instructions for any phyloFlash tool, simply run the script without arguments (short synopsis), or with the options `--help` (short help) or `--man` (full detailed manual page). 
+To see usage instructions for any phyloFlash tool, simply run the script without arguments (short synopsis), or with the options `--help` (short help) or `--man` (full detailed manual page).
 
 ## 1. Database setup
 
@@ -15,7 +15,7 @@ To see usage instructions for any phyloFlash tool, simply run the script without
 phyloFlash_makedb.pl --remote
 
 # use local copies
-phyloFlash makedb.pl --silva_file path/to/silva_db --univec_file path/to/univec_db
+phyloFlash_makedb.pl --silva_file path/to/silva_db --univec_file path/to/univec_db
 ```
 
 Set up phyloFlash databases. See [Installation](install.html).
@@ -92,7 +92,7 @@ Given the run accession number, download read data from the [European Nucleotide
 
 Proxy server users should specify the address to the `--http_proxy` option.
 
-Note that only RUN accession numbers are valid. For an explanation of the different types of accession numbers used by ENA, see their [metadata documentation](http://ena-docs.readthedocs.io/en/latest/meta_01.html#metadata-model). Run accessions typically have the prefix "ERR", "SRR", or "DRR". 
+Note that only RUN accession numbers are valid. For an explanation of the different types of accession numbers used by ENA, see their [metadata documentation](http://ena-docs.readthedocs.io/en/latest/meta_01.html#metadata-model). Run accessions typically have the prefix "ERR", "SRR", or "DRR".
 
 ## 4. Genome binning
 
@@ -106,7 +106,7 @@ phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out
 
 From (meta)genome assembly graph in Fastg format, predict SSU rRNA sequences, extract contig clusters with total length > cutoff (default 100 kbp), and match them to phyloFlash SSU rRNA-targeted assembly results.
 
-This is intended to aid binning of microbial genomes from metagenomes. Each cluster in a Fastg graph is likely to originate from a single genome, and so represents a putative genome bin. 
+This is intended to aid binning of microbial genomes from metagenomes. Each cluster in a Fastg graph is likely to originate from a single genome, and so represents a putative genome bin.
 
 If only a Fasta and Fastg file are specified, predict SSU rRNA sequences in the Fasta contigs and report all contig clusters containing an SSU rRNA with total cluster length above the cutoff.
 
