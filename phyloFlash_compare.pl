@@ -89,6 +89,7 @@ my $barplot_display = 5;
 my $barplot_palette = 'Set3';
 my $barplot_subset;
 my $barplot_rawval;
+my $barplot_scaleplotwidth;
 my $out_prefix = 'test.phyloFlash_compare';
 my $outfmt = "pdf";
 my $keeptmp;
@@ -230,6 +231,13 @@ rescaled to 100% for each sample.
 
 Default: False
 
+=item --barplot_scaleplotwidth
+
+Numeric: Change plot width by this scaling factor (e.g. 2 makes it twice as wide).
+Allows adjustment when bars are hidden because the legend labels are too long.
+
+Default: 1
+
 =back
 
 =head2 ARGUMENTS FOR HEATMAP
@@ -337,6 +345,7 @@ GetOptions ("csv=s" => \$csvfiles_str,
             "barplot_palette=s" => \$barplot_palette,
             "barplot_subset=s" => \$barplot_subset,
             "barplot_rawval" => \$barplot_rawval,
+            "barplot_scaleplotwidth=f" => \$barplot_scaleplotwidth,
             "cluster-samples=s" => \$heatmap_clustersamples,
             "cluster-taxa=s" => \$heatmap_clustertaxa,
             "long-taxnames" => \$heatmap_longtaxnames,
@@ -553,7 +562,9 @@ if (defined $task_hash{'barplot'} ) {
     if (defined $barplot_rawval) {
         push @barplot_args, "--rawval";
     }
-
+    if (defined $barplot_scaleplotwidth) {
+        push @barplot_args, "--scaleplotwidth=$barplot_scaleplotwidth";
+    }
 
     my $barplot_cmd = join " ", ('Rscript', $barplot_script, @barplot_args);
     msg ("Plotting barplot: $barplot_cmd");
