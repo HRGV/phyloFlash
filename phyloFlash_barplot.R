@@ -34,9 +34,9 @@ makepalette <- function (n, brewer.name='Set3', othercolor='grey') {
   # Define palette for taxa, using RColorBrewer Set3 as default for n colors <= 12
   # otherwise attempt to "stretcH" the palette with colorRampPalette
   # othercolor is the default color for "Other" taxa
-  
+
   # Account for different maximum n for different preset palettes
-  max.n <- switch(brewer.name, 
+  max.n <- switch(brewer.name,
                   "Set3" = 12,
                   "Accent" = 8,
                   "Dark2" = 8,
@@ -46,7 +46,7 @@ makepalette <- function (n, brewer.name='Set3', othercolor='grey') {
                   "Set1" = 9,
                   "Set2" = 8
                   )
-  
+
   if (n <= max.n ) {
     out.palette <- brewer.pal(n, name=brewer.name)
     out.palette <- c(out.palette,othercolor)
@@ -105,6 +105,15 @@ options <- list(
     action="store_true",
     default=FALSE,
     help="Plot raw counts rather than proportions"
+  ),
+  make_option(
+    c("-w","--scaleplotwidth"),
+    type="numeric",
+    action="store",
+    default=1,
+    help="Change the plot width by this scaling factor (e.g. 2 makes it twice
+                  as wide). Allows adjustment when bars are hidden because the
+                  legend labels are too long."
   )
 );
 
@@ -179,7 +188,7 @@ dd.rename.barplot <- (ggplot(dd.rename, aes(sample,prop))
 outname <- conf$options$out[1]
 # Adjust width of plot
 num.samples <- length(levels(dd.rename$sample))
-width <- 360 + 80 * num.samples
+width <- 360 + conf$options$scaleplotwidth[1] * 80 * num.samples
 height <- 480
 
 # Choose which output format by output prefix (adapted from heatmap script)
