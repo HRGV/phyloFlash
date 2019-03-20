@@ -158,9 +158,9 @@ Default: No.
 
 =item --task I<STRING>
 
-Type of analysis to be run. Options: "heatmap", "barplot", "matrix", or a
-recognizable substring thereof. Supply more than one option as comma-separated
-list.
+Type of analysis to be run. Options: "heatmap", "barplot", "matrix", "ntu_table"
+or a recognizable substring thereof. Supply more than one option as comma-
+separated list.
 
 Default: None
 
@@ -311,6 +311,16 @@ Output columns are "library 1", "library 2", "distance"
 
 Output filename: I<[PREFIX].matrix.tsv>
 
+=item "ntu_table"
+
+Outputs a tab-separated table of NTU counts per sample. This is the raw data
+used to draw the barplot and may be useful for users who wish to plot the data
+themselves with some other program.
+
+Output columns are taxon string, sample, counts.
+
+Output filename: I<[PREFIX].ntu_table.tsv>
+
 =back
 
 =head2 HELP MESSAGES
@@ -368,7 +378,7 @@ my $heatmap_script = "$Bin/phyloFlash_heatmap.R";
 ## Catch exceptions ############################################################
 
 if (!defined $task_opt) {
-    pod2usage ("ERROR: Please specify tasks [barplot, heatmap, matrix] to option --task");
+    pod2usage ("ERROR: Please specify tasks [barplot, heatmap, matrix, ntu_table] to option --task");
     pod2usage(-verbose=>0,-exit=>1);
 }
 if ($taxlevel > 7) {
@@ -538,6 +548,20 @@ foreach my $taxon (keys %ntuhash) {
 #print Dumper \%totalreads_per_sample;
 
 ## Perform plotting ############################################################
+
+if (defined $task_hash{'ntu_table'}) {
+    ## NTU table ###############################################################
+    msg ("Summarizing NTUs per sample at taxonomic level $taxlevel");
+    my $out_aref = abundance_hash_to_array(\%ntuhash, "\t");
+    my $outfile_name = "$out_prefix.ntu_table.tsv";
+    my $ntu_table_fh;
+    open ($ntu_table_fh, ">", $outfile_name) or die ("Cannot open file $outfile_name for writing");
+    foreach my $line (@$out_aref) {
+        print $ntu_table_fh $line."\n";
+    }
+    close ($ntu_table_fh);
+    msg ("NTU abundance table written to file: $outfile_name");
+}
 
 if (defined $task_hash{'barplot'} ) {
     ## Barplot #################################################################
@@ -747,10 +771,19 @@ sub parse_task_options {
         $href) = @_;
     my @task_arr = split /,/, $task_string;
     foreach my $task (@task_arr) {
-        $href->{'heatmap'} ++ if (index ('heatmap',$task) != -1);
-        $href->{'barplot'} ++ if (index ('barplot',$task) != -1);
-        $href->{'matrix'} ++ if (index ('matrix',$task) != -1);
-        $href->{'test'} ++ if (index ('test', $task) != -1);
+        if (index ('heatmap',$task) != -1) {
+            $href->{'heatmap'} ++;
+        } elsif (index ('barplot',$task) != -1) {
+            $href->{'barplot'} ++;
+        } elsif (index ('matrix',$task) != -1) {
+            $href->{'matrix'} ++;
+        } elsif (index ('ntu_table', $task) != -1) {
+            $href->{'ntu_table'} ++ ;
+        } elsif (index ('test', $task) != -1) {
+            $href->{'test'} ++;
+        } else {
+            msg ("ERROR: Unrecognized argument $task passed to option --task ; Valid arguments are: heatmap, barplot, matrix, ntu_table");
+        }
     }
 }
 
@@ -833,17 +866,19 @@ sub ntu_csv_arr_to_hash {
 }
 
 sub abundance_hash_to_array {
-    my ($href) = @_;
+    my ($href, $delim) = @_;
+    if (!defined $delim) {
+      $delim = ",";
+    }
     my @arr;
     foreach my $taxon (sort keys %$href) {
         foreach my $sample (sort keys %{$href->{$taxon}}) {
             my $count = $href->{$taxon}{$sample};
-            push @arr, join ",", ($taxon, $sample, $count);
+            push @arr, join $delim, ($taxon, $sample, $count);
         }
     }
     return \@arr;
 }
-
 
 sub encode_persample_counts_on_tree {
     my ($href,          # Output hash tree
