@@ -1,6 +1,6 @@
 <img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
 
-# phyloFlash v3.3 beta 1
+# phyloFlash v3.3b2
 
 [![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
 [![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
@@ -42,11 +42,11 @@ If you clone the repository directly off GitHub you might end up with a version 
 
 ```bash
 # Download latest release
-wget https://github.com/HRGV/phyloFlash/archive/pf3.3b1.tar.gz
-tar -xzf pf3.3b1.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b2.tar.gz
+tar -xzf pf3.3b2.tar.gz
 
 # Check for dependencies and install them if necessary
-cd phyloFlash-pf3.3b1
+cd phyloFlash-pf3.3b2
 ./phyloFlash.pl -check_env
 ```
 
@@ -113,6 +113,9 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
 
 ## Versions and changes
 
+* v3.3 beta 2
+  * New options to graphical comparison scripts, and other small bug fixes
+  * Fix bug due to change in SILVA project file naming convention with SILVA 138 onwards
 * v3.3 beta 1
   * Add support for using SortMeRNA instead of BBmap for initial mapping step
   * Changes to how mapping data are hashed; process SAM file of initial mapping to fix known bugs with bitflag and read name reporting in BBmap and SortMeRNA
