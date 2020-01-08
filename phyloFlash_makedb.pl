@@ -59,7 +59,8 @@ Path to local copy of SILVA database file. Ignored if --remote flag is used.
 This should be the Fasta-formatted SILVA SSURef file, clustered at 99% identity,
 with SILVA taxonomy strings in file header, and sequences truncated to SSU gene
 boundaries. The file name should be in the form
-I<SILVA_[Release]_SSURef_Nr99_tax_silva_trunc.fasta.gz>
+I<SILVA_[Release]_SSURef_Nr99_tax_silva_trunc.fasta.gz> (release 132 and before) or
+I<SILVA_[Release]_SSURef_NR99_tax_silva_trunc.fasta.gz> (from release 138 onwards)
 
 =item --univec_file F<path/to/univec_db>
 
@@ -172,9 +173,10 @@ use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
 use Cwd;
 use Storable;
 use File::Spec;
+use File::Basename;
 
 # URLS
-my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_N?99_tax_silva_trunc.fasta.gz";
 my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 
 # constants
@@ -252,7 +254,11 @@ else {
 }
 
 # extract SILVA version
-my ($silva_release) = ($silva_file =~ m/SILVA_([^_]+)_/);
+# get file basename, in case a path is specified
+my ($silva_file_filename, 
+    $silva_file_dirs, 
+    $silva_file_suffix) = fileparse($silva_file);
+my ($silva_release) = ($silva_file_filename =~ m/SILVA_([^_]+)_/);
 
 if (!$&) {
     err("Unable to extract version from SILVA database filename:",
