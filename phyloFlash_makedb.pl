@@ -174,7 +174,7 @@ use Storable;
 use File::Spec;
 
 # URLS
-my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_N?99_tax_silva_trunc.fasta.gz";
 my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 
 # constants
