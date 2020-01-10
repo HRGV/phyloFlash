@@ -755,7 +755,7 @@ Mapping ratio:\t$SSU_ratio_pc%
     if (defined $ssu_sam_mapstats{"assem_ratio"}) {
         print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
     }
-    my $chao1_3dp = sprintf("%.3f",$chao1);
+    my $chao1_3dp = $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1);
 
     print {$fh} qq~
 ---
@@ -875,7 +875,7 @@ sub write_csv {
         "NTUs observed once",$xtons[0],
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
-        "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
+        "NTU Chao1 richness estimate", $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1), # Round to 3 d.p.
         "program command",$progcmd,
         "database path",$DBHOME,
     ));
@@ -1149,6 +1149,20 @@ sub parse_mapstats_from_sam_arr {
             $splitname = $1.$2;
         }
         $qname_hash{$splitname} ++;
+
+        if ($SEmode == 0) {
+            if ($href->{'FLAG'} & 0x40) { # Fwd read
+                $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
+            } elsif ($href->{'FLAG'} & 0x80) { # Rev read
+                $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
+            }
+        } else {
+            # Single end reads
+            if ($href->{'FLAG'} == 0 || $href->{'FLAG'} & 0x10) {
+                $ssu_f_reads ++;
+            }
+        }
+
         if ($href->{'FLAG'} & 0x40) { # Fwd read
             $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
         } elsif ($href->{'FLAG'} & 0x80) { # Rev read
@@ -2733,7 +2747,7 @@ sub write_report_html {
         "XTONS0" => $xtons[0],
         "XTONS1" => $xtons[1],
         "XTONS2" => $xtons[2],
-        "CHAO1" => sprintf ("%.3f", $chao1), # Round to 3 decimal places
+        "CHAO1" => $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1), # Round to 3 decimal places
     );
 
     # Define suppress flags (which turn off writing of report)
