@@ -1,6 +1,6 @@
 <img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
 
-# phyloFlash v3.3b2
+# phyloFlash v3.3b3
 
 [![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
 [![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
@@ -42,11 +42,11 @@ If you clone the repository directly off GitHub you might end up with a version 
 
 ```bash
 # Download latest release
-wget https://github.com/HRGV/phyloFlash/archive/pf3.3b2.tar.gz
-tar -xzf pf3.3b2.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b3.tar.gz
+tar -xzf pf3.3b3.tar.gz
 
 # Check for dependencies and install them if necessary
-cd phyloFlash-pf3.3b2
+cd phyloFlash-pf3.3b3
 ./phyloFlash.pl -check_env
 ```
 

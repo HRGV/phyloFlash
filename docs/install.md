@@ -52,8 +52,8 @@ If you clone the repository directly off GitHub you might end up with a version 
 
 ```bash
 # Download latest release
-wget https://github.com/HRGV/phyloFlash/archive/pf3.3b2.tar.gz
-tar -xzf pf3.3b2.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b3.tar.gz
+tar -xzf pf3.3b3.tar.gz
 ```
 
 Alternatively clone the latest development version with Git:
