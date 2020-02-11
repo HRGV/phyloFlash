@@ -2352,12 +2352,22 @@ sub nhmmer_model_pos {
 
     # Subsample reads with reformat.sh
     my @reformat_args = ("in=$readsf",
-                         "in2=$readsr",
+                         # "in2=$readsr",
                          #"path=$DBHOME",
                          "out=$subsample",
                          "srt=$samplelimit",
                          "ow=t", # Overwrite existing files
                          );
+
+    # Check if SE reads or interleaved reads
+    if ($SEmode == 0) {
+        if ($interleaved == 1) {
+            push @reformat_args, ("interleaved=t");
+        } else {
+            push @reformat_args, ("in2=$readsr");
+        }
+    }
+
     run_prog ("reformat",
               join (" ", @reformat_args),
               undef,
