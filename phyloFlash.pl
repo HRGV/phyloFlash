@@ -1163,12 +1163,6 @@ sub parse_mapstats_from_sam_arr {
             }
         }
 
-        if ($href->{'FLAG'} & 0x40) { # Fwd read
-            $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
-        } elsif ($href->{'FLAG'} & 0x80) { # Rev read
-            $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
-        }
-
         if ($href->{'FLAG'} & 0x2) { # Each segment properly aligned
             $ssu_pairs ++; # This will have to be divided by two later
         } elsif ($href->{'FLAG'} & 0x8) { # Next segment unmapped
