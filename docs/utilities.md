@@ -34,7 +34,7 @@ phyloFlash_compare.pl --zip LIB1.phyloFlash.tar.gz,LIB2.phyloFlash.tar.gz --task
 phyloFlash_compare.pl --allzip --task barplot,heatmap
 ```
 
-Compare the taxonomic composition multiple metagenomic/transcriptomic libraries using the phyloFlash NTU abundance results. Three types of comparison are available: heatmap (taxa vs samples), barplot (relative taxon abundance by sample), or distance matrix (Unifrac-like abundance-weighted taxonomic distances).
+Compare the taxonomic composition multiple metagenomic/transcriptomic libraries using the phyloFlash NTU abundance results. Four types of comparison are available: heatmap (taxa vs samples), barplot (relative taxon abundance by sample), distance matrix (Unifrac-like abundance-weighted taxonomic distances), or ntu_table (table of NTU counts per sample for all samples).
 
 The phyloFlash.pl pipeline rapidly screens metagenomic/transcriptomic libraries for SSU rRNA reads by mapping against the SILVA SSU Ref NR database. The top reference hits per read are used to report an approximate taxonomic affiliation. Read counts per NTU (nearest taxonomic units) are reported by the pipeline to give an overview of the taxonomic diversity in the sample.
 
@@ -64,7 +64,11 @@ The taxonomic composition for each sample can be summarized as a `barplot`, disp
 
 The option `heatmap` produces a plot where both samples and taxa are clustered by similarity, and abundances are represented by a color scale.
 
-To produce only a plain-text, tab-separated pairwise distance matrix of samples, use option `matrix`. The distances used are abundance-weighted taxonomic Unifrac-like distances (see below). More than one option can be supplied at the same time, separated with commas, e.g. `--task barplot,heatmap`.
+To produce only a plain-text, tab-separated pairwise distance matrix of samples, use option `matrix`. The distances used are abundance-weighted taxonomic Unifrac-like distances (see below). 
+
+To produce a single table of read counts for all NTUs and all samples, use option `ntu_table`. This is the raw data used to draw the barplot, and may be useful for users who wish to plot the data themselves with some other program.
+
+More than one option can be supplied at the same time, separated with commas, e.g. `--task barplot,heatmap`.
 
 Further options can be viewed with the `--help` or `--man` options.
 
