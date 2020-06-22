@@ -1796,6 +1796,20 @@ sub initialize_outfiles_hash {
         filename    => "$libraryNAME.sortmerna.log",
         intable     => 1,
       },
+      "readlength_out",
+      {
+        description => "Histogram of read lengths in input file(s)",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.out",
+        intable     => 0,
+      },
+      "readlength_err",
+      {
+        description => "Log file produced by readlength.sh",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.err",
+        intable     => 0,
+      },
       #"",
       #{
       #  description => "",
