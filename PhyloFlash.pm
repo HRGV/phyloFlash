@@ -363,10 +363,10 @@ sub run_prog {
         my @errmsg = ("Tool execution failed!.",
                       "Error was '$!' and return code '$?'");
         if ($redir_stdout) {
-            push @errmsg, "Check log file '$redir_stdout'");
+            push @errmsg, "Check log file $redir_stdout");
         }
         if ($redir_stderr) {
-            push @errmsg, "Check error log file '$redir_stderr'");
+            push @errmsg, "Check error log file $redir_stderr");
         }
         err(@errmsg);
     }
@@ -417,10 +417,10 @@ sub run_prog_nodie {
         my @errmsg = ("Tool execution failed!.",
                       "Error was '$!' and return code '$?'");
         if ($redir_stdout) {
-            push @errmsg, "Check log file '$redir_stdout'");
+            push @errmsg, "Check log file $redir_stdout");
         }
         if ($redir_stderr) {
-            push @errmsg, "Check error log file '$redir_stderr'");
+            push @errmsg, "Check error log file $redir_stderr");
         }
         msg(@errmsg);
     }
