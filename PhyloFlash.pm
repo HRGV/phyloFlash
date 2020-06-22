@@ -358,9 +358,18 @@ sub run_prog {
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
     msg("running subcommand:","$cmd");
-    system($cmd) == 0
-        or err("Tool execution failed!.",
-               "Error was '$!' and return code '$?'");
+    my $return = system($cmd);
+    if ($return != 0) {
+        my @errmsg = ("Tool execution failed!.",
+                      "Error was '$!' and return code '$?'");
+        if ($redir_stdout) {
+            push @errmsg, "Check log file $redir_stdout";
+        }
+        if ($redir_stderr) {
+            push @errmsg, "Check error log file $redir_stderr";
+        }
+        err(@errmsg);
+    }
 
     # FIXME: print tail of stderr if redirected
 }
@@ -405,8 +414,15 @@ sub run_prog_nodie {
     msg("running subcommand:","$cmd");
     my $return = system($cmd);
     if ($return != 0) {
-        msg ("Tool execution failed!.",
-             "Error was '$!' and return code '$?'");
+        my @errmsg = ("Tool execution failed!.",
+                      "Error was '$!' and return code '$?'");
+        if ($redir_stdout) {
+            push @errmsg, "Check log file $redir_stdout";
+        }
+        if ($redir_stderr) {
+            push @errmsg, "Check error log file $redir_stderr";
+        }
+        msg(@errmsg);
     }
     return ($return);
     # FIXME: print tail of stderr if redirected
@@ -1779,6 +1795,20 @@ sub initialize_outfiles_hash {
         discard     => 0,
         filename    => "$libraryNAME.sortmerna.log",
         intable     => 1,
+      },
+      "readlength_out",
+      {
+        description => "Histogram of read lengths in input file(s)",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.out",
+        intable     => 0,
+      },
+      "readlength_err",
+      {
+        description => "Log file produced by readlength.sh",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.err",
+        intable     => 0,
       },
       #"",
       #{
