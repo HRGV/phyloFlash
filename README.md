@@ -1,6 +1,6 @@
 <img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
 
-# phyloFlash v3.3b3
+# phyloFlash v3.3b4
 
 [![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
 [![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
@@ -42,11 +42,11 @@ If you clone the repository directly off GitHub you might end up with a version 
 
 ```bash
 # Download latest release
-wget https://github.com/HRGV/phyloFlash/archive/pf3.3b3.tar.gz
-tar -xzf pf3.3b3.tar.gz
+wget https://github.com/HRGV/phyloFlash/archive/pf3.3b4.tar.gz
+tar -xzf pf3.3b4.tar.gz
 
 # Check for dependencies and install them if necessary
-cd phyloFlash-pf3.3b3
+cd phyloFlash-pf3.3b4
 ./phyloFlash.pl -check_env
 ```
 
@@ -113,6 +113,10 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
 
 ## Versions and changes
 
+* v3.3 beta 4
+  * Fix bug with double counting of reads that was introduced in v3.3b3
+* v3.3 beta 3
+  * Single-end reads can now be used as input
 * v3.3 beta 2
   * New options to graphical comparison scripts, and other small bug fixes
   * Fix bug due to change in SILVA project file naming convention with SILVA 138 onwards
