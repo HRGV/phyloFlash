@@ -104,6 +104,14 @@ have to do find and delete corrupted files manually).
 
 Default: No ("--nooverwrite")
 
+=item --ref_minlength
+
+Minimum length of database sequences to keep after trimming of vectors and 
+contaminant sequences. Default of 800 bp is about 50% for SSU rRNA gene length,
+but should be changed if a custom database is used.
+
+Default: 800
+
 =item --CPUs I<N>
 
 Number of processors to use
@@ -191,6 +199,7 @@ my $sortmerna = 0;      # Index sortmerna tool
 my $emirge = 1;         # Index emirge
 my $memlimitGb = 10;    # In Gb
 my $makedb_log;
+my $ref_minlength=800;
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
@@ -210,6 +219,7 @@ GetOptions("remote|r" => \$use_remote,
                                 exit; },
            "keep|k" => \$keep,
            "overwrite!" => \$overwrite,
+           "ref_minlength=i" => \$ref_minlength,
            "log=s" => \$makedb_log,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
@@ -302,7 +312,8 @@ unlink "$dbdir/SILVA_SSU.noLSU.fasta" unless ($keep==1);
 univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta",
-            $overwrite);
+            $overwrite,
+            $ref_minlength);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
 
 # Index database into UDB file, if Vsearch v2.5.0+
@@ -465,7 +476,7 @@ sub mask_repeats {
 
 #db is screened against UniVec and hit bases are trimmed using bbduk
 sub univec_trim {
-    my ($univec, $src, $dst,$overwrite) = @_;
+    my ($univec, $src, $dst,$overwrite, $ref_minlength) = @_;
     msg("removing UniVec contamination in SSU RefNR");
     my $log = "tmp.bbduk_remove_univec.log";
     if (! -e $dst || $overwrite == 1 ) {
@@ -475,7 +486,7 @@ sub univec_trim {
                  . "-Xmx".$memlimitGb."g "
                  . "threads=$cpus "
                  . "fastawrap=0 "
-                 . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
+                 . "ktrim=r ow=t minlength=$ref_minlength mink=11 hdist=1 "
                  . "in=$src "
                  . "out=$dst "
                  . "stats=$dst.UniVec_contamination_stats.txt",
