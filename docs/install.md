@@ -155,3 +155,5 @@ Users can supply their own databases of SSU rRNA sequences, or even other genes,
    - `TAXONOMY-STRING` is in SILVA or NCBI format, delimited by semicolons with no spaces (but spaces in taxon names allowed)
    - There is a single space before the `TAXONOMY-STRING`
  - The name of the Fasta file should begin with `SILVA_{DBNAME}_` where `DBNAME` is the name of the database (e.g. `CustomDB`), and will also be the name of the output folder containing the formatted database files. This is because the Fasta filename is parsed by the script.
+
+The database setup script automatically trims cloning vectors and other potential contaminants, and discards sequences shorter than 800 bp. If your custom database contains a gene of interest that is a different average length, you can change the minimum sequence length with the `--ref_minlength` parameter.
