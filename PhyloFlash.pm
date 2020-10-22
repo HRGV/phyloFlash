@@ -28,7 +28,7 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = "3.3b4";
+our $VERSION     = "3.4";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   $VERSION
