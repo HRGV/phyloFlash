@@ -16,7 +16,9 @@ Running `phyloFlash.pl` without arguments will show the basic help message.
 
 ## 1. Basic usage
 
-To screen paired-end 100 bp read files named `reads_F.fq.gz` and `reads_R.fq.gz` for SSU rRNA sequences, and have output files labeled as "run01":
+To screen paired-end 100 bp read files named `reads_F.fq.gz` and
+`reads_R.fq.gz` for SSU rRNA sequences, and have output files labeled as
+"run01":
 ```bash
 phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 -reads_R.fq.gz
 ```
@@ -46,7 +48,8 @@ phyloFlash.pl -lib run01 -read1 reads_F.fq.gz -read2 reads_R.fq.gz -CPUs 8
 
 You can access help on the command line with the following options:
 
-`-check_env` Invokes checking of working environment and dependencies without data input. Use to test setup.
+`-check_env` Invokes checking of working environment and dependencies without
+data input. Use to test setup.
 
 `-help` Print brief help message
 
@@ -56,73 +59,116 @@ You can access help on the command line with the following options:
 
 ### 2.1. Standard input arguments
 
-`-lib LIBNAME` Library name to use as a filename prefix for the output files for this phyloFlash run. The name must be one word comprising only letters, numbers and `_` or `-` (no whitespace or other punctuation).
+`-lib LIBNAME` Library name to use as a filename prefix for the output files
+for this phyloFlash run. The name must be one word comprising only letters,
+numbers and `_` or `-` (no whitespace or other punctuation).
 
-`-read1 FILENAME` Forward reads in FASTA or FASTQ formats. May be compressed with Gzip (.gz extension). If interleaved reads are provided, please use `--interleaved` flag in addition for paired-end processing.
+`-read1 FILENAME` Forward reads in FASTA or FASTQ formats. May be compressed
+with Gzip (.gz extension). If interleaved reads are provided, please use
+`--interleaved` flag in addition for paired-end processing.
 
-`-read2 FILENAME` Reverse reads, for paired-end reads. If this option is omitted, phyloFlash will run in *experimental* single-end mode.
+`-read2 FILENAME` Reverse reads, for paired-end reads. If this option is
+omitted, phyloFlash will run in *experimental* single-end mode.
 
 `-interleaved` Use this flag if read file is in interleaved format
 
-`-readlength N` Set expected readlength (between 50 and 500). Always use if your read length differs from 100. Default: 100.
+`-readlength N` Set expected readlength (between 50 and 500). Always use if
+your read length differs from 100. Default: 100.
 
 ### 2.2. Performance-related
 
 `-CPUs N` Number of threads to use. Defaults to all available CPU cores.
 
-`-readlimit N` Limits processing to the first N reads in each input file that map to the reference database. Use this for transcriptomes with a lot of rRNA reads, and use values <1000000. Default: unlimited.
+`-readlimit N` Limits processing to the first N reads in each input file that
+map to the reference database. Use this for transcriptomes with a lot of rRNA
+reads, and use values below 1000000. Default: unlimited.
 
-`-amplimit N` Set the limit of SSU read pairs to switch from emirge.py to emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py has been problematic to run (use values >100000). Default: 500000.
+`-amplimit N` Set the limit of SSU read pairs to switch from emirge.py to
+emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py has been
+problematic to run (use values >100000). Default: 500000.
 
 ### 2.3. Customizing the run
 
-`-skip_spades` Do not use SPAdes to assemble full-length sequences from extracted reads
+`-skip_spades` Do not use SPAdes to assemble full-length sequences from
+extracted reads
 
-`-emirge` Use EMIRGE to reconstruct full-length sequences from extracted reads. (Default: Off)
+`-emirge` Use EMIRGE to reconstruct full-length sequences from extracted reads.
+(Default: Off)
 
-`-sortmerna` Use SortMeRNA instead of BBmap to extract SSU rRNA reads. Insert size and %id to reference statistics will not be available. (Default: No)
+`-sortmerna` Use SortMeRNA instead of BBmap to extract SSU rRNA reads. Insert
+size and %id to reference statistics will not be available. (Default: No)
 
-`-poscov` Use Nhmmer to find positional coverage of reads across Barrnap's HMM model of the 16S and 18S rRNA genes from a subsample of reads, as an estimate of coverage evenness. (Default: Off)
+`-poscov` Use Nhmmer to find positional coverage of reads across Barrnap's HMM
+model of the 16S and 18S rRNA genes from a subsample of reads, as an estimate
+of coverage evenness. (Default: Off)
 
-`-id N` Minimum % identity of reads to map against reference database. Must be between 50 and 98. Set to a lower value for very divergent taxa. Default: 70.
+`-id N` Minimum % identity of reads to map against reference database. Must be
+between 50 and 98. Set to a lower value for very divergent taxa. Default: 70.
 
-`-clusterid N` % identity threshold for reference sequence clustering step. Must be between 50 and 100. Default: 97.
+`-clusterid N` % identity threshold for reference sequence clustering step.
+Must be between 50 and 100. Default: 97.
 
-`-taxlevel N` Level in the taxonomy string to use for taxonomic units (NTUs), for the taxonomic summary and to estimate diversity. Must be an integer, and starts with 1 for the highest taxonomic level (Domain). Default: 4.
+`-taxlevel N` Level in the taxonomy string to use for taxonomic units (NTUs),
+for the taxonomic summary and to estimate diversity. Must be an integer, and
+starts with 1 for the highest taxonomic level (Domain). Default: 4.
 
-`-maxinsert N` Maximum insert size allowed for paired end read mapping. Must be between 0 and 1200. Default: 1200.
+`-maxinsert N` Maximum insert size allowed for paired end read mapping. Must be
+between 0 and 1200. Default: 1200.
 
-`-sc` Use if data are from single-cell MDA libraries, option is passed to the SPAdes assembler. (Default: Off)
+`-sc` Use if data are from single-cell MDA libraries, option is passed to the
+SPAdes assembler. (Default: Off)
 
-`-dbhome DIR` Directory containing phyloFlash reference databases, prepared with `phyloFlash_makedb.pl`. If not specified, phyloFlash will check for an environment variable `$PHYLOFLASH_DBHOME`, then look in the current directory, the home directory, and the directory where the `phyloFlash.pl` script is located, for a suitable database directory containing the necessary files. If there is more than one database folder, it will pick the one with the highest SILVA version number.
+`-dbhome DIR` Directory containing phyloFlash reference databases, prepared
+with `phyloFlash_makedb.pl`. If not specified, phyloFlash will check for an
+environment variable `$PHYLOFLASH_DBHOME`, then look in the current directory,
+the home directory, and the directory where the `phyloFlash.pl` script is
+located, for a suitable database directory containing the necessary files. If
+there is more than one database folder, it will pick the one with the highest
+SILVA version number.
 
-`-trusted FILENAME` User-supplied Fasta file of trusted contigs containing SSU rRNA sequences. The SSU sequences will be extracted with Barrnap, and the input read files will be screened against these extracted "trusted" SSU sequences
+`-trusted FILENAME` User-supplied Fasta file of trusted contigs containing SSU
+rRNA sequences. The SSU sequences will be extracted with Barrnap, and the input
+read files will be screened against these extracted "trusted" SSU sequences
 
 ### 2.4. Localization and compatibility options
 
-`-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant (Default: Off)
+`-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant
+(Default: Off)
 
-`-decimalcomma` Use decimal comma instead of decimal point to fix locale problems for some European systems (Default: Off)
+`-decimalcomma` Use decimal comma instead of decimal point to fix locale
+problems for some European systems (Default: Off)
 
 ### 2.5. Configuring output
 
-`-html` Produce an HTML-formatted version of the report file. This helps improve readability and individual sections of the report can be collapsed. (Default: On, turn off with `-nohtml`)
+`-html` Produce an HTML-formatted version of the report file. This helps
+improve readability and individual sections of the report can be collapsed.
+(Default: On, turn off with `-nohtml`)
 
-`-treemap` Include an interactive treemap of the NTU counts in the HTML report. This uses the Google Visualization API, which requires an Internet connection and that you agree to their [terms of service](https://developers.google.com/chart/terms), and is not open-source although it is free to use. (Default: Off)
+`-treemap` Include an interactive treemap of the NTU counts in the HTML report.
+This uses the Google Visualization API, which requires an Internet connection
+and that you agree to their [terms of
+service](https://developers.google.com/chart/terms), and is not open-source
+although it is free to use. (Default: Off)
 
-`-log` Write status messages printed to STDERR also to a log file (Default: Off)
+`-log` Write status messages printed to STDERR also to a log file (Default:
+Off)
 
 `-zip` Compress output into a tar.gz archive file (Default: Off)
 
 `-keeptmp` Keep temporary/intermediate files (Default: Off)
 
-`-everything` Turn on all the optional analyses and output options. Options without defaults and any local settings must still be specified. Equivalent to `-emirge -poscov -treemap -zip -log`
+`-everything` Turn on all the optional analyses and output options. Options
+without defaults and any local settings must still be specified. Equivalent to
+`-emirge -poscov -treemap -zip -log`
 
 `-almosteverything` Like `-everything` except without `-emirge`
 
 ## 3. Testing phyloFlash
 
-You will find test data in the `test_files` folder. The test data provided contains subsampled SSU reads from SRA ERR138446, a *Caenorhabditis* sample with associated bacteria. You can test if phyloFlash is working properly with these files:
+You will find test data in the `test_files` folder. The test data provided
+contains subsampled SSU reads from SRA ERR138446, a *Caenorhabditis* sample
+with associated bacteria. You can test if phyloFlash is working properly with
+these files:
 
 ```bash
 phyloFlash.pl -lib TEST -read1 test_files/test_F.fq.gz -read2 test_files/test_R.fq.gz
@@ -130,6 +176,14 @@ phyloFlash.pl -lib TEST -read1 test_files/test_F.fq.gz -read2 test_files/test_R.
 
 ## 4. Expected performance
 
-10 million 100 bp paired-end-reads of a metagenomic library are processed in less than 5 minutes on a normal 2014 desktop PC with 4 CPU cores and 8 GB of RAM.
+10 million 100 bp paired-end-reads of a metagenomic library are processed in
+less than 5 minutes on a normal 2014 desktop PC with 4 CPU cores and 8 GB of
+RAM.
 
-*phyloFlash* usually detects most lifeforms on earth that have a SSU rRNA sequence that is at least 70% identical to anything in the databases, more exotic organisms might be problematic, but test data is hard to come by. If you happen to have such a test case and you are willing to share please drop me a line... If you think *phyloFlash* is not detecting a certain organism that is very distant from the known SSU rRNA sequences please try lowering the minimum sequence identity for a mapping hit by using e.g. `-id 0.63`.
+*phyloFlash* usually detects most lifeforms on earth that have a SSU rRNA
+sequence that is at least 70% identical to anything in the databases, more
+exotic organisms might be problematic, but test data is hard to come by. If you
+happen to have such a test case and you are willing to share please drop me a
+line... If you think *phyloFlash* is not detecting a certain organism that is
+very distant from the known SSU rRNA sequences please try lowering the minimum
+sequence identity for a mapping hit by using e.g. `-id 0.63`.

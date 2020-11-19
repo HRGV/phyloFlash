@@ -134,8 +134,10 @@ Interleaved readfile with R1 and R2 in a single file at read1
 
 =item -readlength I<N>
 
-Sets the expected readlength. Always use this if your read length
-differs from 100 (the default). Must be within 50..500.
+Sets the expected readlength. If no value is supplied, auto-detect read length.
+Must be within 50..500.
+
+Default: -1 (auto-detect)
 
 =item -readlimit I<N>
 
@@ -319,7 +321,7 @@ my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
 my $id          = 70;           # minimum %id for mapping with BBmap
 my $evalue_sortmerna = 1e-09;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
-my $readlength  = 100;          # length of input reads
+my $readlength  = -1 ;          # length of input reads, -1 for automatic read length detection
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
@@ -510,6 +512,45 @@ sub verify_dbhome {
     msg("Using dbhome '$DBHOME'");
 }
 
+sub auto_detect_readlength {
+    # Get read lengths from input files instead of asking user for input
+    my ($fwd,  # Fwd read file
+        $rev,  # Rev read file, undef if not available
+        $limit # Stop after this many reads
+        ) = @_;
+    require_tools("readlength" => "readlength.sh");
+    my @readlength_cmd = ("readlength",
+                       "reads=$limit",
+                       "bin=1",
+                       "in=$fwd");
+    if (defined $rev) {
+        push @readlength_cmd, "in2=$rev";
+    }
+    # Use readlength.sh from bbmap suite to count read lengths from Fasta or Fastq
+    run_prog("readlength",
+             join(" ", @readlength_cmd),
+             $outfiles{"readlength_out"}{"filename"},
+             $outfiles{"readlength_err"}{"filename"});
+    $outfiles{"readlength_out"}{"made"} = 1;
+    # Hash counts of reads per read length 
+    my @lens;
+    my $fh;
+    open_or_die(\$fh, "<", $outfiles{"readlength_out"}{"filename"});
+    while (my $line = <$fh>) {
+        next if $line =~ m/^#/; # Skip headers
+        my @split = split /\t/, $line;
+        push @lens, $split[0];
+    }
+    # Sort by highest counts
+    if (scalar @lens > 1) {
+        msg("Reads are not all the same length, using longest read length found...");
+    }
+    my @sort_lens = sort { $b <=> $a } @lens;
+    # Return the longest read length
+    msg("Auto-detected read length: $sort_lens[0]");
+    return ($sort_lens[0]);
+}
+
 # parse arguments passed on commandline and do some
 # sanity checks
 sub parse_cmdline {
@@ -617,6 +658,17 @@ sub parse_cmdline {
         msg("Running in single ended mode");
     }
 
+    # populate hash to keep track of output files
+    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
+    %outfiles = %$outfiles_href;
+    # use hash to keep track of output file description, filename,
+    # whether it should be deleted at cleanup, and if file was actually created
+
+    if ($readlength < 0) {
+        msg("Automatic read length detection");
+        $readlength = auto_detect_readlength($readsf_full, $readsr_full, 10000);
+    }
+
     # check lengths
     pod2usage("\nReadlength must be within 50...500")
         if ($readlength < 50 or $readlength > 500);
@@ -653,12 +705,6 @@ sub parse_cmdline {
             $trusted_contigs = undef;
         }
     }
-
-    # populate hash to keep track of output files
-    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
-    %outfiles = %$outfiles_href;
-    # use hash to keep track of output file description, filename,
-    # whether it should be deleted at cleanup, and if file was actually created
 
     # Activate all optional outputs if "everything" is asked for
     if ($everything + $almosteverything > 0) {
