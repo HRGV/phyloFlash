@@ -2323,7 +2323,7 @@ sub vsearch_parse {
 }
 
 sub vsearch_cluster {
-    my $clusterid = 97;
+    my ($clusterid) = @_;
     msg("clustering DB matches at $clusterid%");
     run_prog("vsearch",
              "  --cluster_fast ".$outfiles{"dbhits_all_fasta"}{"filename"}
@@ -3098,7 +3098,7 @@ if ($skip_emirge == 0) {
 if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{'trusted_fasta'}{'made'}) {
     vsearch_best_match();
     vsearch_parse();
-    vsearch_cluster();
+    vsearch_cluster($clusterid);
     mafft_run();
     screen_remappings();
 }
