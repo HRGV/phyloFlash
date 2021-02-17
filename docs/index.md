@@ -34,10 +34,15 @@ You may read more about the pipeline design and application in our
 ### Download via Conda
 
 [Conda](https://conda.io/docs/) is a package manager that will also install
-dependencies that are required if you don't have them already.
+dependencies that are required if you don't have them already. phyloFlash is
+distributed through the [Bioconda](http://bioconda.github.io/) channel on
+Conda.
 
-phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/)
-channel on Conda.
+According to the [Conda
+documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html),
+it is recommended to install all packages at the same time to avoid dependency
+conflicts, and to create new environments instead of installing to the base
+environment.
 
 ```bash
 # If you haven't set up Bioconda already
@@ -46,9 +51,9 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 # Try the following step if "solving environment" does not terminate
 conda config --set channel_priority strict
-# Install packages to current environment
-conda install sortmerna=2.1b # Optional - if you want to use SortMeRNA option
-conda install phyloflash
+# Create new environment named "pf" with phyloflash
+# sortmerna is an optional dependency
+conda create -n pf phyloflash sortmerna=2.1b
 ```
 
 ### Download from GitHub
