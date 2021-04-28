@@ -1600,107 +1600,111 @@ sub spades_parse {
     #further processing
     if (! -s "$libraryNAME.spades/scaffolds.fasta") {
         msg("no phylotypes assembled with SPAdes");
+        msg("possible causes include low or uneven coverage of SSU sequences");
         $skip_spades = 1;
         remove_tree("$libraryNAME.spades");
-    }
-
-    # run barrnap once for each domain
-    # if single cell data - accept partial rRNAs down to 0.1
-    # and use lower e-value setting
-    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
-    if ($sc == 1) {
-        $b_args = " --evalue 1e-20 --reject 0.1 ";
-    }
-
-    foreach ('bac', 'arch', 'euk') {
-        run_prog("barrnap",
-                 $b_args.
-                 "--kingdom $_ --gene ssu --threads $cpus " .
-                 "$libraryNAME.spades/scaffolds.fasta",
-                 $outfiles{"gff_".$_}{"filename"},
-                 $outfiles{"barrnap_log"}{"filename"});
-        $outfiles{"gff_".$_}{"made"}++;
-        $outfiles{"barrnap_log"}{"made"}++;
-    }
-
-    # now merge multi-hits on the same scaffold-and-strand by picking
-    # the lowest start and highest stop position.
-
-    my %ssus;
-    # pre-filter with grep for speed
-    my $fh;
-    open_or_die(\$fh, "-|",
-                "grep -hE '16S_rRNA\|18S_rRNA' ".
-                $outfiles{"gff_bac"}{"filename"}." ".
-                $outfiles{"gff_arch"}{"filename"}." ".
-                $outfiles{"gff_euk"}{"filename"});
-    while (my $row = <$fh>) {
-        my @cols    = split("\t", $row);
-        # gff format:
-        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
-        # 5 score, 6 strand, 7 frame, 8 attribute
-
-        my $seqname = $cols[0];
-        my $start   = $cols[3];
-        my $stop    = $cols[4];
-        my $strand  = $cols[6];
-
-        # put our desired output fasta name into "feature" col 3
-        # the may be "bug" using / mixing bed and gff formats
-        # but it saves us messing with the fasta afterwards
-        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
-        $cols[2] = "$libraryNAME.PFspades_$1_$2";
-
-        # do the actual merging, left most start and right most stop wins
-        if (exists $ssus{$seqname.$strand}) {
-            my $old_start = $ssus{$seqname.$strand}[3];
-            my $old_stop  = $ssus{$seqname.$strand}[4];
-            $cols[3] = ($start < $old_start) ? $start : $old_start;
-            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
-        }
-        $ssus{$seqname.$strand} = [@cols];
-    }
-    close($fh);
-
-    if (scalar keys %ssus == 0) {
-        msg("no contig in spades assembly found to contain rRNA");
         return 1;
-    } else {
-        open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
-        for my $key (sort keys %ssus) {
-            print $fh join("\t",@{$ssus{$key}});
+    }
+
+    else {
+        # run barrnap once for each domain
+        # if single cell data - accept partial rRNAs down to 0.1
+        # and use lower e-value setting
+        my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+        if ($sc == 1) {
+            $b_args = " --evalue 1e-20 --reject 0.1 ";
+        }
+
+        foreach ('bac', 'arch', 'euk') {
+            run_prog("barrnap",
+                     $b_args.
+                     "--kingdom $_ --gene ssu --threads $cpus " .
+                     "$libraryNAME.spades/scaffolds.fasta",
+                     $outfiles{"gff_".$_}{"filename"},
+                     $outfiles{"barrnap_log"}{"filename"});
+            $outfiles{"gff_".$_}{"made"}++;
+            $outfiles{"barrnap_log"}{"made"}++;
+        }
+
+        # now merge multi-hits on the same scaffold-and-strand by picking
+        # the lowest start and highest stop position.
+
+        my %ssus;
+        # pre-filter with grep for speed
+        my $fh;
+        open_or_die(\$fh, "-|",
+                    "grep -hE '16S_rRNA\|18S_rRNA' ".
+                    $outfiles{"gff_bac"}{"filename"}." ".
+                    $outfiles{"gff_arch"}{"filename"}." ".
+                    $outfiles{"gff_euk"}{"filename"});
+        while (my $row = <$fh>) {
+            my @cols    = split("\t", $row);
+            # gff format:
+            # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+            # 5 score, 6 strand, 7 frame, 8 attribute
+
+            my $seqname = $cols[0];
+            my $start   = $cols[3];
+            my $stop    = $cols[4];
+            my $strand  = $cols[6];
+
+            # put our desired output fasta name into "feature" col 3
+            # the may be "bug" using / mixing bed and gff formats
+            # but it saves us messing with the fasta afterwards
+            $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
+            $cols[2] = "$libraryNAME.PFspades_$1_$2";
+
+            # do the actual merging, left most start and right most stop wins
+            if (exists $ssus{$seqname.$strand}) {
+                my $old_start = $ssus{$seqname.$strand}[3];
+                my $old_stop  = $ssus{$seqname.$strand}[4];
+                $cols[3] = ($start < $old_start) ? $start : $old_start;
+                $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+            }
+            $ssus{$seqname.$strand} = [@cols];
         }
         close($fh);
-        $outfiles{"gff_all"}{"made"}++;
 
-        # fastaFromBed will build a .fai index from the source .fasta
-        # However, it does not notice if the .fasta changed. So we
-        # delete the .fai if it is older than the .fasta.
-        if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-             file_is_newer("$libraryNAME.spades/scaffolds.fasta",
-                           "$libraryNAME.spades/scaffolds.fasta.fai")) {
-            unlink("$libraryNAME.spades/scaffolds.fasta.fai");
-        }
+        if (scalar keys %ssus == 0) {
+            msg("no contig in spades assembly found to contain rRNA");
+            return 1;
+        } else {
+            open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
+            for my $key (sort keys %ssus) {
+                print $fh join("\t",@{$ssus{$key}});
+            }
+            close($fh);
+            $outfiles{"gff_all"}{"made"}++;
 
-        # extract rrna fragments from spades scaffolds accoding to gff
-        my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
-                                 "-bed",$outfiles{"gff_all"}{"filename"},
-                                 "-fo",$outfiles{"spades_fastaFromBed"}{"filename"},
-                                 "-s","-name",
+            # fastaFromBed will build a .fai index from the source .fasta
+            # However, it does not notice if the .fasta changed. So we
+            # delete the .fai if it is older than the .fasta.
+            if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+                 file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+                               "$libraryNAME.spades/scaffolds.fasta.fai")) {
+                unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+            }
+
+            # extract rrna fragments from spades scaffolds accoding to gff
+            my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                                     "-bed",$outfiles{"gff_all"}{"filename"},
+                                     "-fo",$outfiles{"spades_fastaFromBed"}{"filename"},
+                                     "-s","-name",
+                                     );
+            run_prog("fastaFromBed",
+                     join (" ",@fastaFromBed_args),
+                     $outfiles{"fastaFromBed_out"}{"filename"},
+                     "&1");
+            # Fix bedtools headers from bedtools v2.26 and v2.27+
+            fix_bedtools_header ($outfiles{"spades_fastaFromBed"}{"filename"},
+                                 $outfiles{"spades_fasta"}{"filename"}
                                  );
-        run_prog("fastaFromBed",
-                 join (" ",@fastaFromBed_args),
-                 $outfiles{"fastaFromBed_out"}{"filename"},
-                 "&1");
-        # Fix bedtools headers from bedtools v2.26 and v2.27+
-        fix_bedtools_header ($outfiles{"spades_fastaFromBed"}{"filename"},
-                             $outfiles{"spades_fasta"}{"filename"}
-                             );
-        $outfiles{"spades_fastaFromBed"}{"made"}++;
-        $outfiles{"spades_fasta"}{"made"}++;
-        $outfiles{"fastaFromBed_out"}{"made"}++;
-        msg("done...");
-        return 0;
+            $outfiles{"spades_fastaFromBed"}{"made"}++;
+            $outfiles{"spades_fasta"}{"made"}++;
+            $outfiles{"fastaFromBed_out"}{"made"}++;
+            msg("done...");
+            return 0;
+        }
     }
 }
 
@@ -3051,7 +3055,7 @@ if ($use_sortmerna == 1 ) {
 
 if ($readnr == 0) {
     # Exit if no reads mapped
-    err ("ERROR: No reads were detected! Possible reasons: Coverage in library too low; option -readlimit too low; input is not a (meta)genome/transcriptome dataset.");
+    err("ERROR: No reads were detected! Possible reasons: Coverage in library too low; option -readlimit too low; input is not a (meta)genome/transcriptome dataset.");
 }
 
 # Get taxonomic summary from hashed SAM records
@@ -3085,14 +3089,20 @@ if ($skip_spades == 0) {
         if ($spades_parse_return == 0) {
             bbmap_remap("SPAdes");
         }
+    } else {
+        msg("SPAdes exited with error, this may happen if no sequences were assembled Possible causes include coverage per sequence too low or uneven");
     }
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
     my $emirge_return = emirge_run();
     # Parse output from emirge if it exits without errors
-    emirge_parse() if $emirge_return == 0;
-    bbmap_remap("EMIRGE") if $emirge_return == 0;
+    if ($emirge_return == 0) {
+        emirge_parse();
+        bbmap_remap("EMIRGE");
+    } else {
+        msg("EMIRGE exited with error, this may happen if no sequences were reconstructed Possible causes include coverage per sequence too low or uneven");
+    }
 }
 # If full length sequenced produced, match vs SILVA database with Vsearch and align with best hits
 if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{'trusted_fasta'}{'made'}) {
