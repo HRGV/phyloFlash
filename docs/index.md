@@ -44,6 +44,12 @@ it is recommended to install all packages at the same time to avoid dependency
 conflicts, and to create new environments instead of installing to the base
 environment.
 
+We also recommend using [Mamba](https://mamba.readthedocs.io/en/latest/) as a
+drop-in substitute for Conda. It implements a more effective dependency solver
+and is also the default Conda frontend for the pipeline managers Snakemake.
+Conda sometimes fails to solve the environment, and in these cases Mamba
+usually works.
+
 ```bash
 # If you haven't set up Bioconda already
 conda config --add channels defaults
@@ -54,6 +60,8 @@ conda config --set channel_priority strict
 # Create new environment named "pf" with phyloflash
 # sortmerna is an optional dependency
 conda create -n pf phyloflash sortmerna=2.1b
+# If Conda is unable to solve the environment; requires mamba in base env
+mamba create -n pf phyloflash sortmerna=2.1b
 ```
 
 ### Download from GitHub
