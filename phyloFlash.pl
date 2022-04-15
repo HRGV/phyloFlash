@@ -532,7 +532,7 @@ sub auto_detect_readlength {
              $outfiles{"readlength_out"}{"filename"},
              $outfiles{"readlength_err"}{"filename"});
     $outfiles{"readlength_out"}{"made"} = 1;
-    # Hash counts of reads per read length 
+    # Hash counts of reads per read length
     my @lens;
     my $fh;
     open_or_die(\$fh, "<", $outfiles{"readlength_out"}{"filename"});
@@ -643,8 +643,8 @@ sub parse_cmdline {
 
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
-        $readsr = "<NONE>";
-        $readsr_full = "<NONE>";
+        $readsr = "";
+        $readsr_full = "";
     }
 
     msg("Forward reads $readsf_full");
