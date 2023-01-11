@@ -1184,17 +1184,10 @@ sub parse_mapstats_from_sam_arr {
     my $mapped_half = 0;    # Pairs where one segment maps but the other doesn't
     my $unmapped_segment = 0; # Don't use this for summary
     my $unmapped;
-    my %qname_hash;
 
     foreach my $href (@$aref) {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
-        my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
-        # Strip read segment suffixes from name
-        if ($splitname =~ m/^(.+)([:\/_])[12]/) {
-            $splitname = $1.$2;
-        }
-        $qname_hash{$splitname} ++;
 
         if ($SEmode == 0) {
             if ($href->{'FLAG'} & 0x40) { # Fwd read
@@ -1220,8 +1213,10 @@ sub parse_mapstats_from_sam_arr {
         }
     }
 
-    $SSU_total_pairs = scalar (keys %qname_hash); # Count total reads mapped from read names hash
-    # This is because unmapped reads are not necessarily reported
+    # If paired reads, divide segment-based counts by two into pair-based counts
+    $ssu_pairs /= 2 if $SEmode == 0;
+    $ssu_bad_pairs /= 2 if $SEmode == 0;
+    $SSU_total_pairs = $ssu_pairs + $ssu_bad_pairs + $mapped_half;
 
     # Report fwd and reverse reads mapping
     msg ("Forward read segments mapping: $ssu_f_reads");
@@ -1230,16 +1225,12 @@ sub parse_mapstats_from_sam_arr {
     # calculating mapping ratio
     $readnr_pairs = $readnr;
     # If paired reads, divide segment-based counts by two into pair-based counts
-
     $readnr_pairs /= 2 if $SEmode == 0;
 
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
     $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
 
     if ($SEmode == 0) {
-        # If paired reads, divide segment-based counts by two into pair-based counts
-        $ssu_pairs /= 2;
-        $ssu_bad_pairs /= 2;
         # Report summary stats
         msg("Reporting mapping statistics for paired end input");
         msg("Total read pairs with at least one segment mapping: $SSU_total_pairs");
