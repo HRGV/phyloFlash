@@ -34,9 +34,9 @@ makepalette <- function (n, brewer.name='Set3', othercolor='grey') {
   # Define palette for taxa, using RColorBrewer Set3 as default for n colors <= 12
   # otherwise attempt to "stretcH" the palette with colorRampPalette
   # othercolor is the default color for "Other" taxa
-  
+
   # Account for different maximum n for different preset palettes
-  max.n <- switch(brewer.name, 
+  max.n <- switch(brewer.name,
                   "Set3" = 12,
                   "Accent" = 8,
                   "Dark2" = 8,
@@ -46,7 +46,7 @@ makepalette <- function (n, brewer.name='Set3', othercolor='grey') {
                   "Set1" = 9,
                   "Set2" = 8
                   )
-  
+
   if (n <= max.n ) {
     out.palette <- brewer.pal(n, name=brewer.name)
     out.palette <- c(out.palette,othercolor)
@@ -90,6 +90,30 @@ options <- list(
     default="Set3",
     help="Palette name for taxon colors. One of the qualitative palettes from the
                   ColorBrewer2 set: Accent, Dark2, Paired, Pastel1, Pastel2, Set1, Set2, or Set3."
+  ),
+  make_option(
+    c("-s","--subset"),
+    type="character",
+    action="store",
+    default=NA,
+    help="Display only subset from this taxon (e.g. show only Bacteria). Supply
+                  full taxon string prefix, excluding trailing semicolon."
+  ),
+  make_option(
+    c("-r","--rawval"),
+    type="logical",
+    action="store_true",
+    default=FALSE,
+    help="Plot raw counts rather than proportions"
+  ),
+  make_option(
+    c("-w","--scaleplotwidth"),
+    type="numeric",
+    action="store",
+    default=1,
+    help="Change the plot width by this scaling factor (e.g. 2 makes it twice
+                  as wide). Allows adjustment when bars are hidden because the
+                  legend labels are too long."
   )
 );
 
@@ -113,12 +137,24 @@ d <- read.csv(conf$options$file[1], sep=",", header=F)
 names(d) <- c('taxon','sample','counts')
 topshow <- conf$options$toptaxa[1]
 
+if (!is.na(conf$options$subset[1])) {
+  d <- d[grep(paste(c("^",conf$options$subset[1]),sep="",collapse=""),
+              d$taxon,
+              perl=TRUE,
+              value=FALSE),]
+}
+
 # Convert raw read counts to proportions per sample
-dd <- ddply(d,'sample', function(x) { sumcounts <- sum(x$counts)
-                                      data.frame(taxon = x$taxon,
-                                        counts = x$counts,
-                                        prop = x$counts/sumcounts)
-                                    })
+if (conf$options$rawval[1]) {
+  dd <- d
+  dd$prop <- d$counts
+} else {
+  dd <- ddply(d,'sample', function(x) { sumcounts <- sum(x$counts)
+                                        data.frame(taxon = x$taxon,
+                                          counts = x$counts,
+                                          prop = x$counts/sumcounts)
+                                      })
+}
 
 dd.totals <- ddply(dd,'taxon',function(x) { totalprop <- sum(x$prop)
                                             data.frame(totalprop=totalprop)
@@ -141,13 +177,18 @@ dd.rename$rename <- factor(dd.rename$rename,levels=taxonnames.renamed[0:topshow+
 dd.palette <- makepalette (n=topshow,brewer.name=conf$options$palette[1],othercolor='grey')
 
 # Draw plot
-dd.rename.barplot <- ggplot(dd.rename, aes(sample,prop)) + geom_bar(aes(fill=rename),stat='identity') + scale_fill_manual(values=dd.palette) + labs(x="Library",y="Proportion of SSU rRNA reads", fill="Taxon")
+dd.rename.barplot <- (ggplot(dd.rename, aes(sample,prop))
+                      + geom_bar(aes(fill=rename),stat='identity')
+                      + scale_fill_manual(values=dd.palette)
+                      + labs(x="Library",y="Proportion of SSU rRNA reads", fill="Taxon")
+                      + theme(axis.text.x = element_text(angle=90, hjust=1))
+                      )
 
 # Write file
 outname <- conf$options$out[1]
 # Adjust width of plot
 num.samples <- length(levels(dd.rename$sample))
-width <- 360 + 80 * num.samples
+width <- 360 + conf$options$scaleplotwidth[1] * 80 * num.samples
 height <- 480
 
 # Choose which output format by output prefix (adapted from heatmap script)

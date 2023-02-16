@@ -20,8 +20,10 @@ B<phyloFlash.pl> -check_env
 
 This tool rapidly approximates the phylogenetic composition of a (meta)genomic
 library by mapping reads to a reference SSU rRNA database, and reconstructing
-full-length SSU rRNA sequences. The pipeline is intended for Illumina paired- or
-single-end HiSeq and MiSeq reads.
+full-length SSU rRNA sequences. The pipeline is intended for Illumina paired-end
+HiSeq and MiSeq reads.
+
+For more information, see the manual at L<http://hrgv.github.io/phyloFlash/>
 
 =head1 ARGUMENTS
 
@@ -91,6 +93,10 @@ Default: Off
 Directory containing phyloFlash reference databases.
 Use F<phyloFlash_makedb.pl> to create an appropriate directory.
 
+If not specified, phyloFlash will check for an environment variable
+I<$PHYLOFLASH_DBHOME>, then look in the current dir, the home dir, and
+the dir where the phyloFlash.pl script is located, for a suitable database dir.
+
 =back
 
 =head2 ANALYSIS TOOLS
@@ -128,8 +134,10 @@ Interleaved readfile with R1 and R2 in a single file at read1
 
 =item -readlength I<N>
 
-Sets the expected readlength. Always use this if your read length
-differs from 100 (the default). Must be within 50..500.
+Sets the expected readlength. If no value is supplied, auto-detect read length.
+Must be within 50..500.
+
+Default: -1 (auto-detect)
 
 =item -readlimit I<N>
 
@@ -234,8 +242,8 @@ Default: On. (Turn off with "-nohtml")
 Draw interactive treemap of taxonomic classification in html-formatted report.
 This uses Google Visualization API, which requires an internet connection,
 requires that you agree to their terms of service (see
-https://developers.google.com/chart/terms), and is not open source, although it
-is free to use.
+L<https://developers.google.com/chart/terms>), and is not open source, although
+it is free to use.
 
 Default: Off ("-notreemap")
 
@@ -261,9 +269,9 @@ Default: Off ("-nolog")
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                    and Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
-                    with help from Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2014-2018 by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
+                           and Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENSE
 
@@ -313,7 +321,7 @@ my $libraryNAME = undef;        # output basename
 my $interleaved = 0;            # Flag - interleaved read data in read1 input (default = 0, no)
 my $id          = 70;           # minimum %id for mapping with BBmap
 my $evalue_sortmerna = 1e-09;   # E-value cutoff for sortmerna, ignored if -sortmerna not chosen
-my $readlength  = 100;          # length of input reads
+my $readlength  = -1 ;          # length of input reads, -1 for automatic read length detection
 my $readlimit   = -1;           # max # of reads to use
 my $amplimit    = 500000;       # number of SSU pairs at which to switch to emirge_amplicon
 my $maxinsert   = 1200;         # max insert size for paired end read mapping
@@ -485,16 +493,62 @@ sub verify_dbhome {
     # verify database present
     if (defined($DBHOME)) {
         if (my $file = check_dbhome($DBHOME)) {
-            pod2usage("\nBroken dbhome directory: missing file \"$file\"")
+            pod2usage("\nBroken dbhome directory: missing file \"$file\"");
+        }
+    } elsif (defined $ENV{"PHYLOFLASH_DBHOME"}) {
+        # dbhome defined as environment variable
+        if (my $file = check_dbhome($ENV{"PHYLOFLASH_DBHOME"})) {
+            pod2usage("\nBroken dbhome directory $ENV{'PHYLOFLASH_DBHOME'}: missing file \"$file\"");
+        } else {
+            $DBHOME = $ENV{"PHYLOFLASH_DBHOME"};
         }
     } else {
         $DBHOME = find_dbhome();
         pod2usage("Failed to find suitable DBHOME. (Searched \""
                   .join("\", \"",@dbhome_dirs)."\".)\nPlease provide a path using -dbhome. "
-                  ."You can build a reference database using phyloflash_makedb.pl\n")
+                  ."You can build a reference database using phyloFlash_makedb.pl\n")
             if ($DBHOME eq "");
     }
     msg("Using dbhome '$DBHOME'");
+}
+
+sub auto_detect_readlength {
+    # Get read lengths from input files instead of asking user for input
+    my ($fwd,  # Fwd read file
+        $rev,  # Rev read file, undef if not available
+        $limit # Stop after this many reads
+        ) = @_;
+    require_tools("readlength" => "readlength.sh");
+    my @readlength_cmd = ("readlength",
+                       "reads=$limit",
+                       "bin=1",
+                       "in=$fwd");
+    if (defined $rev) {
+        push @readlength_cmd, "in2=$rev";
+    }
+    # Use readlength.sh from bbmap suite to count read lengths from Fasta or Fastq
+    run_prog("readlength",
+             join(" ", @readlength_cmd),
+             $outfiles{"readlength_out"}{"filename"},
+             $outfiles{"readlength_err"}{"filename"});
+    $outfiles{"readlength_out"}{"made"} = 1;
+    # Hash counts of reads per read length
+    my @lens;
+    my $fh;
+    open_or_die(\$fh, "<", $outfiles{"readlength_out"}{"filename"});
+    while (my $line = <$fh>) {
+        next if $line =~ m/^#/; # Skip headers
+        my @split = split /\t/, $line;
+        push @lens, $split[0];
+    }
+    # Sort by highest counts
+    if (scalar @lens > 1) {
+        msg("Reads are not all the same length, using longest read length found...");
+    }
+    my @sort_lens = sort { $b <=> $a } @lens;
+    # Return the longest read length
+    msg("Auto-detected read length: $sort_lens[0]");
+    return ($sort_lens[0]);
 }
 
 # parse arguments passed on commandline and do some
@@ -589,8 +643,8 @@ sub parse_cmdline {
 
     } else {
         $SEmode = 1; # no reverse reads, we operate in single ended mode
-        $readsr = "<NONE>";
-        $readsr_full = "<NONE>";
+        $readsr = "";
+        $readsr_full = "";
     }
 
     msg("Forward reads $readsf_full");
@@ -602,6 +656,17 @@ sub parse_cmdline {
         }
     } else {
         msg("Running in single ended mode");
+    }
+
+    # populate hash to keep track of output files
+    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
+    %outfiles = %$outfiles_href;
+    # use hash to keep track of output file description, filename,
+    # whether it should be deleted at cleanup, and if file was actually created
+
+    if ($readlength < 0) {
+        msg("Automatic read length detection");
+        $readlength = auto_detect_readlength($readsf_full, $readsr_full, 10000);
     }
 
     # check lengths
@@ -640,12 +705,6 @@ sub parse_cmdline {
             $trusted_contigs = undef;
         }
     }
-
-    # populate hash to keep track of output files
-    my $outfiles_href = initialize_outfiles_hash($libraryNAME,$readsf);
-    %outfiles = %$outfiles_href;
-    # use hash to keep track of output file description, filename,
-    # whether it should be deleted at cleanup, and if file was actually created
 
     # Activate all optional outputs if "everything" is asked for
     if ($everything + $almosteverything > 0) {
@@ -742,7 +801,7 @@ Mapping ratio:\t$SSU_ratio_pc%
     if (defined $ssu_sam_mapstats{"assem_ratio"}) {
         print {$fh} "Ratio of assembled SSU reads:\t".$ssu_sam_mapstats{"assem_ratio"}."\n";
     }
-    my $chao1_3dp = sprintf("%.3f",$chao1);
+    my $chao1_3dp = $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1);
 
     print {$fh} qq~
 ---
@@ -862,7 +921,7 @@ sub write_csv {
         "NTUs observed once",$xtons[0],
         "NTUs observed twice",$xtons[1],
         "NTUs observed three or more times",$xtons[2],
-        "NTU Chao1 richness estimate",sprintf("%.3f",$chao1), # Round to 3 d.p.
+        "NTU Chao1 richness estimate", $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1), # Round to 3 d.p.
         "program command",$progcmd,
         "database path",$DBHOME,
     ));
@@ -1046,7 +1105,7 @@ sub sortmerna_filter_sam {
         msg ("Reporting 10 best hits per read");
         push @sortmerna_args, "--best 10";
     }
-    
+
     msg ("Running sortmerna:");
     # Run Sortmerna
     run_prog("sortmerna",
@@ -1115,7 +1174,7 @@ sub parse_mapstats_from_sam_arr {
         $SEmode     # Flag for single-end mode
         ) = @_;
     #$readnr,$readnr_pairs,$SSU_total_pairs,$SSU_ratio,$SSU_ratio_pc
-    
+
     # Variables used internally
     my $ssu_pairs     = 0;  # Pairs with both segments mapping
     my $ssu_bad_pairs = 0;  # Pairs where segments map to different references
@@ -1126,22 +1185,30 @@ sub parse_mapstats_from_sam_arr {
     my $unmapped_segment = 0; # Don't use this for summary
     my $unmapped;
     my %qname_hash;
-    
+
     foreach my $href (@$aref) {
         # Go through each SAM record and check bitflags to see if mapping or not
         next if $href->{'FLAG'} & 0x100; # Skip secondary alignments
         my ($splitname, @discard) = split /\s/, $href->{'QNAME'}; # Split read name on whitespace and add to hash for counting
-        # Strip read segment suffixes from name 
+        # Strip read segment suffixes from name
         if ($splitname =~ m/^(.+)([:\/_])[12]/) {
             $splitname = $1.$2;
         }
         $qname_hash{$splitname} ++;
-        if ($href->{'FLAG'} & 0x40) { # Fwd read
-            $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
-        } elsif ($href->{'FLAG'} & 0x80) { # Rev read
-            $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
+
+        if ($SEmode == 0) {
+            if ($href->{'FLAG'} & 0x40) { # Fwd read
+                $ssu_f_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless fwd read unmapped
+            } elsif ($href->{'FLAG'} & 0x80) { # Rev read
+                $ssu_r_reads ++ unless $href->{'FLAG'} & 0x4;   # Unless rev read unmapped
+            }
+        } else {
+            # Single end reads
+            if ($href->{'FLAG'} == 0 || $href->{'FLAG'} & 0x10) {
+                $ssu_f_reads ++;
+            }
         }
-        
+
         if ($href->{'FLAG'} & 0x2) { # Each segment properly aligned
             $ssu_pairs ++; # This will have to be divided by two later
         } elsif ($href->{'FLAG'} & 0x8) { # Next segment unmapped
@@ -1152,23 +1219,23 @@ sub parse_mapstats_from_sam_arr {
             $ssu_bad_pairs ++; # Will have to be divided by two later
         }
     }
-    
+
     $SSU_total_pairs = scalar (keys %qname_hash); # Count total reads mapped from read names hash
     # This is because unmapped reads are not necessarily reported
-    
+
     # Report fwd and reverse reads mapping
     msg ("Forward read segments mapping: $ssu_f_reads");
     msg ("Reverse read segments mapping: $ssu_r_reads");
-    
+
     # calculating mapping ratio
     $readnr_pairs = $readnr;
     # If paired reads, divide segment-based counts by two into pair-based counts
 
     $readnr_pairs /= 2 if $SEmode == 0;
-    
+
     $SSU_ratio = $SSU_total_pairs / $readnr_pairs;
     $SSU_ratio_pc = sprintf ("%.3f", $SSU_ratio * 100);
-    
+
     if ($SEmode == 0) {
         # If paired reads, divide segment-based counts by two into pair-based counts
         $ssu_pairs /= 2;
@@ -1186,7 +1253,7 @@ sub parse_mapstats_from_sam_arr {
     # Ratios of mapped vs unmapped to report
     my @mapratio_csv;
     if ($SEmode == 1) { # TO DO: Add numerical values to text labels
-        
+
         push @mapratio_csv, "Unmapped,".$unmapped;
         push @mapratio_csv, "Mapped,".$SSU_ratio*$readnr;
     } elsif ($SEmode == 0) {
@@ -1208,7 +1275,7 @@ sub parse_mapstats_from_sam_arr {
     $statshref->{'ssu_tot_pair_map'} = $SSU_total_pairs;
     $statshref->{'ssu_tot_pair_ratio'} = $SSU_ratio;
     $statshref->{'ssu_tot_pair_ratio_pc'} = $SSU_ratio_pc;
-    
+
     # CSV file to draw piechart
     my $fh_csv;
     open_or_die (\$fh_csv, ">", $outfiles{"mapratio_csv"}{"filename"});
@@ -1285,8 +1352,8 @@ sub fix_hash_bbmap_sam {
     # Hash refs to each SAM alignment by QNAME, segment, and RNAME
     my %sam_hash;
     # Store refs to each SAM alignment in an array, in order encountered in SAM file
-    my @sam_arr; 
-    
+    my @sam_arr;
+
     # Open sam file and hash each read entry
     msg ("Reading SAM file $infile into memory");
     my $fh;
@@ -1301,12 +1368,12 @@ sub fix_hash_bbmap_sam {
         ($line_href->{'QNAME'},@discard) = split /\s/, $line_href->{'QNAME'}; # Split on first whitespace
         # Update current read if this is the first read
         if (! defined $current_read ) {
-            $current_read = $line_href->{'QNAME'}; 
+            $current_read = $line_href->{'QNAME'};
         }
         if (! defined $current_orientation) {
             $current_orientation = 'fwd';
         }
-        
+
         # Check if SE or PE mode, update current read field accordingly
         if ($SEmode == 0) {
             # PE input
@@ -1329,25 +1396,25 @@ sub fix_hash_bbmap_sam {
                 $stats_href->{'ssu_fwd_map'}++;             # Update stats counter
             }
         }
-        
+
         # Fix wrong assignment of secondary alignments of reverse read
         if ($line_href->{'FLAG'} & 0x100) {
             if ($current_orientation eq 'rev' && $line_href->{'FLAG'} & 0x40) {
                 # Fix bug in bbmap handling of BItflags (current as of v37.99)
                 $line_href->{'QNAME'} = $current_read;
                 $line_href->{'FLAG'} -= 64;     # Turn off flag 0x40
-                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80 
+                $line_href->{'FLAG'} += 128;    # Turn on flag 0x80
             }
         }
-        
+
         # Hash refs to each SAM alignment by QNAME, segment, and RNAME
         push @{$sam_hash{$current_read}{$current_orientation}{$line_href->{'RNAME'}}}, $line_href;
         # Store array of SAM alignments in order encountered in file
         push @sam_arr, $line_href;
-        
+
     }
     close ($fh);
-    
+
     # Write copy of fixed SAM file
     if (@sam_arr) {
         msg ("Writing fixed SAM file to ".$outfiles{'sam_map'}{'filename'});
@@ -1369,7 +1436,7 @@ sub fix_hash_bbmap_sam {
         close $sam_fh;
         msg ("Done");
     }
-    
+
     return (\%sam_hash,
             \@sam_arr);
 }
@@ -1383,11 +1450,11 @@ sub parse_stats_taxonomy_from_sam_array {
     #  $taxa_summary_href
     #  $chao1
     #  @xtons
-    
+
     my ($aref) = @_;
-    
+
     my @taxa_full;
-    
+
     msg ("Summarizing taxonomy from mapping hits to SILVA database");
     msg ("Using best hit only") if defined $tophit_flag;
     foreach my $href (@$aref) {
@@ -1410,7 +1477,7 @@ sub parse_stats_taxonomy_from_sam_array {
             msg ("Warning: malformed database entry for ".$href->{'RNAME'});
         }
     }
-    
+
     if (defined $tophit_flag) {
         # Using only top alignment per read to get taxonomy
         $taxa_summary_href = summarize_taxonomy (\@taxa_full,$taxon_report_lvl); #
@@ -1533,107 +1600,111 @@ sub spades_parse {
     #further processing
     if (! -s "$libraryNAME.spades/scaffolds.fasta") {
         msg("no phylotypes assembled with SPAdes");
+        msg("possible causes include low or uneven coverage of SSU sequences");
         $skip_spades = 1;
         remove_tree("$libraryNAME.spades");
-    }
-
-    # run barrnap once for each domain
-    # if single cell data - accept partial rRNAs down to 0.1
-    # and use lower e-value setting
-    my $b_args = " --evalue 1e-100 --reject 0.6 " ;
-    if ($sc == 1) {
-        $b_args = " --evalue 1e-20 --reject 0.1 ";
-    }
-
-    foreach ('bac', 'arch', 'euk') {
-        run_prog("barrnap",
-                 $b_args.
-                 "--kingdom $_ --gene ssu --threads $cpus " .
-                 "$libraryNAME.spades/scaffolds.fasta",
-                 $outfiles{"gff_".$_}{"filename"},
-                 $outfiles{"barrnap_log"}{"filename"});
-        $outfiles{"gff_".$_}{"made"}++;
-        $outfiles{"barrnap_log"}{"made"}++;
-    }
-
-    # now merge multi-hits on the same scaffold-and-strand by picking
-    # the lowest start and highest stop position.
-
-    my %ssus;
-    # pre-filter with grep for speed
-    my $fh;
-    open_or_die(\$fh, "-|",
-                "grep -hE '16S_rRNA\|18S_rRNA' ".
-                $outfiles{"gff_bac"}{"filename"}." ".
-                $outfiles{"gff_arch"}{"filename"}." ".
-                $outfiles{"gff_euk"}{"filename"});
-    while (my $row = <$fh>) {
-        my @cols    = split("\t", $row);
-        # gff format:
-        # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
-        # 5 score, 6 strand, 7 frame, 8 attribute
-
-        my $seqname = $cols[0];
-        my $start   = $cols[3];
-        my $stop    = $cols[4];
-        my $strand  = $cols[6];
-
-        # put our desired output fasta name into "feature" col 3
-        # the may be "bug" using / mixing bed and gff formats
-        # but it saves us messing with the fasta afterwards
-        $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
-        $cols[2] = "$libraryNAME.PFspades_$1_$2";
-
-        # do the actual merging, left most start and right most stop wins
-        if (exists $ssus{$seqname.$strand}) {
-            my $old_start = $ssus{$seqname.$strand}[3];
-            my $old_stop  = $ssus{$seqname.$strand}[4];
-            $cols[3] = ($start < $old_start) ? $start : $old_start;
-            $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
-        }
-        $ssus{$seqname.$strand} = [@cols];
-    }
-    close($fh);
-
-    if (scalar keys %ssus == 0) {
-        msg("no contig in spades assembly found to contain rRNA");
         return 1;
-    } else {
-        open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
-        for my $key (sort keys %ssus) {
-            print $fh join("\t",@{$ssus{$key}});
+    }
+
+    else {
+        # run barrnap once for each domain
+        # if single cell data - accept partial rRNAs down to 0.1
+        # and use lower e-value setting
+        my $b_args = " --evalue 1e-100 --reject 0.6 " ;
+        if ($sc == 1) {
+            $b_args = " --evalue 1e-20 --reject 0.1 ";
+        }
+
+        foreach ('bac', 'arch', 'euk') {
+            run_prog("barrnap",
+                     $b_args.
+                     "--kingdom $_ --gene ssu --threads $cpus " .
+                     "$libraryNAME.spades/scaffolds.fasta",
+                     $outfiles{"gff_".$_}{"filename"},
+                     $outfiles{"barrnap_log"}{"filename"});
+            $outfiles{"gff_".$_}{"made"}++;
+            $outfiles{"barrnap_log"}{"made"}++;
+        }
+
+        # now merge multi-hits on the same scaffold-and-strand by picking
+        # the lowest start and highest stop position.
+
+        my %ssus;
+        # pre-filter with grep for speed
+        my $fh;
+        open_or_die(\$fh, "-|",
+                    "grep -hE '16S_rRNA\|18S_rRNA' ".
+                    $outfiles{"gff_bac"}{"filename"}." ".
+                    $outfiles{"gff_arch"}{"filename"}." ".
+                    $outfiles{"gff_euk"}{"filename"});
+        while (my $row = <$fh>) {
+            my @cols    = split("\t", $row);
+            # gff format:
+            # 0 seqname, 1 source, 2 feature, 3 start, 4 end,
+            # 5 score, 6 strand, 7 frame, 8 attribute
+
+            my $seqname = $cols[0];
+            my $start   = $cols[3];
+            my $stop    = $cols[4];
+            my $strand  = $cols[6];
+
+            # put our desired output fasta name into "feature" col 3
+            # the may be "bug" using / mixing bed and gff formats
+            # but it saves us messing with the fasta afterwards
+            $seqname =~ m/NODE_([0-9]*)_.*cov_([0-9\\.]*)/;
+            $cols[2] = "$libraryNAME.PFspades_$1_$2";
+
+            # do the actual merging, left most start and right most stop wins
+            if (exists $ssus{$seqname.$strand}) {
+                my $old_start = $ssus{$seqname.$strand}[3];
+                my $old_stop  = $ssus{$seqname.$strand}[4];
+                $cols[3] = ($start < $old_start) ? $start : $old_start;
+                $cols[4] = ($stop  > $old_stop)  ? $stop  : $old_stop;
+            }
+            $ssus{$seqname.$strand} = [@cols];
         }
         close($fh);
-        $outfiles{"gff_all"}{"made"}++;
 
-        # fastaFromBed will build a .fai index from the source .fasta
-        # However, it does not notice if the .fasta changed. So we
-        # delete the .fai if it is older than the .fasta.
-        if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
-             file_is_newer("$libraryNAME.spades/scaffolds.fasta",
-                           "$libraryNAME.spades/scaffolds.fasta.fai")) {
-            unlink("$libraryNAME.spades/scaffolds.fasta.fai");
-        }
+        if (scalar keys %ssus == 0) {
+            msg("no contig in spades assembly found to contain rRNA");
+            return 1;
+        } else {
+            open_or_die(\$fh, ">", $outfiles{"gff_all"}{"filename"});
+            for my $key (sort keys %ssus) {
+                print $fh join("\t",@{$ssus{$key}});
+            }
+            close($fh);
+            $outfiles{"gff_all"}{"made"}++;
 
-        # extract rrna fragments from spades scaffolds accoding to gff
-        my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
-                                 "-bed",$outfiles{"gff_all"}{"filename"},
-                                 "-fo",$outfiles{"spades_fastaFromBed"}{"filename"},
-                                 "-s","-name",
+            # fastaFromBed will build a .fai index from the source .fasta
+            # However, it does not notice if the .fasta changed. So we
+            # delete the .fai if it is older than the .fasta.
+            if ( -e "$libraryNAME.spades/scaffolds.fasta.fai" &&
+                 file_is_newer("$libraryNAME.spades/scaffolds.fasta",
+                               "$libraryNAME.spades/scaffolds.fasta.fai")) {
+                unlink("$libraryNAME.spades/scaffolds.fasta.fai");
+            }
+
+            # extract rrna fragments from spades scaffolds accoding to gff
+            my @fastaFromBed_args = ("-fi $libraryNAME.spades/scaffolds.fasta",
+                                     "-bed",$outfiles{"gff_all"}{"filename"},
+                                     "-fo",$outfiles{"spades_fastaFromBed"}{"filename"},
+                                     "-s","-name",
+                                     );
+            run_prog("fastaFromBed",
+                     join (" ",@fastaFromBed_args),
+                     $outfiles{"fastaFromBed_out"}{"filename"},
+                     "&1");
+            # Fix bedtools headers from bedtools v2.26 and v2.27+
+            fix_bedtools_header ($outfiles{"spades_fastaFromBed"}{"filename"},
+                                 $outfiles{"spades_fasta"}{"filename"}
                                  );
-        run_prog("fastaFromBed",
-                 join (" ",@fastaFromBed_args),
-                 $outfiles{"fastaFromBed_out"}{"filename"},
-                 "&1");
-        # Fix bedtools headers from bedtools v2.26 and v2.27+
-        fix_bedtools_header ($outfiles{"spades_fastaFromBed"}{"filename"},
-                             $outfiles{"spades_fasta"}{"filename"}
-                             );
-        $outfiles{"spades_fastaFromBed"}{"made"}++;
-        $outfiles{"spades_fasta"}{"made"}++;
-        $outfiles{"fastaFromBed_out"}{"made"}++;
-        msg("done...");
-        return 0;
+            $outfiles{"spades_fastaFromBed"}{"made"}++;
+            $outfiles{"spades_fasta"}{"made"}++;
+            $outfiles{"fastaFromBed_out"}{"made"}++;
+            msg("done...");
+            return 0;
+        }
     }
 }
 
@@ -1925,7 +1996,7 @@ sub screen_remappings {
                             }
                         }
 
-                        
+
                     }
                 }
             }
@@ -2081,7 +2152,7 @@ sub emirge_run {
             $ins_std = $ins_used / 2;
             msg ("Warning: No insert size reported by mapper. Using initial guess $ins_std");
         }
-        
+
         msg("the insert size used is $ins_used +- $ins_std");
         # FIXME: EMIRGE dies with too many SSU reads, the cutoff needs to be adjusted...
         if ($SSU_total_pairs <= $amplimit) {
@@ -2256,7 +2327,7 @@ sub vsearch_parse {
 }
 
 sub vsearch_cluster {
-    my $clusterid = 97;
+    my ($clusterid) = @_;
     msg("clustering DB matches at $clusterid%");
     run_prog("vsearch",
              "  --cluster_fast ".$outfiles{"dbhits_all_fasta"}{"filename"}
@@ -2325,12 +2396,22 @@ sub nhmmer_model_pos {
 
     # Subsample reads with reformat.sh
     my @reformat_args = ("in=$readsf",
-                         "in2=$readsr",
+                         # "in2=$readsr",
                          #"path=$DBHOME",
                          "out=$subsample",
                          "srt=$samplelimit",
                          "ow=t", # Overwrite existing files
                          );
+
+    # Check if SE reads or interleaved reads
+    if ($SEmode == 0) {
+        if ($interleaved == 1) {
+            push @reformat_args, ("interleaved=t");
+        } else {
+            push @reformat_args, ("in2=$readsr");
+        }
+    }
+
     run_prog ("reformat",
               join (" ", @reformat_args),
               undef,
@@ -2598,10 +2679,18 @@ sub run_plotscript_SVG {
             push @treeplot_args, ("-assemcov",
                                   $outfiles{"full_len_class"}{"filename"},
                                   "-treefasta",
-                                  $outfiles{"ssu_coll_fasta"}{"filename"},
-                                  "-unassemcount",
-                                  $ssu_sam_mapstats{"ssu_unassem"},
+                                  $outfiles{"ssu_coll_fasta"}{"filename"}
                                   );
+            # Check that unassembled count is more than zero. Can be less than
+            # zero in certain cases
+            if ($ssu_sam_mapstats{"ssu_unassem"} >= 0) {
+                push @treeplot_args, ("-unassemcount",
+                                      $ssu_sam_mapstats{"ssu_unassem"});
+            } else {
+                push @treeplot_args, ("-unassemcount",
+                                      '0');
+            }
+
         }
         run_prog("plotscript_SVG",
                  join(" ",@treeplot_args),
@@ -2712,7 +2801,7 @@ sub write_report_html {
         "XTONS0" => $xtons[0],
         "XTONS1" => $xtons[1],
         "XTONS2" => $xtons[2],
-        "CHAO1" => sprintf ("%.3f", $chao1), # Round to 3 decimal places
+        "CHAO1" => $chao1 eq "n.d." ? $chao1 : sprintf ("%.3f", $chao1), # Round to 3 decimal places
     );
 
     # Define suppress flags (which turn off writing of report)
@@ -2935,15 +3024,7 @@ sub write_report_html {
     close($fh_in);
 }
 
-sub write_logfile {
-    # This should always be run last (except do_zip)
-    msg("Saving log to file");
-    my $fh;
-    open_or_die(\$fh, ">>", $outfiles{"phyloFlash_log"}{"filename"});
-    $outfiles{'phyloFlash_log'}{'made'} ++;
-    print $fh join "\n", @PhyloFlash::msg_log;
-    close($fh);
-}
+
 
 ######################### MAIN ###########################
 
@@ -2960,7 +3041,7 @@ if ($use_sortmerna == 1 ) {
     # Get total reads processed from Sortmerna log file
     $readnr = get_total_reads_from_sortmerna_log($outfiles{'sortmerna_log'}{'filename'});
     # Set insert size summary stats to 0 because not reported by sortmerna
-    ($ins_me, $ins_std) = (0,0); 
+    ($ins_me, $ins_std) = (0,0);
 
 } else {
     # Run BBmap against the SILVA database
@@ -2970,6 +3051,11 @@ if ($use_sortmerna == 1 ) {
                                                             \%ssu_sam_mapstats);
     # Get total reads and insert size stats from BBmap log file
     ($readnr,$ins_me,$ins_std) = get_total_reads_from_bbmap_log($outfiles{'bbmap_log'}{'filename'});
+}
+
+if ($readnr == 0) {
+    # Exit if no reads mapped
+    err("ERROR: No reads were detected! Possible reasons: Coverage in library too low; option -readlimit too low; input is not a (meta)genome/transcriptome dataset.");
 }
 
 # Get taxonomic summary from hashed SAM records
@@ -3003,20 +3089,26 @@ if ($skip_spades == 0) {
         if ($spades_parse_return == 0) {
             bbmap_remap("SPAdes");
         }
+    } else {
+        msg("SPAdes exited with error, this may happen if no sequences were assembled Possible causes include coverage per sequence too low or uneven");
     }
 }
 # Run Emirge if not explicitly skipped
 if ($skip_emirge == 0) {
     my $emirge_return = emirge_run();
     # Parse output from emirge if it exits without errors
-    emirge_parse() if $emirge_return == 0;
-    bbmap_remap("EMIRGE") if $emirge_return == 0;
+    if ($emirge_return == 0) {
+        emirge_parse();
+        bbmap_remap("EMIRGE");
+    } else {
+        msg("EMIRGE exited with error, this may happen if no sequences were reconstructed Possible causes include coverage per sequence too low or uneven");
+    }
 }
 # If full length sequenced produced, match vs SILVA database with Vsearch and align with best hits
 if (defined $outfiles{"spades_fasta"}{"made"} || defined $outfiles{"emirge_fasta"}{"made"} || defined $outfiles{'trusted_fasta'}{'made'}) {
     vsearch_best_match();
     vsearch_parse();
-    vsearch_cluster();
+    vsearch_cluster($clusterid);
     mafft_run();
     screen_remappings();
 }
@@ -3055,5 +3147,9 @@ msg("Thank you for using phyloFlash
 You can find your results in $libraryNAME.*,
 Your main result file is $libraryNAME.phyloFlash");
 
-write_logfile() if ($save_log == 1);
+if ($save_log == 1) {
+    write_logfile($outfiles{"phyloFlash_log"}{"filename"});
+    $outfiles{'phyloFlash_log'}{'made'} ++;
+}
+
 do_zip() if ($zip == 1) ;

@@ -59,7 +59,8 @@ Path to local copy of SILVA database file. Ignored if --remote flag is used.
 This should be the Fasta-formatted SILVA SSURef file, clustered at 99% identity,
 with SILVA taxonomy strings in file header, and sequences truncated to SSU gene
 boundaries. The file name should be in the form
-I<SILVA_[Release]_SSURef_Nr99_tax_silva_trunc.fasta.gz>
+I<SILVA_[Release]_SSURef_Nr99_tax_silva_trunc.fasta.gz> (release 132 and before) or
+I<SILVA_[Release]_SSURef_NR99_tax_silva_trunc.fasta.gz> (from release 138 onwards)
 
 =item --univec_file F<path/to/univec_db>
 
@@ -103,6 +104,14 @@ have to do find and delete corrupted files manually).
 
 Default: No ("--nooverwrite")
 
+=item --ref_minlength
+
+Minimum length of database sequences to keep after trimming of vectors and 
+contaminant sequences. Default of 800 bp is about 50% for SSU rRNA gene length,
+but should be changed if a custom database is used.
+
+Default: 800
+
 =item --CPUs I<N>
 
 Number of processors to use
@@ -143,9 +152,9 @@ Report version
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2014- by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
-                       Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-                       Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2014-2018 by Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                           Brandon Seah <kbseah@mpi-bremen.de>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -171,9 +180,11 @@ use Digest::MD5;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
 use Cwd;
 use Storable;
+use File::Spec;
+use File::Basename;
 
 # URLS
-my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_Nr99_tax_silva_trunc.fasta.gz";
+my $silva_url  = "ftp.arb-silva.de/current/Exports/*_SSURef_N?99_tax_silva_trunc.fasta.gz";
 my $univec_url = "ftp.ncbi.nlm.nih.gov/pub/UniVec/UniVec";
 
 # constants
@@ -188,6 +199,7 @@ my $sortmerna = 0;      # Index sortmerna tool
 my $emirge = 1;         # Index emirge
 my $memlimitGb = 10;    # In Gb
 my $makedb_log;
+my $ref_minlength=800;
 
 # commandline arguments
 my $use_remote = 0;     # Download SILVA and Univec databases via FTP
@@ -207,6 +219,7 @@ GetOptions("remote|r" => \$use_remote,
                                 exit; },
            "keep|k" => \$keep,
            "overwrite!" => \$overwrite,
+           "ref_minlength=i" => \$ref_minlength,
            "log=s" => \$makedb_log,
            "help|h" => sub{pod2usage(-verbose=>1);},
            "man|m" => sub {pod2usage(-verbose=>2);},
@@ -251,7 +264,11 @@ else {
 }
 
 # extract SILVA version
-my ($silva_release) = ($silva_file =~ m/SILVA_([^_]+)_/);
+# get file basename, in case a path is specified
+my ($silva_file_filename, 
+    $silva_file_dirs, 
+    $silva_file_suffix) = fileparse($silva_file);
+my ($silva_release) = ($silva_file_filename =~ m/SILVA_([^_]+)_/);
 
 if (!$&) {
     err("Unable to extract version from SILVA database filename:",
@@ -282,6 +299,7 @@ if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
                       @lsu_in_ssh,
                       $overwrite);
     unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
+    unlink glob "$dbdir/tmp.barrnap_hits.*" unless ($keep==1);
 } else {
     msg ("LSU-filtered file found, not overwriting");
 }
@@ -294,7 +312,8 @@ unlink "$dbdir/SILVA_SSU.noLSU.fasta" unless ($keep==1);
 univec_trim($univec_file,
             "$dbdir/SILVA_SSU.noLSU.masked.fasta",
             "$dbdir/SILVA_SSU.noLSU.masked.trimmed.fasta",
-            $overwrite);
+            $overwrite,
+            $ref_minlength);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
 
 # Index database into UDB file, if Vsearch v2.5.0+
@@ -457,7 +476,7 @@ sub mask_repeats {
 
 #db is screened against UniVec and hit bases are trimmed using bbduk
 sub univec_trim {
-    my ($univec, $src, $dst,$overwrite) = @_;
+    my ($univec, $src, $dst,$overwrite, $ref_minlength) = @_;
     msg("removing UniVec contamination in SSU RefNR");
     my $log = "tmp.bbduk_remove_univec.log";
     if (! -e $dst || $overwrite == 1 ) {
@@ -467,7 +486,7 @@ sub univec_trim {
                  . "-Xmx".$memlimitGb."g "
                  . "threads=$cpus "
                  . "fastawrap=0 "
-                 . "ktrim=r ow=t minlength=800 mink=11 hdist=1 "
+                 . "ktrim=r ow=t minlength=$ref_minlength mink=11 hdist=1 "
                  . "in=$src "
                  . "out=$dst "
                  . "stats=$dst.UniVec_contamination_stats.txt",
@@ -556,19 +575,14 @@ sub hash_SILVA_acc_taxstrings_from_fasta {
 
 #--------------------------------------------- final timing stats and goodbye
 sub finish {
+  my $dbdir_abs = File::Spec->rel2abs($dbdir); # Convert to absolute path
   msg("Walltime used: ".$timer->minutes);;
   msg("The databases for Silva release $silva_release are ready for phyloFlash
 
-    Please provide your location of
-    the databases with -dbhome: /path/to/your/databases/
-    or change script line XXX accordingly");#Fixme
-}
+    When running phyloFlash, please provide the location of
+    the databases with the following option:
+      -dbhome $dbdir_abs
 
-sub write_logfile {
-    my $file = shift;
-    msg ("Saving log to file $file");
-    my $fh;
-    open_or_die(\$fh, ">>", $file);
-    print $fh join "\n", @PhyloFlash::msg_log;
-    close($fh);
+    or add the following line to your .bashrc or .bash_profile:
+      export PHYLOFLASH_DBHOME=$dbdir_abs");
 }

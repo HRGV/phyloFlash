@@ -28,13 +28,14 @@ This module contains helper functions shared by the phyloFlash scripts.
 
 =cut
 
-our $VERSION     = "3.3b1";
+our $VERSION     = "3.4.1";
 our @ISA         = qw(Exporter);
 our @EXPORT      = qw(
   $VERSION
   get_cpus
   msg
   @msg_log
+  write_logfile
   err
   version_sort
   file_is_newer
@@ -100,6 +101,20 @@ sub msg {
     print STDERR $line."\n";
 }
 
+=item write_logfile ($file)
+
+Saves message log to file
+
+=cut
+sub write_logfile {
+    my $file = shift;
+    msg ("Saving log to file $file");
+    my $fh;
+    open_or_die(\$fh, ">>", $file);
+    print $fh join "\n", @PhyloFlash::msg_log;
+    close($fh);
+}
+
 =item err($msg)
 
 Logs an error message to STDERR and dies
@@ -109,6 +124,7 @@ sub err {
     my @msg = (@_,"Aborting.");
     $msg[0] = "FATAL: ".$msg[0];
     msg(@msg);
+    write_logfile("phyloFlash_log_on_error");
     exit(3);
 }
 
@@ -342,9 +358,18 @@ sub run_prog {
     $cmd .= " 2>".$redir_stderr if ($redir_stderr);
 
     msg("running subcommand:","$cmd");
-    system($cmd) == 0
-        or err("Tool execution failed!.",
-               "Error was '$!' and return code '$?'");
+    my $return = system($cmd);
+    if ($return != 0) {
+        my @errmsg = ("Tool execution failed!.",
+                      "Error was '$!' and return code '$?'");
+        if ($redir_stdout) {
+            push @errmsg, "Check log file $redir_stdout";
+        }
+        if ($redir_stderr) {
+            push @errmsg, "Check error log file $redir_stderr";
+        }
+        err(@errmsg);
+    }
 
     # FIXME: print tail of stderr if redirected
 }
@@ -389,8 +414,15 @@ sub run_prog_nodie {
     msg("running subcommand:","$cmd");
     my $return = system($cmd);
     if ($return != 0) {
-        msg ("Tool execution failed!.",
-             "Error was '$!' and return code '$?'");
+        my @errmsg = ("Tool execution failed!.",
+                      "Error was '$!' and return code '$?'");
+        if ($redir_stdout) {
+            push @errmsg, "Check log file $redir_stdout";
+        }
+        if ($redir_stderr) {
+            push @errmsg, "Check error log file $redir_stderr";
+        }
+        msg(@errmsg);
     }
     return ($return);
     # FIXME: print tail of stderr if redirected
@@ -1764,6 +1796,20 @@ sub initialize_outfiles_hash {
         filename    => "$libraryNAME.sortmerna.log",
         intable     => 1,
       },
+      "readlength_out",
+      {
+        description => "Histogram of read lengths in input file(s)",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.out",
+        intable     => 0,
+      },
+      "readlength_err",
+      {
+        description => "Log file produced by readlength.sh",
+        discard     => 1,
+        filename    => "$libraryNAME.readlength.err",
+        intable     => 0,
+      },
       #"",
       #{
       #  description => "",
@@ -1779,8 +1825,9 @@ sub initialize_outfiles_hash {
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2015 Elmar Pruesse <elmar.pruesse@ucdenver.edu>
-                   Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+Copyright (C) 2015-2018 by Elmar Pruesse <elmar.pruesse@ucdenver.edu>
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Brandon Seah <kbseah@mpi-bremen.de>
 
 LICENCE
 This program is free software: you can redistribute it and/or modify

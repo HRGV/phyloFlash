@@ -8,11 +8,11 @@ phyloFlash_fastgFishing.pl - Bin genomes from Fastg graph by SSU sequence
 
 ### Megahit assembly
 
-phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --out [PREFIX]
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --out [PREFIX] --assembler megahit
 
 ### SPAdes assembly
 
-phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out [PREFIX]
+phyloFlash_fastgFishing.pl --fasta [Fasta] --fastg [Fastg] --paths [Paths] --out [PREFIX] --assembler spades
 
 ### Help
 
@@ -854,7 +854,9 @@ sub get_seq_lens {
 Code partially adapted from fastg_paths_fishing.pl script in the gbtools package
 https://github.com/kbseah/genome-bin-tools
 
-Copyright (C) 2018- Brandon Seah (kbseah@mpi-bremen.de)
+Copyright (C) 2018-     by Brandon Seah (kbseah@mpi-bremen.de)
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -264,7 +264,9 @@ sub get_fastq_urls {
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2017 - Brandon Seah <kbseah@mpi-bremen.de>
+Copyright (C) 2017-2018 by Brandon Seah <kbseah@mpi-bremen.de>
+                           Harald Gruber-Vodicka <hgruber@mpi-bremen.de>
+                           Elmar A. Pruesse <elmar.pruesse@ucdenver.edu>
 
 LICENCE
 
