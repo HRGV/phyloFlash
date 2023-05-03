@@ -299,7 +299,7 @@ if (! -e "$dbdir/SILVA_SSU.noLSU.fasta" || $overwrite == 1) {
                       @lsu_in_ssh,
                       $overwrite);
     unlink "$dbdir/SILVA_SSU.fasta" unless ($keep==1);
-    unlink glob "$dbdir/tmp.barrnap_hits.*" unless ($keep==1);
+    unlink glob "tmp.barrnap_hits.*" unless ($keep==1);
 } else {
     msg ("LSU-filtered file found, not overwriting");
 }
@@ -315,6 +315,7 @@ univec_trim($univec_file,
             $overwrite,
             $ref_minlength);
 unlink "$dbdir/SILVA_SSU.noLSU.masked.fasta" unless ($keep==1);
+
 
 # Index database into UDB file, if Vsearch v2.5.0+
 # Speeds up run time in search phase of phyloFlash as db can be directly read to mem
@@ -365,6 +366,20 @@ if ($sortmerna == 1) {
                     $overwrite);
     hash_SILVA_acc_taxstrings_from_fasta ("./$silva_release/SILVA_SSU.noLSU.masked.trimmed.NR96.fixed.fasta",
                                           $overwrite);
+}
+
+# Clean up log files at end - if breaks in middle they will be available for debug
+unless ($keep==1) {
+    unlink "tmp.bbmask_mask_repeats.log"; # from mask_repeats
+    unlink "tmp.bbduk_remove_univec.log"; # from univec_trim
+    if (defined $vsearch_ver_check) {
+        unlink "tmp.vsearch_make_udb.log"; # from make_vsearch_udb
+    }
+    unlink "tmp.bbmap_index.log"; # from bbmap_db
+    unlink "tmp.bowtiebuild.log"; # from bowtie_index
+    if ($sortmerna == 1) {
+        unlink "tmp.indexdb_rna.log"; # from sortmerna_index
+    }
 }
 
 finish();
