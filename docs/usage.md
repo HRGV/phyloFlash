@@ -14,6 +14,7 @@ phyloFlash.pl -man # Manual page in pager
 
 Running `phyloFlash.pl` without arguments will show the basic help message.
 
+
 ## 1. Basic usage
 
 To screen paired-end 100 bp read files named `reads_F.fq.gz` and
@@ -57,6 +58,7 @@ data input. Use to test setup.
 
 `-outfiles` Show detailed list of output and temporary files and exit.
 
+
 ### 2.1. Standard input arguments
 
 `-lib LIBNAME` Library name to use as a filename prefix for the output files
@@ -75,6 +77,7 @@ omitted, phyloFlash will run in *experimental* single-end mode.
 `-readlength N` Set expected readlength (between 50 and 500). Always use if
 your read length differs from 100. Default: 100.
 
+
 ### 2.2. Performance-related
 
 `-CPUs N` Number of threads to use. Defaults to all available CPU cores.
@@ -86,6 +89,7 @@ reads, and use values below 1000000. Default: unlimited.
 `-amplimit N` Set the limit of SSU read pairs to switch from emirge.py to
 emirge_amplicon.py. This feature is not reliable as emirge_amplicon.py has been
 problematic to run (use values >100000). Default: 500000.
+
 
 ### 2.3. Customizing the run
 
@@ -130,6 +134,7 @@ SILVA version number.
 rRNA sequences. The SSU sequences will be extracted with Barrnap, and the input
 read files will be screened against these extracted "trusted" SSU sequences
 
+
 ### 2.4. Localization and compatibility options
 
 `-crlf` Use CRLF as the line terminator in CSV output, to be RFC4180 compliant
@@ -137,6 +142,7 @@ read files will be screened against these extracted "trusted" SSU sequences
 
 `-decimalcomma` Use decimal comma instead of decimal point to fix locale
 problems for some European systems (Default: Off)
+
 
 ### 2.5. Configuring output
 
@@ -153,7 +159,8 @@ although it is free to use. (Default: Off)
 `-log` Write status messages printed to STDERR also to a log file (Default:
 Off)
 
-`-zip` Compress output into a tar.gz archive file (Default: Off)
+`-zip` Compress output into a tar.gz archive file. Overridden by
+`-almosteverything`  and `-everything` (Default: Off)
 
 `-keeptmp` Keep temporary/intermediate files (Default: Off)
 
@@ -162,6 +169,7 @@ without defaults and any local settings must still be specified. Equivalent to
 `-emirge -poscov -treemap -zip -log`
 
 `-almosteverything` Like `-everything` except without `-emirge`
+
 
 ## 3. Testing phyloFlash
 
@@ -173,6 +181,7 @@ these files:
 ```bash
 phyloFlash.pl -lib TEST -read1 test_files/test_F.fq.gz -read2 test_files/test_R.fq.gz
 ```
+
 
 ## 4. Expected performance
 

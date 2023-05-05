@@ -249,7 +249,8 @@ Default: Off ("-notreemap")
 
 =item -zip
 
-Compress output into a tar.gz archive file
+Compress output into a tar.gz archive file. Overridden by I<-almosteverything>
+or I<-everything>.
 
 Default: Off ("-nozip")
 
