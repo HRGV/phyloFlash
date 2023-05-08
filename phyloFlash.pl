@@ -249,7 +249,8 @@ Default: Off ("-notreemap")
 
 =item -zip
 
-Compress output into a tar.gz archive file
+Compress output into a tar.gz archive file. Overridden by I<-almosteverything>
+or I<-everything>.
 
 Default: Off ("-nozip")
 
@@ -346,7 +347,7 @@ my @tools_list;                 # Array to store list of tools required
                                 # (0 will be turned into "\n" in parsecmdline)
 # default database names for EMIRGE and Vsearch
 my $emirge_db   = "SILVA_SSU.noLSU.masked.trimmed.NR96.fixed";
-my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed";
+my $vsearch_db  = "SILVA_SSU.noLSU.masked.trimmed.udb";
 my $sortmerna_db = $emirge_db;
 
 my $ins_used = "SE mode!"; # Report insert size used by EMIRGE
@@ -420,7 +421,7 @@ sub check_dbhome {
     my $dbhome = shift;
     my @required_list = ('ref/genome/1/summary.txt',
                          $emirge_db.".fasta",
-                         $vsearch_db.".fasta");
+                         $vsearch_db);
     push @required_list, ("$sortmerna_db.bursttrie_0.dat","$sortmerna_db.acc2taxstring.hashimage") if ($use_sortmerna == 1);
     foreach (@required_list) {
         return "${dbhome}/$_" unless -r "${dbhome}/$_"
@@ -2239,8 +2240,6 @@ sub vsearch_best_match {
     $outfiles{"all_final_fasta"}{"made"}++;
 
     if (-s $outfiles{"all_final_fasta"}{"filename"}) {
-        # Check whether UDB file can be used
-        my $vsearch_ver_check = check_vsearch_version();
         my @vsearch_args = ("-usearch_global", $outfiles{"all_final_fasta"}{"filename"},
                             "-id 0.7",
                             "-userout", $outfiles{"vsearch_csv"}{"filename"},
@@ -2249,12 +2248,8 @@ sub vsearch_best_match {
                             "--strand plus --notrunclabels",
                             "-notmatched", $outfiles{"notmatched_fasta"}{"filename"},
                             "-dbmatched", $outfiles{"dbhits_all_fasta"}{"filename"},
+                            "-db ${DBHOME}/${vsearch_db}",
                             );
-        if (defined $vsearch_ver_check) {
-            push @vsearch_args, "-db ${DBHOME}/${vsearch_db}.udb";
-        } else {
-            push @vsearch_args, "-db ${DBHOME}/${vsearch_db}.fasta";
-        }
         # Run Vsearch
         run_prog("vsearch",
                  join(" ", @vsearch_args),

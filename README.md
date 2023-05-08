@@ -1,6 +1,6 @@
 <img align="right" src="docs/phyloFlash_logo.png" width="200" alt="phyloFlash logo"/>
 
-# phyloFlash v3.4
+# phyloFlash
 
 [![GitHub (pre-)release](https://img.shields.io/github/release/HRGV/phyloflash/all.svg?label=Latest%20Version)]()
 [![Bioconda](https://img.shields.io/conda/vn/Bioconda/phyloFlash.svg)](https://bioconda.github.io/recipes/phyloflash/README.html)
@@ -12,18 +12,14 @@ by Harald Gruber-Vodicka, Elmar A. Pruesse, and Brandon Seah.
 phylogenetic composition of an Illumina (meta)genomic or transcriptomic
 dataset. **[Manual](https://hrgv.github.io/phyloFlash)**
 
-***NOTE*** Version 3 changed some input options and also how mapping-based taxa
-(NTUs) are handled. Please download the last release of v2.0 ([tar.gz
-archive](https://github.com/HRGV/phyloFlash/archive/v2.0-beta6.tar.gz)) for the
-old implementation. No changes have been made to the database setup, so
-databases prepared for v2.0 can still be used for v3.0.
-
 Read [our paper](https://doi.org/10.1128/mSystems.00920-20) on phyloFlash.
+
 
 ## Quick-start
 
 ### Download via Conda
 
+We recommend installing phyloFlash and its dependencies using Conda or Mamba.
 [Conda](https://conda.io/docs/) is a package manager that will also install
 dependencies that are required if you don't have them already.
 
@@ -31,15 +27,16 @@ phyloFlash is distributed through the [Bioconda](http://bioconda.github.io/)
 channel on Conda.
 
 According to the [Conda documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html),
-it is recommended to install all packages at the same time to avoid dependency
-conflicts, and to create new environments instead of installing to the base
-environment.
+avoid installing new packages to your base environment but create new
+environments for them as required. Also, specify all desired packages at the
+same time when creating a new environment, instead of adding them sequentially,
+to avoid dependency conflicts.
 
-We also recommend using [Mamba](https://mamba.readthedocs.io/en/latest/) as a
+We also suggest using [Mamba](https://mamba.readthedocs.io/en/latest/) as a
 drop-in substitute for Conda. It implements a more effective dependency solver
-and is also the default Conda frontend for the pipeline managers Snakemake.
-Conda sometimes fails to solve the environment, and in these cases Mamba
-usually works.
+and is also the default Conda frontend for the pipeline manager Snakemake.
+Simply replace `conda` with `mamba` in the commands below. Note that the
+`defaults` channel should be enabled.
 
 ```bash
 # If you haven't set up Bioconda already
@@ -49,39 +46,58 @@ conda config --add channels conda-forge
 # Try the following step if "solving environment" does not terminate
 conda config --set channel_priority strict
 # Create new environment named "pf" with phyloflash
-# Sortmerna is an optional dependency
-conda create -n pf phyloflash sortmerna=2.1b
-# If Conda is unable to solve the environment; requires mamba in base env
-mamba create -n pf phyloflash sortmerna=2.1b
+conda create -n pf phyloflash
+# Activate environment
+conda activate pf
+# Check that dependencies all installed properly
+phyloFlash.pl -check_env
 ```
 
-### Download from GitHub
 
-If you prefer not to use Conda, or are interested in a specific version that is
-not distributed there, you can download releases from the
-[releases](https://github.com/HRGV/phyloFlash/releases) page on GitHub.
+### Download pre-formatted database
 
-If you clone the repository directly off GitHub you might end up with a version
-that is still under development.
+Pre-formatted databases derived from SILVA releases 138 onwards are available
+from the following Zenodo archives:
+
+ * [SILVA 138.1](https://doi.org/10.5281/zenodo.7892521) (latest)
+ * [SILVA 138](https://doi.org/10.5281/zenodo.7890453)
+
+Download, checksum, and unpack:
 
 ```bash
-# Download latest release
-wget https://github.com/HRGV/phyloFlash/archive/pf3.4.tar.gz
-tar -xzf pf3.4.tar.gz
-
-# Check for dependencies and install them if necessary
-cd phyloFlash-pf3.4
-./phyloFlash.pl -check_env
+wget https://zenodo.org/record/7892522/files/138.1.tar.gz # 5.5 GB download
+tar -xzf 138.1.tar.gz # unpacks folder 138.1/ in the current location
 ```
 
-### Set up database and run
+Specify path to the database folder with the option `-dbhome` when running
+phyloFlash (see below).
 
-This assumes that the phyloFlash scripts are already in your path.
+Older versions of the SILVA database have a more restrictive license, so we are
+unable to distribute pre-formatted versions. You will have to download the
+original SILVA files and run the `phyloFlash_makedb.pl` script yourself (see
+Manual).
+
+
+### Test phyloFlash with test dataset
+
+Test data are included with phyloFlash. The following assumes that you
+installed phyloFlash to a Conda environment called `pf`, and that the database
+files have been unpacked to a folder `/path/to/138.1`. By default, phyloFlash
+will look for the database folder in the folder where it is installed. If it is
+located somewhere else, specify this to the `-dbhome` option.
 
 ```bash
-# Install reference database (takes some time)
-phyloFlash_makedb.pl --remote
+conda activate pf # If Conda environment not already activated
+phyloFlash.pl -dbhome /path/to/138.1 -lib TEST -CPUs 16 \
+ -read1 ${CONDA_PREFIX}/lib/phyloFlash/test_files/test_F.fq.gz \
+ -read2 ${CONDA_PREFIX}/lib/phyloFlash/test_files/test_R.fq.gz \
+ -almosteverything
+```
 
+
+### Example phyloFlash commands
+
+```bash
 # Run with test data and 16 processors (default is to use all processors available)
 phyloFlash.pl -lib TEST -CPUs 16 -read1 test_files/test_F.fq.gz -read2 test_files/test_R.fq.gz
 
@@ -116,6 +132,7 @@ read sets.
 Use the `-zip` switch to compress output files into tar.gz archive, and `-log`
 to save run messages to a log file
 
+
 ## Output
 
 phyloFlash screens metagenomic or metatranscriptomic reads for SSU rRNA
@@ -133,6 +150,7 @@ Plain text and HTML-formatted reports are produced, reporting summary
 statistics from each run. The HTML report includes an interactive graphical
 summary.
 
+
 ## Going further
 
 The phyloFlash suite also includes other tools for SSU rRNA-centric metagenome
@@ -149,9 +167,13 @@ analyses. Run the commands without arguments to see help messages.
    and extract contigs connected to them. Optionally compare to phyloFlash
    results from the same library.
 
+
 ## Manual
 
-For further information **please refer to the [Manual](https://hrgv.github.io/phyloFlash)**.
+For further information please refer to the
+[Manual](https://hrgv.github.io/phyloFlash) as well as the command-line help
+page `phyloFlash.pl -man`.
+
 
 ## Versions and changes
 
@@ -199,6 +221,7 @@ For further information **please refer to the [Manual](https://hrgv.github.io/ph
   * No change to heatmap script for comparing multiple samples
 * v2.0 complete rewrite
 
+
 ## Contact
 
 Please report any problems to the [phyloFlash Google
@@ -210,11 +233,13 @@ issue tracker.
 We also welcome any feedback on the software and its documentation, especially
 suggestions for improvement!
 
+
 ## Acknowledgements
 
 We thank colleagues and phyloFlash users who have contributed to phyloFlash
 development by testing the software, reporting bugs, and suggesting new
 features.
+
 
 ## Citation
 
