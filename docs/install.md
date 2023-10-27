@@ -122,6 +122,7 @@ Pre-formatted databases derived from SILVA releases 138 onwards are available
 from the following Zenodo archives:
 
  * [SILVA 138.1](https://doi.org/10.5281/zenodo.7892521) (latest)
+ * [SILVA 138.1, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
  * [SILVA 138](https://doi.org/10.5281/zenodo.7890453)
 
 NOTE: Prebuilt databases are not provided for SILVA versions before 138,
@@ -157,7 +158,7 @@ phyloFlash_makedb.pl --help
 ```
 
 Download the desired version of the SILVA SSURef NR99 database from [the SILVA
-website](https://www.arb-silva.de/download/archive/) (in Fastsa format) under the `Exports` subfolder of the respective release. The filename should be `SILVA_XXX_SSURef_Nr99_tax_silva_trunc.fasta.gz` where
+website](https://www.arb-silva.de/download/archive/) (in Fasta format) under the `Exports` subfolder of the respective release. The filename should be `SILVA_XXX_SSURef_Nr99_tax_silva_trunc.fasta.gz` where
 `XXX` is the version number. Links to the last five releases:
  * [138.1](https://www.arb-silva.de/fileadmin/silva_databases/release_138.1/Exports/SILVA_138.1_SSURef_NR99_tax_silva_trunc.fasta.gz)
  * [138](https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva_trunc.fasta.gz)

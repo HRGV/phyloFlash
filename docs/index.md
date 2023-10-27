@@ -68,6 +68,7 @@ Pre-formatted databases derived from SILVA releases 138 onwards are available
 from the following Zenodo archives:
 
  * [SILVA 138.1](https://doi.org/10.5281/zenodo.7892521) (latest)
+ * [SILVA 138.1, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
  * [SILVA 138](https://doi.org/10.5281/zenodo.7890453)
 
 Download, checksum, and unpack:
