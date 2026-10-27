@@ -62,15 +62,17 @@ phyloFlash.pl -check_env
 Pre-formatted databases derived from SILVA releases 138 onwards are available
 from the following Zenodo archives:
 
- * [SILVA 138.1](https://doi.org/10.5281/zenodo.7892521) (latest)
- * [SILVA 138.1, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
- * [SILVA 138](https://doi.org/10.5281/zenodo.7890453)
+ * [Latest version](https://doi.org/10.5281/zenodo.7892521)
+ * [Latest version, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
+
+The links above resolve to the latest database version, but older versions (138
+onwards) remain available and are linked from the overview record.
 
 Download, checksum, and unpack:
 
 ```bash
-wget https://zenodo.org/record/7892522/files/138.1.tar.gz # 5.5 GB download
-tar -xzf 138.1.tar.gz # unpacks folder 138.1/ in the current location
+wget https://zenodo.org/record/23525549/files/144.tar.gz # 11 GB download
+tar -xzf 144.tar.gz # unpacks folder 144/ in the current location
 ```
 
 Specify path to the database folder with the option `-dbhome` when running
@@ -86,13 +88,13 @@ Manual).
 
 Test data are included with phyloFlash. The following assumes that you
 installed phyloFlash to a Conda environment called `pf`, and that the database
-files have been unpacked to a folder `/path/to/138.1`. By default, phyloFlash
+files have been unpacked to a folder `/path/to/144`. By default, phyloFlash
 will look for the database folder in the folder where it is installed. If it is
 located somewhere else, specify this to the `-dbhome` option.
 
 ```bash
 conda activate pf # If Conda environment not already activated
-phyloFlash.pl -dbhome /path/to/138.1 -lib TEST -CPUs 16 \
+phyloFlash.pl -dbhome /path/to/144 -lib TEST -CPUs 16 \
  -read1 ${CONDA_PREFIX}/lib/phyloFlash/test_files/test_F.fq.gz \
  -read2 ${CONDA_PREFIX}/lib/phyloFlash/test_files/test_R.fq.gz \
  -almosteverything

@@ -121,9 +121,11 @@ project](www.arb-silva.de).
 Pre-formatted databases derived from SILVA releases 138 onwards are available
 from the following Zenodo archives:
 
- * [SILVA 138.1](https://doi.org/10.5281/zenodo.7892521) (latest)
- * [SILVA 138.1, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
- * [SILVA 138](https://doi.org/10.5281/zenodo.7890453)
+ * [Latest version](https://doi.org/10.5281/zenodo.7892521)
+ * [Latest version, taxonomy with main ranks only](https://doi.org/10.5281/zenodo.10047346) (see details in repository)
+
+The links above resolve to the latest database version, but older versions (138
+onwards) remain available and are linked from the overview record.
 
 NOTE: Prebuilt databases are not provided for SILVA versions before 138,
 because these are released under different license(s) that prohibit usage of
@@ -131,11 +133,11 @@ the SILVA databases or parts of them within a non-academic/commercial
 environment beyond a 48 h test period. SILVA version 138 onwards is released
 under a more permissive Creative Commons Attribution 4.0 license.
 
-Download, checksum, and unpack (example for release 138.1):
+Download, checksum, and unpack (example for release 144):
 
 ```bash
-wget https://zenodo.org/record/7892522/files/138.1.tar.gz # 5.5 GB download
-tar -xzf 138.1.tar.gz # unpacks folder 138.1/ in the current location
+wget https://zenodo.org/record/23525549/files/144.tar.gz # 11 GB download
+tar -xzf 144.tar.gz # unpacks folder 144/ in the current location
 ```
 
 Specify path to the database folder with the option `-dbhome` when running
@@ -158,17 +160,17 @@ phyloFlash_makedb.pl --help
 ```
 
 Download the desired version of the SILVA SSURef NR99 database from [the SILVA
-website](https://www.arb-silva.de/download/archive/) (in Fasta format) under the `Exports` subfolder of the respective release. The filename should be `SILVA_XXX_SSURef_Nr99_tax_silva_trunc.fasta.gz` where
-`XXX` is the version number. Links to the last five releases:
- * [138.1](https://www.arb-silva.de/fileadmin/silva_databases/release_138.1/Exports/SILVA_138.1_SSURef_NR99_tax_silva_trunc.fasta.gz)
- * [138](https://www.arb-silva.de/fileadmin/silva_databases/release_138/Exports/SILVA_138_SSURef_NR99_tax_silva_trunc.fasta.gz)
- * [132](https://www.arb-silva.de/fileadmin/silva_databases/release_132/Exports/SILVA_132_SSURef_Nr99_tax_silva_trunc.fasta.gz)
- * [128](https://www.arb-silva.de/fileadmin/silva_databases/release_128/Exports/SILVA_128_SSURef_Nr99_tax_silva_trunc.fasta.gz)
- * [123.1](https://www.arb-silva.de/fileadmin/silva_databases/release_123.1/Exports/SILVA_123.1_SSURef_Nr99_tax_silva_trunc.fasta.gz)
+website](https://www.arb-silva.de/download/archive/) (in Fasta format) under
+the `Exports` subfolder of the respective release. The filename should be
+`SILVA_XXX_SSURef_Nr99_tax_silva_trunc.fasta.gz` where `XXX` is the version
+number.
 
-Also download the UniVec database [from NCBI](https://www.ncbi.nlm.nih.gov/tools/vecscreen/univec/).
+Also download the UniVec database [from
+NCBI](https://www.ncbi.nlm.nih.gov/tools/vecscreen/univec/).
 
-Specify the paths to the SILVA and UniVec files wtih the `--silva_file` and `--univec_file` options respectively to build the database locally, example below.
+Specify the paths to the SILVA and UniVec files wtih the `--silva_file` and
+`--univec_file` options respectively to build the database locally, example
+below.
 
 ```bash
 phyloFlash_makedb.pl --univec_file /path/to/Univec --silva_file /path/to/SILVA_128_SSURef_Nr99_tax_silva_trunc.fasta.gz
